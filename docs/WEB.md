@@ -1,10 +1,10 @@
 # Web dashboard
 
-The interface is Armenian by default; English can be selected. The **Հայերեն / English** control is visible in the header and on sign-in pages. Changing language reloads the interface; finish recording or uploading before switching.
+The interface is Armenian by default; English can be selected. The **Language** control is available on sign-in pages and in the navigation; mobile layouts place it in the header. Changing language reloads the interface; finish recording or uploading before switching.
 
 Before sign-in, the language choice is saved in localStorage in that browser. For a personal account, it is saved to the account and applies on other devices, taking precedence over the browser setting. Shared sign-ins use the browser choice. Email messages use the recipient’s selected account language; accounts without a selection use the deployment default.
 
-Set `ui_language: hy` (default) or `ui_language: en` in the configuration. This setting controls interface messages independently of `transcription_language`, `transcription_prompt`, and `metadata_language`; see [Languages](../README.md#languages). Existing lesson content and user-entered names are not translated.
+Set `ui_language: hy` (default) or `ui_language: en` in the configuration. This setting controls interface messages independently of `transcription_language`, `transcription_prompt`, and `metadata_language`; see [Languages](../README.md#language-settings). Existing lesson content and user-entered names are not translated.
 
 Both catalogs live under `reel/locales/`. Python uses `reel.i18n.t`, while the browser uses `t` through `i18nText`. Catalog keys and placeholders must match in both languages.
 
@@ -55,7 +55,7 @@ After an upload or confirmed browser recording, Reel samples keyframes from the 
 
 The uploader or an administrator can confirm the highlighted person, show the next candidate, or choose to blur everyone. The first final answer wins and its author is recorded in the audit log. Other processing continues during this review. At blur entry, an unanswered review automatically selects the highest-ranked candidate; it never waits for a person. The lesson page identifies automatic choices. A failed scan or a selected identity that cannot be matched in the processed video falls back to blurring everyone.
 
-Confirmed reference copies stay on the server. The privacy page lists saved reference sets for administrators and lets them delete a set. Deleting references before blur removes that job's lecturer exemption. Temporary analysis artifacts follow the deployment's work-directory retention policy; reference deletion does not rewrite an already published video. Older jobs without an upload review retain the existing administrator review flow described in [Administration](ADMIN.md).
+Confirmed reference copies stay on the server. The privacy page lists saved reference sets for administrators and lets them delete a set. Deleting references before blur removes that job's lecturer exemption. Temporary analysis artifacts follow the deployment's work-directory retention policy; reference deletion does not rewrite an already published video. Jobs without an upload review use the administrator lecturer panel described in [Administration](ADMIN.md#lecturer-review).
 
 ## Deleting a lesson
 
@@ -75,7 +75,7 @@ On completion, the job's hash and publication labels are superseded so the recor
 
 ## Privacy behavior
 
-Original/unblurred recordings are not served as dashboard previews. Viewer/student media requires the appropriate privacy and group checks. Upload-review identity crops are restricted to the uploader and administrators; older inspection tools remain administrator-only.
+Original/unblurred recordings are not served as dashboard previews. Viewer/student media requires the appropriate privacy and group checks. Upload-review identity crops are restricted to the uploader and administrators; the separate administrator inspection tools remain restricted to administrators.
 
 The current confident-student policy can leave uncertain faces visible. Sustained unexplained student events can stop a job; isolated one- or two-sample events may warn without stopping. An automatic pass is not guaranteed anonymization. Review consent requirements and output before distributing a link.
 
@@ -85,7 +85,7 @@ Dry-run publications are labeled as test results and have no live destination li
 
 Ambiguous text, excessive planned cuts or an unexpectedly short result can preserve the complete lesson. When reliable metadata cannot be generated, the system can use a basic lesson/date title and description without chapters. The automatic-decision explanation appears on the lesson page. Invalid configuration and critical processing errors still stop work.
 
-Optional board framing detects the teaching surface, corrects tilt and creates a suitable crop. If detection/cropping is unsafe or unsuitable, the full frame is retained. Additional framing modes and temporal plans are described in technical contracts. New groups default to framing off.
+Optional board framing detects the teaching surface, corrects tilt and creates a suitable crop. If detection/cropping is unsafe or unsuitable, the full frame is retained. Group framing modes are `off`, `auto`, `board` and `projector`; correction can use rotation or perspective. New groups default to framing off.
 
 ## Library, cuts and statistics APIs
 

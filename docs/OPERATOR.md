@@ -1,6 +1,6 @@
 # Operator guide
 
-Run commands from the repository root using `.venv/bin/python`. See [Setup](SETUP.md) for credentials, [Running](RUN.md) for worker control and [Web dashboard](WEB.md) for the Armenian interface. English control names below describe the corresponding Armenian controls; they do not change the application language.
+Run commands from the repository root using `.venv/bin/python`. See [Setup](SETUP.md) for credentials, [Running](RUN.md) for worker control and [Web dashboard](WEB.md) for interface language selection. This guide uses English labels; Armenian is the default and English is selectable.
 
 ## Daily operation
 
@@ -17,9 +17,15 @@ Run commands from the repository root using `.venv/bin/python`. See [Setup](SETU
 
 Outputs are in `work/ID/`; logs are in `logs/daemon.log`. Wait for `done`: a YouTube URL alone does not establish completion of every downstream stage.
 
+## Lecturer review and lesson removal
+
+Uploaders and administrators can confirm a lecturer after upload, try another candidate or blur everyone. Processing continues during review; an unanswered review uses the top candidate when blur starts. Review identity choices and the privacy result before distributing a lesson.
+
+Administrators can delete a lesson from its page. Cleanup waits for an active worker to release the job, backs up its database state and tracks YouTube, Slack and library removal. Failed steps can be retried; source recordings remain local. See [Administration](ADMIN.md).
+
 ## Stopped jobs
 
-Read the specific error before retrying. Some messages below describe previous failure cases; current conservative fallbacks may retain content or use basic metadata instead.
+Read the specific error before retrying. Conservative fallbacks can retain content or use basic metadata when editing or generation is uncertain.
 
 | Message or condition | Meaning and action |
 | --- | --- |
@@ -58,7 +64,7 @@ Replace the ID and use `slack` or `classroom`. Reconcile both separately when ne
 
 ## Add a group or lecturer
 
-Use the administrator's group settings or carefully edit configuration while the worker is stopped. Configure 1–5 subjects, optional playlists, the group Slack channel and optional quoted Classroom course ID; preserve the operator channel and cut settings. See [Administration](ADMIN.md).
+Use **Courses** and the administrator group controls or carefully edit configuration while the worker is stopped. Configure 1–5 subjects, optional playlists, the group Slack channel and optional quoted Classroom course ID; preserve the operator channel and cut settings. See [Administration](ADMIN.md).
 
 For reference-based lecturer recognition, generate references from approved footage of the actual lecturer:
 

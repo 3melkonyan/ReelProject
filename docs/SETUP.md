@@ -56,12 +56,12 @@ Create the intended YouTube playlist and put its URL's `list=` value in the subj
 
 Classroom needs the numeric API course ID, not a join code or encoded URL segment. A manual API Explorer `courses.list` request can use `classroom.courses.readonly` to retrieve it; Reel itself does not need that additional scope. Quote numeric IDs in YAML.
 
-Check the first real upload's actual visibility in Studio and open the result outside the signed-in account. Historical audit/private restrictions in the original PRD may no longer apply; consult [videos.insert](https://developers.google.com/youtube/data/reference/rest/v3/videos/insert). Verify channel eligibility for custom thumbnails and other features.
+Check an authorized test upload's actual visibility in YouTube Studio and open the result outside the signed-in account. Consult [videos.insert](https://developers.google.com/youtube/data/reference/rest/v3/videos/insert) for API restrictions, and verify channel eligibility for custom thumbnails.
 
 ## 5. Slack app
 
 1. Open [Slack Apps](https://api.slack.com/apps) and choose **Create New App → From scratch** in the intended workspace.
-2. Add **chat:write** under **OAuth & Permissions → Bot Token Scopes**.
+2. Add **chat:write** under **OAuth & Permissions → Bot Token Scopes**. For administrator direct-message alerts, also grant `users:read`, `users:read.email` and `im:write`: Reel looks up the administrator by email and opens a direct conversation. See [email lookup permissions](https://docs.slack.dev/reference/scopes/users.read.email/) and [direct-message permissions](https://docs.slack.dev/reference/scopes/im.write/).
 3. Install the app to the workspace. Use the Bot User OAuth Token, not an app token. Reinstall after scope changes.
 4. Edit `.env` locally and set `SLACK_BOT_TOKEN`. Restrict it with `chmod 600 .env`.
 5. Invite the bot with `/invite @Reel` in every group and operator channel, including private channels.
@@ -76,12 +76,11 @@ python -m reel.publish.errors --smoke
 python -m reel.config --smoke
 python -m reel.google_auth --smoke
 python -m reel.publish.youtube --smoke
-python -m reel.publish.slack --smoke
 python -m reel.publish.classroom --smoke
 python -m reel.publish.library --smoke
 python -m reel.config --smoke --config config.yaml
 ```
 
-Smoke checks are offline; OAuth smoke does not open a browser. Only explicit `--authorize` performs live authorization, without publication. Separately validate an actual upload, playlist insertion, Slack post and optional Classroom announcement before declaring the deployment ready.
+Smoke checks are offline; OAuth smoke does not open a browser. For the Slack adapter, install the development dependencies as described in [Contributing](../CONTRIBUTING.md), then run `REEL_DRY_RUN=1 python -m pytest -q tests/test_slack_publish.py`. Only explicit `--authorize` performs live authorization, without publication. Separately validate an actual upload, playlist insertion, Slack post and optional Classroom announcement before declaring the deployment ready.
 
 Publisher smoke checks mock external APIs. Library smoke writes only in a temporary directory. Runtime `library.jsonl`, `.env` and `secrets/` resolve from the repository root regardless of the caller's working directory. `notify()` reads the operator channel from configuration. Adapters do not own database state or pipeline retries.

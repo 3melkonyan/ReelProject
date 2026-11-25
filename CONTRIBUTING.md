@@ -25,4 +25,10 @@ Alternatively use `python -m pip install -r requirements-dev.txt` in the virtual
 
 In pull requests, describe what changed, why, how it was checked, and any remaining limitations. Follow the existing Python and browser code conventions; the frontend uses static assets without a separate build step.
 
+## Documentation
+
+Write documentation in English and keep commands, configuration keys and relative links consistent with the code. UI catalogs support Armenian and English; user-entered lesson content is separate from interface translation.
+
+Use synthetic data for screenshots. Seed a separate temporary root with `tools/demo_seed.py --apply --root /path/to/isolated-root` after copying the example configuration there. The seed creates local data, not isolation: keep real credentials out of that root, run no worker, and disable notification/service transports in a screenshot harness. Store optimized PNG or WebP files below 300 KB in `docs/images/`, with descriptive filenames and alt text.
+
 By contributing, you agree that your contributions are licensed under the [MIT License](LICENSE).

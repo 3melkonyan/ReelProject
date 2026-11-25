@@ -25,14 +25,14 @@ Reel requests **unlisted** uploads. Anyone with a resulting link may watch the v
 
 Keep the [YouTube API audit/quota request form](https://support.google.com/youtube/contact/yt_api_form?hl=en) available. A possible description, adjusted to the actual installation, is:
 
-> We use the YouTube Data API to upload recordings of our classes to our own channel as unlisted videos, organize them in class playlists, and share links with enrolled students through Slack and Google Classroom. Publishing uses the channel owner's OAuth consent, after a privacy check of the recording.
+> We use the YouTube Data API to upload recordings of our classes to our own channel as unlisted videos, organize them in class playlists, and share links with enrolled students through Slack and Google Classroom. Publishing uses the authorized channel account’s OAuth consent, after a privacy check of the recording.
 
-Report actual usage and implemented features only. Historical API restrictions may change; consult the [revision history](https://developers.google.com/youtube/data/revision_history) and [quota/compliance guidance](https://developers.google.com/youtube/data/guides/quota_and_compliance_audits) before treating an audit as mandatory for a particular deployment.
+Report actual usage and implemented features only. API restrictions can change; consult the [revision history](https://developers.google.com/youtube/data/revision_history) and [quota/compliance guidance](https://developers.google.com/youtube/data/guides/quota_and_compliance_audits) before treating an audit as mandatory for a particular deployment.
 
 ## 3. Slack: approximately 10–20 minutes
 
 - [ ] Create a Reel app in the intended workspace through [Slack Apps](https://api.slack.com/apps).
-- [ ] Add `chat:write`, install the app and obtain workspace approval if needed.
+- [ ] Add `chat:write` for publication. For administrator DM alerts, also add `users:read`, `users:read.email` and `im:write` as described in [Setup](SETUP.md#5-slack-app). Install the app and obtain workspace approval if needed.
 - [ ] Put the Bot User OAuth Token into the existing `.env` `SLACK_BOT_TOKEN` field locally, preserving other settings.
 - [ ] Invite the correct bot into every group/operator channel with `/invite @Reel`, including private channels.
 - [ ] Record each Channel ID or channel link and distinguish group destinations from the operator destination.
@@ -57,7 +57,7 @@ Channel URLs, feature-eligibility status, group names, playlist IDs, Cloud Proje
 | --- | --- |
 | Long YouTube uploads unavailable | Verify the correct channel and its feature eligibility. |
 | Slack requires approval | Request it from the workspace administrator; do not recreate the app repeatedly. |
-| Google flags an unverified app | Verify the application's identity and account ownership, then follow the organization's approved authorization process. |
+| Google flags an unverified app | Verify the application's identity and the intended account, then follow the organization's approved authorization process. |
 | Google blocks access/test user | Check the intended email and Workspace restrictions. |
 | Google asks to authorize again after a week | Review External/Testing token lifetime and production requirements in Setup. |
 | Classroom announcement fails | Check teacher role, numeric course ID and API policy. |

@@ -25,13 +25,19 @@ flowchart TD
 ## Data and access boundaries
 
 - SQLite stores accounts, groups, jobs and stage checkpoints. The pipeline owns stage resumption and publication idempotency.
-- Original and unblurred recordings are not served by the web application. Viewer/student previews and thumbnails use existing privacy and group checks. Identity crops are administrator-only.
+- Original and unblurred recordings are not served by the web application. Viewer/student previews and thumbnails use existing privacy and group checks. Upload-review identity crops are available to the uploader and administrators; other identity inspection is administrator-only.
 - Browser recording parts are not a lesson until confirmed and can be removed beforehand. A restarted MediaRecorder creates a new continuation part rather than arbitrary concatenation of a broken container.
 - IndexedDB is not durable backup. Mobile operating systems may suspend cameras or evict storage. Wake Lock cannot guarantee continuity.
 - An administrator password alone does not grant a personal session. OTP challenges are separate, hashed and limited by expiry/attempts. Remembered devices apply after password verification. SMTP failure does not bypass authentication.
 - Raw OTP codes and remembered-device tokens are not stored in the database. Session cookies are signed, not encrypted, and contain no OTP or secret payload.
 - Consent versions and representative declarations are stored during registration. The application does not independently verify a parent's identity or certify legal compliance.
-- Administrators review deletion requests, including external YouTube/Slack copies. Closing a request does not by itself establish that every external copy was removed.
+- Administrator lesson deletion requests cancellation of running processing, waits for worker release, backs up job database state and tracks YouTube, Slack and library cleanup. Failed steps are retryable; source media and database history remain. Privacy-erasure requests are a separate consent workflow.
+
+## Lecturer review and languages
+
+Upload completion schedules an early keyframe scan. The uploader and administrators can confirm one of up to three candidates or blur everyone. Processing continues; at blur entry an unanswered review selects the highest-ranked candidate. Scan/match failures use the blur-everyone fallback. The first final answer and saved references are recorded locally.
+
+Armenian is the interface default and English is selectable. Browser preferences apply before sign-in; personal account preferences take precedence afterward. `ui_language` sets the deployment default, independently of `transcription_language`, `transcription_prompt` and `metadata_language`. The catalog files live in `reel/locales/`.
 
 ## Monitoring
 
@@ -73,6 +79,6 @@ from 5.4 to 6.6 cores. The output MP4 files were byte-identical:
 scan samples with zero warnings or unexplained faces in each run. A linear
 90-minute projection of this synthetic workload is 92.8 versus 81.8 minutes.
 Real-lesson validation and real-lesson speedup remain unmeasured; hardware encoding
-was unavailable in this session. Use `tools/profile_blur.py` and
+was unavailable for this benchmark. Use `tools/profile_blur.py` and
 `tools/compare_privacy.py` to measure and verify another recording. Measurements
 belong under ignored `out/performance/`.

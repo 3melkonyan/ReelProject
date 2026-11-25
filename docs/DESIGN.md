@@ -1,6 +1,6 @@
 # Design system
 
-This document describes the visual language of the Reel dashboard, emails and lesson thumbnails. Colors and sizes are defined as CSS custom properties in `reel/web/static/app.css`.
+This document describes the Reel dashboard, email and lesson-thumbnail design. Reel uses its own logo and product identity. Colors and sizes are defined as CSS custom properties in `reel/web/static/app.css`.
 
 ## Colors
 
@@ -16,7 +16,7 @@ This document describes the visual language of the Reel dashboard, emails and le
 | Surface | #FFFFFF | #202020 | |
 | Secondary surface | #F5F4F7 | #2A2A2A | |
 | Main text | #171717 | #F5F5F5 | |
-| Secondary text | #4D4D4D | #C4C4C4 | Meets WCAG AA |
+| Secondary text | #4D4D4D | #C4C4C4 | Supporting copy |
 | Tertiary text | #68616F | #B3B3B3 | Avoid for important small text |
 | Border | #E5E5E5 | #525252 | Inputs use a stronger border |
 | Success | #16733C | #81E5A5 | #34C759 is reserved for decorative dots |
@@ -46,6 +46,7 @@ Headings use Mardoto Bold 700 and body text uses Noto Sans Armenian (variable, 4
 ## Motion and themes
 
 - Transitions use 160/240ms with `cubic-bezier(.2,.7,.2,1)` and move at most 2px. `prefers-reduced-motion` disables animation.
+- Armenian and English share the same components; labels must fit both languages.
 - Dark theme is the default. A manual light/dark choice is remembered and applied without reloading an active player, upload or form.
 
 ## Lesson thumbnails

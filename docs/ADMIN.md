@@ -1,68 +1,64 @@
-# Group, subject and lecturer administration
+# Administration
 
-Sign in as an administrator and open **Settings** (`#/settings`). Viewer and uploader accounts cannot manage this page. The interface is Armenian by default; English can be selected from the header. This guide uses the English labels. See [Web dashboard](WEB.md).
+Sign in with a personal administrator account. The interface defaults to Armenian; select English with **Language** to follow the labels in this guide. [Web dashboard](WEB.md) describes account permissions and language preferences.
 
-Save changes explicitly. The worker reloads valid configuration within **30 seconds**. Each save preserves the previous version as `config.yaml.bak`; background page refreshes do not discard the current form.
+## Courses, groups and subjects
 
-## Create a group
+Open **Courses** (`#/groups`) for course and group management. **Settings** contains platform-wide options; it is separate from group forms.
 
-1. Select **New group** and enter a name. It also names the inbox directory. Start with a letter or digit; use at most 60 characters consisting of letters, digits, spaces, hyphens, periods or underscores.
-2. Add **1–5 subjects**, such as Python and JavaScript. Names are at most 40 characters and must be unique within the group. Nonempty playlist IDs must also be unique. A playlist can be left empty until one is available.
-3. Choose playlists from the connected YouTube channel or paste their URLs/IDs. The URL's `list=` value becomes the stored ID. The selector shows at most 200 playlists.
-4. Enter the group's **Slack channel ID**. Find it under the channel's About/Details panel and invite the bot with `/invite @Reel`. All subjects share this group channel.
-5. Choose automatic lecturer detection or existing lecturer reference directories. Multiple reference sets are supported. This page selects references; it does not create photographs. See [Operator guide](OPERATOR.md).
-6. Optionally enter a **Classroom course ID**. Omit it to disable Classroom announcements. The authorized Google account must be a teacher on that course.
-7. Select **Save**. The success notice says the change will apply within 30 seconds.
+1. Choose a course from the catalog, then add a group.
+2. Give the group a name starting with a letter or digit: at most 60 characters, using letters, digits, spaces, hyphens, periods or underscores. This also names its inbox directory.
+3. Add 1–5 subjects. Names must be unique within the group and at most 40 characters. Each subject may have one YouTube playlist; an empty playlist publishes without playlist insertion.
+4. Set the group Slack channel, optional Classroom course ID and lecturer reference sets. Empty lecturer references enable automatic identification. Invite the publishing bot to the configured Slack channel.
+5. Save the group. Use its dates and team controls to assign lecturers and teaching assistants and set subject periods. Group completion affects whether new lessons can be uploaded.
 
-The subject selected for an upload determines that lesson's single playlist. Subjects use the connected YouTube channel. See [Access checklist](KEYS.md) for account preparation.
+Playlist URLs are normalized to their `list=` IDs. Nonempty playlist IDs must be unique within a group. The connected account must be able to edit the selected playlists. See [Setup](SETUP.md) for service access.
 
-## Edit, rename or delete
+Each save validates the configuration and preserves the previous YAML as `config.yaml.bak`. The worker reloads valid changes within 30 seconds. Save group, team and platform forms separately.
 
-- Edit subjects, destinations and settings, then save. A validation error leaves the existing configuration unchanged.
-- Removing or renaming a subject is blocked while queued, running or stopped lessons use it. The response lists affected job IDs. Completed lessons do not block the change.
-- Renaming a group moves `inbox/<old>` to `inbox/<new>`. It is blocked by unfinished lessons, an existing group with the new name or a conflicting destination directory.
-- Deletion requires confirmation. The last group, a group with unfinished jobs, or a group whose inbox contains files cannot be deleted. Lesson history, recordings and YouTube playlists are retained.
+### Rename or remove a group
 
-Wait for web uploads to finish before these changes. Completed lessons retain their original group name. A `409` response usually identifies a job or directory that must be handled first. See [retry and reconciliation](OPERATOR.md).
+Removing or renaming a subject is blocked while queued, running or stopped lessons use it. Renaming a group moves its inbox and is blocked by unfinished lessons or a conflicting destination. The last group, a group with unfinished jobs, or one with files in its inbox cannot be removed. Group removal retains lesson history, recordings and remote playlists.
 
-## General settings
+Wait for uploads to finish before changing their group or subjects. Completed lessons keep their original group name. A `409` response identifies conflicts that need attention.
 
-- `operator_slack_channel`: destination for operational notifications; invite the bot there too.
-- `min_silence_sec`: positive silence duration considered by segment planning. Silence alone is not sufficient evidence to remove teaching material.
-- `max_cut_ratio`: a value strictly between 0 and 1. For example, `0.4` means 40%. If planned cuts exceed the limit, the conservative fallback preserves the lesson without those cuts.
+## Platform settings
 
-General settings and individual group forms have separate Save buttons. API credentials are managed locally, not through this page.
+Open **Settings** (`#/settings`) to inspect email delivery and public URL status, control shared sign-in, choose a theme and select the default thumbnail design. SMTP credentials and the trusted public URL are configured locally, not entered into this page.
 
-## Troubleshooting
+**Advanced settings** contains the operator Slack channel and these configuration values:
 
-| Situation | Action |
+| Key | Meaning |
 | --- | --- |
-| Access denied | Use an administrator account. |
-| Invalid input (`400`) | Check subject count, duplicate names/playlists and highlighted fields. |
-| Unfinished lessons (`409`) | Open the listed jobs and resolve them first. |
-| Inbox or destination conflict (`409`) | Process existing input or resolve the directory conflict. |
-| Playlist list unavailable (`502`) | Enter the playlist ID/URL manually and check Google authorization. |
-| Save succeeded but list looks stale | Wait or reopen Settings; do not repeat a successful mutation. |
+| `operator_slack_channel` | Operational notification destination |
+| `cut.min_silence_sec` | Positive silence threshold; silence alone does not justify a cut |
+| `cut.max_cut_ratio` | Maximum cut fraction, strictly between 0 and 1; exceeding it preserves the lesson |
+| `time_savings.editing_min_per_hour` | Display assumption from 0–240 minutes |
+| `time_savings.publishing_min_per_lesson` | Display assumption from 0–120 minutes |
 
-## Lecturer selection
+The time-savings defaults, 30 and 5, are assumptions rather than measured savings. The theme applies to the current browser. **Language** selects the personal interface language; `ui_language` in YAML sets the deployment default. Transcription and generated-text languages are separate; see [Language settings](../README.md#language-settings).
 
-Open a lesson as an administrator. The **Lecturer** panel becomes available around the blur stage. Viewers and uploaders cannot access the identity crops, which may contain student faces. Do not distribute these images.
+## Lecturer review
 
-The panel distinguishes automatic selection, an administrator's choice, configured references and no lecturer selected. Automatic presence percentages refer to sampled frames containing faces, not the whole lesson duration.
+After upload or confirmed browser recording, the uploader and administrators can review up to three lecturer candidates while processing continues. Candidate crops are private to those accounts.
 
-When detection is ambiguous, the job stops before publication. The panel lists identity ranks, crops, presence counts/shares and first appearance times:
+- Confirm the highlighted person, try the next candidate or choose **Blur everyone**.
+- The first final answer wins and is recorded in the audit log.
+- At blur entry, an unanswered review automatically uses the highest-ranked candidate. It does not wait for a response.
+- A failed scan or an identity that cannot be matched in the processed video falls back to blurring everyone.
 
-1. Identify the lecturer and select **This is the lecturer**.
-2. Alternatively choose **No lecturer — blur everyone** and confirm.
-3. The choice applies only to this job; the page attempts to resume processing.
-4. A queued job applies the choice when it reaches blurring. If the connection drops after saving, refresh, verify the choice/status and retry if needed.
+Saved confirmed references can be inspected and removed on the administrator privacy page. Removing a reference before blurring removes that job's exemption; it does not rewrite a published video.
 
-A queued or stopped job may expose **Cancel selection** while blurring is unfinished and no YouTube publication exists. Cancelling restores reference/automatic rules but does not itself resume the job. A running, already blurred or published job cannot have its choice changed through this panel.
+Jobs without an upload review have an administrator-only lecturer panel around the blur stage. A saved choice applies only to that job. Changes are restricted to eligible queued/stopped jobs before completed blurring or publication. Do not assume an ambiguous identification always stops processing. See [Privacy behavior](WEB.md#privacy-behavior).
 
-## Board-only framing
+## Delete a lesson
 
-In **Settings → Edit group**, enable board framing to detect the board, correct tilt and compose a 16:9 view. New groups default to framing off. If the board cannot be located confidently or the crop is unsuitable, Reel keeps the full frame without an approval request. The lesson's rendering stage shows the applied framing and reason to administrators and viewers.
+Open the lesson and select **Delete lesson**. The confirmation covers YouTube, Slack and library cleanup. Only administrators can perform this action.
 
-## Deployment validation
+A running job first receives a cancellation request. Cleanup waits for its worker to release it, backs up job database state, and records each removal step. If a service fails, retry from the lesson page; completed steps are retained. A missing Slack channel or unresolved publication receipt requires reconciliation before cleanup can finish.
 
-Test group management and lecturer selection with temporary data and synthetic identity images before enabling a deployment. Validate the connected publication channel separately.
+Source recordings, database history and the local backup remain. Completed deletion supersedes the lesson's digest/publication labels so the recording can be uploaded again. See [Deleting a lesson](WEB.md#deleting-a-lesson).
+
+## Framing and validation
+
+Groups support `framing: "off"`, `auto`, `board` and `projector`, with optional rotation or perspective correction. New groups default to framing off. Unreliable framing retains the full frame. Test group management, lecturer review and privacy outcomes with synthetic data before using a deployment with students.

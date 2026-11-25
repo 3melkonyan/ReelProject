@@ -55,7 +55,9 @@ Download the actual binary weights, not a Git LFS pointer or GitHub HTML page. R
 
 Edit `config.yaml` with your group names, subjects and Slack channel IDs. A subject's `playlist` may be empty. Omit `classroom_course_id` if Classroom announcements are not needed. `lecturers` names reference directories inside `refs/`; an empty list enables automatic lecturer detection.
 
-The example uses `framing: off` to preserve the source framing. Choose framing options only after testing them on representative synthetic or consented footage.
+Set `ui_language: hy` or `en` for the deployment interface default, `transcription_language` for speech recognition, and `metadata_language: hy` or `en` for generated lesson text. An optional `transcription_prompt` supplies recognition vocabulary; `null` disables it. See [Language settings](../README.md#language-settings).
+
+The example uses `framing: "off"` to preserve the source framing. Choose framing options only after testing them on representative synthetic or consented footage.
 
 Validate the file without publication:
 
@@ -85,7 +87,7 @@ Start only the local dashboard first:
 
 Open <http://127.0.0.1:8765>. Initial credentials are generated locally in `secrets/web.json`; keep them private. With no personal users yet, the initial admin password opens first-account setup. Later personal administrator sign-ins require email verification unless covered by the application's remembered-device policy. Test SMTP before deployment and retain local access to your configuration.
 
-The dashboard is in Armenian. Administrators create invitations and assign lecturers and students to groups. Legacy shared passwords exist for migration; disable them after personal accounts have been established.
+The dashboard defaults to Armenian; select English with **Language** on sign-in or in the navigation. Administrators create invitations and assign lecturers and students to groups. Legacy shared passwords exist for migration; disable them after personal accounts have been established.
 
 ## 6. First lesson
 
