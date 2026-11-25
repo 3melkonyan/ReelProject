@@ -1,4 +1,4 @@
-"""Explicit, reversible G-40 demo setup. Never runs a worker or contacts a service.
+"""Explicit, reversible demo setup. Never runs a worker or contacts a service.
 
 Use --apply or --remove with --root. The default root is this checkout, but tests
 must always supply temporary roots. Course dates/people are illustrative; official

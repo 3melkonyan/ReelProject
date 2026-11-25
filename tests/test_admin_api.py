@@ -1,4 +1,4 @@
-"""G-21 admin HTTP integration tests; every write stays in an isolated temporary ROOT.
+"""Admin HTTP integration tests; every write stays in an isolated temporary ROOT.
 
 The app source is executed with a temporary __file__, and served on an ephemeral
 localhost port. No production app import, worker, credentials or live API is used.

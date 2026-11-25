@@ -1,4 +1,4 @@
-"""Shared library cards, with optional nonplayable G-40/1 demo metadata."""
+"""Shared library cards, with optional nonplayable demo metadata."""
 from reel.insights import library_records
 
 

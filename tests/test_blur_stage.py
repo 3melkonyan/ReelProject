@@ -1,4 +1,4 @@
-"""G-22: who is the lecturer in the blur stage — admin choice > group refs (if they match) > automatic.
+"""Who is the lecturer in the blur stage — admin choice > group refs (if they match) > automatic.
 
 reel.blur.analyze/blur_faces and reel.lecturer.discover are replaced by fakes; the
 privacy stage must use exactly the reference photos the blur used.
@@ -148,7 +148,7 @@ def test_nobody_is_the_lecturer_blurs_every_face(env):
 
 
 def test_automatic_choice_that_matches_few_faces_blurs_everyone(env):
-    env.share["value"] = 0.05                     # owner policy 2026-11-19: never stop
+    env.share["value"] = 0.05                     # never stop
     out = st.blur(env.ctx(lecturers=()))
     assert out["lecturer_mode"] == "none" and out["refs_dirs"] == [] and env.calls["blur"][-1] == ([], [])
     assert "matches only 10/200" in out["auto_note"] and env.calls["notify"] == []
@@ -169,7 +169,7 @@ def test_privacy_uses_exactly_the_blur_refs(env, monkeypatch):
     c = env.ctx()
     c._outputs["blur"] = {"final": "f.mp4", "decisions": "d.json", "refs_dirs": []}
     st.privacy_stage(c)
-    c._outputs["blur"] = {"final": "f.mp4", "decisions": "d.json"}         # a job blurred before G-22
+    c._outputs["blur"] = {"final": "f.mp4", "decisions": "d.json"}         # A saved job without reference metadata.
     st.privacy_stage(c)
     assert seen == [[], [env.root / "refs" / "lecturer1"]]
 

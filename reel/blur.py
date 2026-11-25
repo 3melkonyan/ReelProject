@@ -1,4 +1,4 @@
-"""G-27: blur only confidently identified student tracks when a lecturer is found.
+"""Blur only confidently identified student tracks when a lecturer is found.
 
 Detection/recognition reuse FaceID from the privacy guard. The final
 privacy scan must still run: sampled detection and held boxes are not proof
@@ -142,13 +142,13 @@ def _small(item: dict) -> bool:
 
 
 def _classify_analysis(records: list[dict], *, fallback: bool = False) -> None:
-    """Resolve a whole track, including its first samples and G-22 relabels.
+    """Resolve a whole track, including its first samples and relabels.
 
     A failed/nonfinite recognition or ambiguous similarity vetoes student evidence.
-    G-42: sub-24px tracks cannot establish identity and are blurred by default.
+    Sub-24px tracks cannot establish identity and are blurred by default.
     Larger poor-geometry samples supply no evidence but do not erase clear ones.
     """
-    # A supplied/pre-G-22 analysis may have stale flags. Raw positive evidence
+    # A supplied analysis may have stale flags. Raw positive evidence
     # still disables the global no-lecturer fallback before any track is resolved.
     fallback = fallback and not any(
         a.get("lecturer") or (isinstance(a.get("sim"), (int, float))
@@ -239,7 +239,7 @@ def _identify(fid: FaceID, image: np.ndarray, tracker: _Tracker, t: float, keep:
     identities = tracker.update(boxes, recognized, t)
     items = [{"box": list(box), "lecturer": known, "sim": sim, "small": min(box[2:]) < SMALL_FACE_PX, **quality}
              for box, known, sim, quality in zip(boxes, identities, similarities, qualities)]
-    if keep:     # G-22: identity features for reel.lecturer.track_refs
+    if keep:     # identity features for reel.lecturer.track_refs
         for item, feature in zip(items, features):
             item["feat"] = feature
     return items
@@ -335,12 +335,12 @@ def _detections(fid: FaceID, frame: np.ndarray, tracker: _Tracker | None = None,
 def analyze(video: str, refs_dirs: list[str], fps: float = 5.0, keep_features: bool = False) -> list[dict]:
     """Sample visible faces without encoding; boxes are full-resolution xywh.
 
-    keep_features (G-22) adds "track" (an id shared by one tracked face) and
+    keep_features adds "track" (an id shared by one tracked face) and
     "feat" (its SFace feature, or None) to every item.
 
     Any reference match labels the entire track, including earlier samples.
     Gaps over 2s expire tracks; new tracks must independently match a reference.
-    No refs_dirs at all (G-22 "none": nobody is the lecturer) labels every face a
+    No refs_dirs at all ("none": nobody is the lecturer) labels every face a
     non-lecturer; refs_dirs given but without a usable face is still an error.
     """
     if isinstance(fps, bool) or not isinstance(fps, (int, float)) or not math.isfinite(fps) or fps <= 0:
@@ -447,7 +447,7 @@ def _log(stream: BinaryIO) -> str:
 
 
 def _write_decisions(path: Path, fps: float, analysis: list[dict], pixelated: list) -> None:
-    """Blur decisions for the privacy guard (G-9.6): pass-1 lecturer boxes [t,x,y,w,h]
+    """Blur decisions for the privacy guard: pass-1 lecturer boxes [t,x,y,w,h]
     and unsure boxes, plus every pixelated region actually applied."""
     data = {"fps": fps,
             "lecturer": [[round(float(a["t"]), 3), *a["box"]] for a in analysis if a["lecturer"]],
@@ -475,7 +475,7 @@ def blur_faces(video_in: str, video_out: str, refs_dirs: list[str], *,
     loading, second-pass detection/encoding and final muxing (unless analysis
     is supplied). Pass two uses resolved student boxes within +/-0.3 seconds.
     Pass two detects every output frame; detect_every is retained only for
-    call compatibility with G-8 and must remain a positive integer.
+    compatibility with older callers and must remain a positive integer.
     """
     started = time.perf_counter()
     if isinstance(detect_every, bool) or not isinstance(detect_every, int) or detect_every < 1:
@@ -497,7 +497,7 @@ def blur_faces(video_in: str, video_out: str, refs_dirs: list[str], *,
         # Offline first pass resolves complete tracks, including future matches.
         if analysis is None:   # callers may pass a precomputed analyze(fps=5) result
             analysis = analyze(str(source), refs_dirs, fps=5.0) if refs_dirs else []
-        # G-22 may have relabelled lecturer flags after analyze(). Re-resolve
+        # Lecturer selection may have changed flags after analyze(). Re-resolve
         # here without changing lecturer selection or its feature descriptors.
         _classify_analysis(analysis, fallback=not any(a["lecturer"] for a in analysis))
         lecturer_boxes = _BlurPolicy(analysis, log_unsure=bool(decisions_path))

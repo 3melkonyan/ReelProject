@@ -1,4 +1,4 @@
-"""Board framing (G-24): find the classroom board and its tilt, for a crop to the board area.
+"""Board framing: find the classroom board and its tilt, for a crop to the board area.
 
 Scope today: a dark (chalk) board on a light wall filmed from a tripod (the classroom of
 lesson 4). Each sampled frame gives a quadrilateral: the largest dark region is taken and
@@ -151,7 +151,7 @@ def detect(video: str | Path, *, n: int = 20, debug: str | Path | None = None) -
         if frames == 1 or frames % 7 == 0:
             shot = img
     out = combine(quads, frames, size)
-    # Preserve the G-24 RANSAC result; colour-independent median/contour fallback handles
+    # Preserve the RANSAC result; colour-independent median/contour fallback handles
     # white/green boards, including a lecturer occluding individual frames.
     if sampled and (not out["ok"] or cv2.contourArea(np.float32(out["corners"])) > .92):
         from reel.framing import candidates, overlap

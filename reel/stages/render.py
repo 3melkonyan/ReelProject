@@ -1,4 +1,4 @@
-"""C-4: cut + two-pass EBU R128 loudnorm in a single video re-encode."""
+"""Cut + two-pass EBU R128 loudnorm in a single video re-encode."""
 from __future__ import annotations
 
 import json
@@ -105,7 +105,7 @@ def measure_loudness(src: str | Path, keep, *, processing=None, time_map=None) -
 
 
 def framing_chain(framing: dict, info: dict) -> str:
-    """G-24 (reel.board.plan): scale so the board crop becomes the output size, level the frame
+    """(reel.board.plan): scale so the board crop becomes the output size, level the frame
     (rotate, clockwise degrees), crop. Scaling first keeps the rotation cheap: it runs at about
     the output size instead of 4K. Landscape only; the crop has the output's 16:9 aspect."""
     W, H = info["width"], info["height"]
@@ -167,7 +167,7 @@ def render(src: str | Path, keep, out: str | Path, *, bitrate: str = "4M", hwdec
         return ["-filter_complex", f"{trims};{concat};{chain};[a]{ln},aresample=48000[ao]",
                 "-map", "[vo]", "-map", "[ao]", "-c:v", h264_encoder(), "-b:v", bitrate,
                 *(_SDR if tags else [])]
-    if framing:                  # G-24: board framing needs CPU filters (VT frames cannot rotate/crop)
+    if framing:                  # board framing needs CPU filters (VT frames cannot rotate/crop)
         trims, concat = _trim_graph(keep, video=True, split=True)   # decode once, not per segment
         chain = framing_chain(framing, info)
         attempts.append(("reencode_hw/frame", ["-hwaccel", "videotoolbox", "-i", str(src), *norm(chain)]))

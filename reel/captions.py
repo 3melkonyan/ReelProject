@@ -1,4 +1,4 @@
-"""G-40/3: Armenian captions (SRT/VTT) from the Whisper transcript, on the FINAL (cut) video timeline.
+"""Armenian captions (SRT/VTT) from the Whisper transcript, on the FINAL (cut) video timeline.
 
 Pure functions only. Transcript times are on the original (joined) recording; `keep` maps them to the
 edited video exactly like the chapters do (reel.timeline.to_final).
@@ -35,7 +35,7 @@ def _clean(text: object) -> str:
 def final_cues(segments: list[dict], keep=None) -> list[dict]:
     """Transcript segments -> [{'start','end','text'}] on the final timeline.
 
-    keep=None means the segments are already on the final timeline (G-40/2 transcript_final.json).
+    keep=None means the segments are already on the final timeline (transcript_final.json).
     """
     intervals = [(float(k[0]), float(k[1])) for k in keep] if keep is not None else None
     cues: list[dict] = []

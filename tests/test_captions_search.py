@@ -1,4 +1,4 @@
-"""G-40/3 item 2: Armenian captions on the edited timeline, YouTube caption track, search inside lessons."""
+"""Armenian captions on the edited timeline, YouTube caption track, search inside lessons."""
 from contextlib import closing
 import json
 from types import SimpleNamespace
@@ -68,7 +68,7 @@ def test_search_speech_and_ocr_scoped(tmp_path):
     _transcript(tmp_path, one)
     learning.ensure_cues(db, [one, two], tmp_path / "work")
     assert len(learning.lesson_cues(db, one)) == 3 and learning.lesson_cues(db, two) == []
-    # G-40/2 schema: final-video times, source board|projector
+    # schema: final-video times, source board|projector
     db.conn.execute("CREATE TABLE ocr_segments (job_id INTEGER NOT NULL, t_start REAL NOT NULL, t_end REAL NOT NULL,"
                     " source TEXT NOT NULL, text TEXT NOT NULL)")
     db.conn.execute("INSERT INTO ocr_segments VALUES (?,?,?,?,?)", (two, 42.0, 50.0, "projector", "Closure և scope"))

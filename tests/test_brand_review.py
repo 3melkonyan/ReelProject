@@ -1,4 +1,4 @@
-"""G-33.1 review: opaque CTA contrast, dark defaults and one Armenian label source."""
+"""Opaque CTA contrast, dark defaults and one Armenian label source."""
 import re
 from pathlib import Path
 from test_brand import tokens,luminance,run_node,STATIC
@@ -22,7 +22,7 @@ def test_every_stage_has_one_armenian_label_source():
     from reel.web.labels import STAGES,STAGE_LABEL
     from reel.stages import STAGES as pipeline
     assert [n for n,_ in STAGES]==[n for n,_ in pipeline]
-    # G-40/3 adds stages by name (captions, summary, student e-mails); the 17 original ones stay.
+    # Learning stages are inserted by name (captions, summary, student e-mails); the 17 original ones stay.
     assert len(STAGE_LABEL)==len(pipeline)>=17
     assert all(re.search('[Ա-Ֆա-ֆև]',label) and not re.search('[A-Za-z_]',label) for label in STAGE_LABEL.values())
     source=(STATIC.parent/'app.py').read_text()

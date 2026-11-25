@@ -1,4 +1,4 @@
-"""G-39 account directory/lifecycle on temporary SQLite and the real HTTP boundary."""
+"""Account directory/lifecycle on temporary SQLite and the real HTTP boundary."""
 from __future__ import annotations
 
 from contextlib import closing

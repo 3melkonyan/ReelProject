@@ -1,4 +1,4 @@
-"""G-36: temporary account databases, HTTP group matrix, fake SMTP only."""
+"""Temporary account databases, HTTP group matrix, fake SMTP only."""
 from concurrent.futures import ThreadPoolExecutor
 import base64,io,json,logging,secrets,sqlite3,struct,sys,time,zlib
 import threading

@@ -1,4 +1,4 @@
-"""G-27 owner policy: only confident students are blurred, retroactively."""
+"""Only confident students are blurred, retroactively."""
 import json
 
 import numpy as np

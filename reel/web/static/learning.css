@@ -1,4 +1,4 @@
-/* G-40/3 · library search, lesson player, watch statistics, e-mail preferences. Mobile first. */
+/* library search, lesson player, watch statistics, e-mail preferences. Mobile first. */
 .library-text{display:grid;gap:var(--space-4);margin-bottom:var(--space-6)}
 .library-text h2{font-size:var(--text-lg);margin:0}
 .library-hit h3{font-size:15px;line-height:1.6;margin:0 0 var(--space-2);overflow-wrap:anywhere}
@@ -33,7 +33,7 @@ mark{background:var(--amber);color:#171717;border-radius:3px;padding:0 2px}
 .learning-settings{max-width:800px;min-width:0}.learning-preferences-form>p{line-height:1.7}.learning-mail-option{display:flex;gap:14px;align-items:center;min-height:80px;padding:16px 0;border-bottom:1px solid var(--border);cursor:pointer}.learning-mail-option input{width:24px;height:24px;flex:none;accent-color:var(--accent)}.learning-mail-option>span{display:grid;gap:6px;min-width:0}.learning-mail-option strong{font-size:var(--text-sm);overflow-wrap:anywhere}.learning-mail-option small{color:var(--muted);font-size:var(--text-xs);line-height:1.7}.learning-mail-actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:var(--space-6)}.learning-mail-actions p{font-size:var(--text-xs);line-height:1.7;margin:0}.learning-mail-actions .btn{min-height:44px}
 
 
-/* G-41/2 item 4: compact library controls and explicit metadata-only lesson cards. */
+/* compact library controls and explicit metadata-only lesson cards. */
 .library-page .page-heading{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:var(--space-2) var(--space-4)}
 .library-page .page-heading-copy{display:contents}
 .library-page .page-heading h1{grid-column:1;grid-row:1}
@@ -60,7 +60,7 @@ mark{background:var(--amber);color:#171717;border-radius:3px;padding:0 2px}
 @media(max-width:699px){.library-tool-label{display:none}.library-page #library-tools .btn{width:44px;min-width:44px;height:44px;padding:0}.library-page .library-filters{column-gap:var(--space-2)}}
 
 
-/* G-41/2 item 5: academy outcomes, with separate demonstration counts. */
+/* academy outcomes, with separate demonstration counts. */
 .academy-stats{min-width:0}.academy-stats-filters{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-4);max-width:720px;margin-bottom:var(--space-6)}.academy-stats-filters .fld{margin:0;min-width:0}.academy-stats-filters select{min-width:0}
 .academy-stats-metrics{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--space-4);margin-bottom:var(--space-6)}.academy-stats-metrics .stat .v{font-size:32px;line-height:40px}.academy-stats-metrics .stat .s{line-height:24px}
 .academy-demo-summary{display:flex;align-items:center;gap:var(--space-2) var(--space-4);flex-wrap:wrap;border:1px dashed var(--input-border);border-radius:var(--radius-md);padding:var(--space-4);margin-bottom:var(--space-6);background:var(--surface)}.academy-demo-summary strong{font-size:var(--text-sm)}.academy-demo-summary p{flex-basis:100%;font-size:var(--text-xs);line-height:24px;color:var(--muted);margin:0}

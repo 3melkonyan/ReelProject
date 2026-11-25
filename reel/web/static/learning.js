@@ -1,5 +1,5 @@
 "use strict";
-/* G-40/3: search inside lessons, lesson player, watch statistics, e-mail preferences. */
+/* search inside lessons, lesson player, watch statistics, e-mail preferences. */
 
 /* ---------- 2. search inside lessons (speech + board/slide text) ---------- */
 const HIT_SOURCE = {speech: "Խոսք", board: "Գրատախտակ", slide: "Սլայդ"};

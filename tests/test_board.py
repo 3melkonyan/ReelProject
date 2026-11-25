@@ -1,4 +1,4 @@
-"""G-24 board detection on synthetic frames (no video): a dark board on a light wall."""
+"""Board detection on synthetic frames (no video): a dark board on a light wall."""
 import math
 
 import cv2

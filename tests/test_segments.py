@@ -30,7 +30,7 @@ def test_unclear_never_bridges_offtopic_runs():
     L = ["lesson", "lesson", "offtopic", "silence", "unclear", "offtopic", "lesson", "lesson",
          "silence", "lesson"]
     cuts = offtopic_cuts(wins, L, DEFAULTS)
-    # G-28: uncertain text cannot be promoted to outside, even between runs.
+    # uncertain text cannot be promoted to outside, even between runs.
     assert (120, 360, "break") not in cuts
     # a lone silence between lesson windows is NOT cut by the LLM rule
     assert all(not (s == 480) for s, _, _ in cuts)

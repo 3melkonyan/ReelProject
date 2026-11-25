@@ -1,4 +1,4 @@
-"""G-40/3 item 3: AI study notes per lesson — summary, key terms, self-check questions.
+"""AI study notes per lesson — summary, key terms, self-check questions.
 
 Uses the project's local Ollama client (reel.llm, no paid APIs). Input is what the metadata stage already
 produced (English per-part summaries + Armenian chapter titles); a short transcript excerpt is the fallback.

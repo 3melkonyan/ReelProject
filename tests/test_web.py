@@ -1,4 +1,4 @@
-"""G-18 HTTP regressions with a fully temporary app root and SQLite database.
+"""HTTP regressions with a fully temporary app root and SQLite database.
 
 The production app loads/writes secrets at import time. Execute its source in an
 isolated module whose __file__ is already under tmp_path; never import app.py

@@ -1,11 +1,11 @@
-"""reel CLI.
+"""Reel CLI.
 
   python -m reel.cli run            # daemon: watch inbox, process queue
   python -m reel.cli status [ID]
   python -m reel.cli retry ID
   python -m reel.cli add FILE --group G   # enqueue without waiting for the watcher
   python -m reel.cli resolve ID TARGET posted|not-posted   # after a crash mid-post
-  python -m reel.cli cleanup [--dry-run] [--days 7] [--blurred-days 30]   # disk hygiene (G-16)
+  python -m reel.cli cleanup [--dry-run] [--days 7] [--blurred-days 30]   # disk hygiene
 """
 from __future__ import annotations
 

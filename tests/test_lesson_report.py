@@ -4,7 +4,7 @@ from reel.lesson_report import poll,contents
 from reel.web.accounts import create_user
 
 
-def test_group_scoped_report_once_and_no_historical_mass_email(tmp_path):
+def test_group_scoped_report_once_and_no_previous_lesson_mass_email(tmp_path):
     d=DB(tmp_path/'test.db')
     for login,role,group in [('one','lecturer','A'),('two','lecturer','B'),('admin','admin','A')]:
         create_user(d,login+'-user','strong-password-123',dict(name=login,email=login+'@example.test',role=role,groups=[group] if role!='admin' else []))
@@ -21,7 +21,7 @@ def test_group_scoped_report_once_and_no_historical_mass_email(tmp_path):
     assert poll(d.conn,tmp_path,send=send)==1
     assert poll(d.conn,tmp_path,send=send)==0
     create_user(d,'new-teacher','strong-password-123',dict(name='Նոր դասախոս',email='new@example.test',role='lecturer',groups=['A']))
-    assert poll(d.conn,tmp_path,send=send)==0 # new assignments do not mass-mail historical reports
+    assert poll(d.conn,tmp_path,send=send)==0 # new assignments do not mass-mail previous lesson reports
     assert sent[0][0]=='one@example.test'
     report=sent[0][2];assert report['minutes_cut']==2 and report['questions']
     assert any('թույլ' in x for x in report['warnings']) and any('track' in x for x in report['warnings'])

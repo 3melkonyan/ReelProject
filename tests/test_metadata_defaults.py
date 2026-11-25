@@ -1,4 +1,4 @@
-"""G-26: optional metadata failures publish safe defaults; source failures remain errors."""
+"""Optional metadata failures publish safe defaults; source failures remain errors."""
 from __future__ import annotations
 
 from datetime import datetime, timezone

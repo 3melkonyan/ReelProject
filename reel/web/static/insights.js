@@ -1,5 +1,5 @@
 "use strict";
-/* G-34: presentation only. Source media is never requested. */
+/* presentation only. Source media is never requested. */
 function etaText(j) {
   if (j.status === "done") return "Ավարտված է";
   if (j.status === "stopped") return "Կանգնած է";
@@ -52,9 +52,9 @@ async function viewLibrary() {
       event.preventDefault(); location.hash=lessonRoute({job_id:link.dataset.libraryLesson},link.dataset.lessonTime);
     });
     $("#library-grid").addEventListener("click",event=>{if (event.target.closest("[data-library-clear]")) clearLibraryFilters();});
-    $("#library-grid").addEventListener("toggle", loadLessonNotes, true);   // G-40/3: notes load when opened
+    $("#library-grid").addEventListener("toggle", loadLessonNotes, true);   // notes load when opened
   }
-  // G-40/3: options come from every permitted group/subject (with counts), not only from published lessons.
+  // options come from every permitted group/subject (with counts), not only from published lessons.
   const stale = !S.libraryFacets || Date.now() - S.libraryFacets._t > 30000;
   const grid=$("#library-grid"), identity=learningIdentity();
   const [lessons, facets, progress] = await Promise.all([api("/api/library"), stale ? api("/api/library/facets") : S.libraryFacets, api("/api/library/progress")]);
@@ -102,7 +102,7 @@ function renderLibrary() {
   set("#library-count", `${list.length} դաս${demoCount ? ` · ${demoCount} ցուցադրական` : ""}`);
   set("#library-grid",list.length ? list.map(libraryCardHtml).join("") : '<div class="card empty library-empty"><div class="ic acc">'+ic("book")+'</div><b>Համապատասխան դաս չգտնվեց</b><p>Փորձեք այլ բառ կամ մաքրեք ընտրված ֆիլտրերը։</p><button class="btn" data-library-clear>Մաքրել ֆիլտրերը</button></div>');
 }
-/* G-41/2 item 5: measured publications and explicitly separate demonstration data. */
+/* measured publications and explicitly separate demonstration data. */
 function academyStatNumber(value, digits = 1) {
   const number=Number(value);
   return (Number.isFinite(number) ? Math.max(0,number) : 0).toLocaleString("hy-AM",{maximumFractionDigits:digits});

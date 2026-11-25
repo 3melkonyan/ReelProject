@@ -1,4 +1,4 @@
-"""G-9.6 guard policy: judge() against blur decisions, no video needed."""
+"""Guard policy: judge against blur decisions, no video needed."""
 from reel.stages.privacy import judge
 
 DEC = {"fps": 25.0,
@@ -33,7 +33,7 @@ def test_sustained_unexplained_face_stops():
 
 
 def test_many_isolated_events_never_stop_but_are_flagged_for_review():
-    # owner's decision 2026-11-18: 1-2 frame cases must not stop the lesson, however many
+    # 1-2 frame cases must not stop the lesson, however many
     ds = [det(100.0 + 10 * k, [800, 100, 40, 50]) for k in range(5)]   # 5 events, 30 min video
     r = judge(ds, DEC, 1800)
     assert r["reason"] is None and not r["hits"] and len(r["warnings"]) == 5

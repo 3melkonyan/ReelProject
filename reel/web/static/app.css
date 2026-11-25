@@ -289,7 +289,7 @@ select.input{appearance:none;-webkit-appearance:none;height:48px;padding-right:3
 @media(max-width:359px){.nav a{min-width:0}.nav a span{overflow-wrap:anywhere}}
 @media(min-width:1100px){.nav{padding:0}}
 
-/* G-33 · Academy workspace · mobile first */
+/* Academy workspace · mobile first */
 [hidden]{display:none!important}
 html{scroll-padding-top:96px;scroll-behavior:smooth}
 body{font-size:var(--text-sm);line-height:1.65;min-width:320px}
@@ -330,7 +330,7 @@ button:disabled{cursor:not-allowed}.input:disabled{background:var(--surface-2);c
 /* Keep complete Armenian tab labels inside the card at 320px. */
 .tab{flex:1 1 120px;white-space:normal}
 .login-intro .login-theme{position:absolute;top:var(--space-4);right:var(--space-4);z-index:2;border-color:var(--hero-line);background:var(--hero-bg);color:var(--hero-ink)}
-/* G-34 · same Academy tokens, mobile first */
+/* same Academy tokens, mobile first */
 :root{--cut-before:var(--brand);--cut-break:var(--amber);--cut-silence:var(--muted);--cut-after:var(--accent);--cut-other:var(--text)}
 .library-filters{display:grid;gap:var(--space-4);margin-bottom:var(--space-6)}
 .library-card{padding:0;overflow:hidden;min-width:0}.library-cover{display:block;position:relative;aspect-ratio:16/9;background:var(--surface-2)}.library-cover img{width:100%;height:100%;object-fit:cover}.play-pill{position:absolute;bottom:12px;left:12px;display:flex;align-items:center;gap:8px;background:var(--surface);padding:10px 16px;border-radius:var(--radius-pill);font-weight:700}.library-body{padding:var(--space-6)}.library-body h2{font-size:19px;line-height:1.6;overflow-wrap:anywhere}.library-body summary,.cut-item summary,.stats-chart+details summary{cursor:pointer;min-height:44px;padding:10px 0}.chapter-links{list-style:none;margin:0;padding:0}.chapter-links a{display:block;min-height:44px;padding:10px 0;overflow-wrap:anywhere}.chapter-links .mono{color:var(--accent);margin-right:8px}
@@ -352,7 +352,7 @@ button:disabled{cursor:not-allowed}.input:disabled{background:var(--surface-2);c
 
 .cut-marker{min-width:0;pointer-events:none}.cut-hit{position:absolute;top:0;width:44px;height:44px;min-height:44px;padding:0;border:0;background:transparent;cursor:pointer}.cut-hit:focus-visible{outline:3px solid var(--focus);outline-offset:-4px}
 
-/* G-33.1 · Academy near-black, opaque brand CTA and subtle diagonal light. */
+/* Academy near-black, opaque brand CTA and subtle diagonal light. */
 .btn.primary{background:var(--primary);color:var(--on-primary);font-size:16px;font-weight:600;border-color:transparent;opacity:1}
 .btn.primary:hover{background:var(--primary-hover);color:var(--on-primary);filter:none}
 .btn:not(.primary):not(.danger){background:transparent;border:1px solid var(--secondary-border);color:var(--text)}
@@ -361,14 +361,14 @@ button:disabled{cursor:not-allowed}.input:disabled{background:var(--surface-2);c
 .header-help{font-size:18px;font-weight:700;text-decoration:none}
 .nav-short{overflow-wrap:anywhere}.nav-more .nav-popup .nav-short{font-size:12px}
 
-/* G-36 · personal accounts, invitations and profile settings */
+/* personal accounts, invitations and profile settings */
 .account-public{max-width:580px;margin:auto;min-height:100dvh;padding:24px 16px}.account-public-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:32px}.account-form h1{font-size:28px}.account-avatar{display:flex;align-items:center;justify-content:center;width:44px;min-width:44px;height:44px;border-radius:50%;border:2px solid var(--brand);color:var(--accent);font-weight:700;overflow:hidden;text-decoration:none}.account-avatar img{width:100%;height:100%;object-fit:cover}.profile-avatar .account-avatar{width:96px;height:96px;font-size:28px;margin:16px 0}.account-text-link{display:inline-flex;align-items:center;min-height:44px;color:var(--accent)}.invite-facts{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px}.invite-facts dd{margin:0;overflow-wrap:anywhere}.invite-facts dt{color:var(--muted)}.account-group-checks{border:1px solid var(--input-border);border-radius:12px;padding:12px;margin:16px 0}.account-group-checks label,.account-switch{display:flex;align-items:center;gap:12px;min-height:44px}.account-group-checks input,.account-switch input{width:20px;height:20px;accent-color:var(--primary)}.account-user p{overflow-wrap:anywhere}.account-user form{margin-bottom:16px}.account-user button{margin-top:12px}.invitation-list article{border-top:1px solid var(--border);padding:16px 0;overflow-wrap:anywhere}#account-link:empty{display:none}#profile-name{margin-top:24px}.side-foot .row{flex-wrap:wrap}
 @media(max-width:1099px){.side-foot .row{gap:4px}.side-foot .row>.account-avatar~.header-help{display:none}}
 
 @font-face{font-family:Mardoto;src:url("/brand/Mardoto-Bold.woff2") format("woff2");font-style:normal;font-weight:700;font-display:swap}
 h1,h2,h3,.top h1,.login-intro h1{font-family:Mardoto,var(--font);font-weight:700;font-synthesis:none}
 
-/* G-39 A · paired marks, one-row controls, aligned upload fields. */
+/* paired marks, one-row controls, aligned upload fields. */
 :root{--reel-black:#000000;--academy-side:#D500C8;--academy-rim:#71FFEA;--academy-glow:#D500C82B}
 .reel-brand{display:grid;gap:6px;justify-items:start;min-width:0;flex:none}
 .reel-brand>img{display:block;width:156px;height:auto;border-radius:14px;background:var(--reel-black)}
@@ -407,7 +407,7 @@ h1,h2,h3,.top h1,.login-intro h1{font-family:Mardoto,var(--font);font-weight:700
 @media(max-width:359px){.brand.brand-pair{gap:8px}.brand-pair .reel-brand>img{width:76px}}
 
 
-/* G-41/2 item 1: shared page rhythm and controls; page-specific layouts stay in their modules. */
+/* shared page rhythm and controls; page-specific layouts stay in their modules. */
 .main{padding-top:var(--space-6);margin:0 auto;align-self:start}
 .top{align-items:flex-start;gap:var(--space-4);margin-bottom:var(--space-6)}
 .top>div:first-child,.page-heading-copy{min-width:0}

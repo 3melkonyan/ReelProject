@@ -1,4 +1,4 @@
-"""C-5: title, description, chapters from the transcript (local LLM, map -> reduce).
+"""Title, description, chapters from the transcript (local LLM, map -> reduce).
 
 Chapter times are computed on ORIGINAL timestamps and mapped through the cut
 timeline, so they match the final video.

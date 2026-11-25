@@ -13,7 +13,7 @@ from reel.pipeline import Ctx, StopJob, _notify
 from reel.stages import transcribe as tr
 
 ROOT = Path(__file__).resolve().parents[2]
-MIN_LESSON_SEC = 60  # owner 2026-11-21: short lessons and quick tests are allowed (was 30 min)
+MIN_LESSON_SEC = 60  # short lessons and quick tests are allowed (was 30 min)
 FIND_WAIT = (60, 120, 180)   # wait for YouTube uploads list to show a just-finished upload
 
 
@@ -107,7 +107,7 @@ def segments_stage(ctx: Ctx) -> dict:
     return {"cut_summary": summary, "cuts": summary["cuts"],
             **{k:r[k] for k in ("time_map","pause_events","processing_note","labels","edges","no_cut_code","no_cut_details") if k in r},
             **{k: r[k] for k in ("keep", "original_sec", "final_sec", "cut_ratio", "unclear_ratio")},
-            **({"auto_note": r["auto_note"]} if r.get("auto_note") else {})}     # G-28: keep the robot note
+            **({"auto_note": r["auto_note"]} if r.get("auto_note") else {})}     # Preserve the fallback explanation for the job page.
 
 
 SILENT_LUFS = -35.0     # below this after normalisation the recording has no usable sound
@@ -115,9 +115,9 @@ BOARD_MAX_CUT = 0.001     # a framing that would leave out more of the board is 
 
 
 def _framing(ctx: Ctx, src) -> tuple[dict | None, dict]:
-    """Optional framing; ambiguous intervals retain the full frame (G-35).
+    """Optional framing; ambiguous intervals retain the full frame.
     The render stage sends one Armenian operator notice through the existing mechanism.
-    Legacy board/rotate retains G-24's static fast path.
+    Legacy board/rotate retains its static fast path.
     """
     requested = _group(ctx).get("framing", "off")
     if requested == "off":
@@ -189,7 +189,7 @@ def render_stage(ctx: Ctx) -> dict:
     lufs = rd.measured_integrated(r["final"])
     if lufs < SILENT_LUFS:                    # critical: the lesson has (almost) no sound
         raise StopJob(f"audio is almost silent after normalisation ({lufs:.1f} LUFS) — check the recording")
-    if abs(lufs - rd.TARGET["I"]) > 1.5:      # owner policy 2026-11-19: publish anyway, note it
+    if abs(lufs - rd.TARGET["I"]) > 1.5:      # publish anyway, note it
         note = {**note, "auto_note": f"loudness {lufs:.1f} LUFS outside target {rd.TARGET['I']}±1.5 — published as is"}
     if _group(ctx).get("framing", "off") != "off" and (not framing or note.get("framing_uncertain_sec", 0) or "framed render failed" in note.get("board", "")):
         _notify(f"⚠️ Դաս {ctx.job_id} · {ctx.group}․ գրատախտակը կամ էկրանը վստահ չի որոշվել որոշ հատվածներում։ "
@@ -221,8 +221,8 @@ MIN_FACES_FOR_SHARE = 100   # too few faces (screen recording, empty room) -> no
 
 
 def _choice(ctx: Ctx) -> tuple[dict | None, str | None]:
-    """The admin's lecturer choice for this lesson (job page, G-22), if any, plus a note when a
-    broken choice file was ignored (owner policy 2026-11-19: never stop for this)."""
+    """The admin's lecturer choice for this lesson (job page), if any, plus a note when a
+    broken choice file was ignored (never stop for this)."""
     path = ctx.workdir / "lecturer_choice.json"
     if not path.is_file():
         return None, None
@@ -262,7 +262,7 @@ def blur(ctx: Ctx) -> dict:
                 shutil.rmtree(auto_dir, ignore_errors=True)        # no stale automatic result
                 refs, info = group_refs, {"lecturer_mode": "refs", "lecturers": names}
             else:   # a substitute lecturer? the group's photos do not match: recognise automatically
-                # no Slack message (owner policy 2026-11-19): the note is shown on the job page
+                # No Slack message: the note is shown on the job page
                 notes.append(f"the group's lecturer photos match only {known}/{faces} faces — automatic recognition used")
                 analysis, info = None, {"refs_unmatched": f"{known}/{faces}"}
         elif names:
@@ -288,7 +288,7 @@ def blur(ctx: Ctx) -> dict:
                 a.pop("feat", None)
         known, faces = _matched(analysis)
         if refs and found["mode"] == "auto" and faces >= MIN_FACES_FOR_SHARE and known / faces < MIN_LECTURER_SHARE:
-            # never stop (owner policy 2026-11-19); the auto refs may be a student's -> blur everyone
+            # Continue processing; the auto refs may be a student's -> blur everyone
             notes.append(f"the recognised lecturer matches only {known}/{faces} faces — everyone blurred")
             refs, analysis = [], []
             info["lecturer_mode"] = "none"
@@ -303,12 +303,12 @@ def blur(ctx: Ctx) -> dict:
 
 def privacy_stage(ctx: Ctx) -> dict:
     """Final check on the BLURRED video, judged against the blur stage's decisions,
-    with exactly the reference photos the blur used (G-22: auto refs or none)."""
+    with exactly the reference photos the blur used (automatic references or none)."""
     from reel.stages import privacy as pv
     b = ctx.out("blur")
-    refs = b["refs_dirs"] if "refs_dirs" in b else _refs(ctx)     # jobs blurred before G-22
+    refs = b["refs_dirs"] if "refs_dirs" in b else _refs(ctx)     # Compatibility with saved jobs that lack reference metadata.
     r = pv.scan(b["final"], refs, ctx.workdir / "privacy", decisions=b.get("decisions"))
-    if r.get("warnings"):   # isolated 1-2 frame cases never stop the job (owner's decision): review them
+    if r.get("warnings"):   # isolated 1-2 frame cases never stop the job (privacy policy): review them
         _notify(f"⚠️ Դաս {ctx.job_id}. մշուշումից հետո {r.get('isolated_events', r['warnings'])} կարճ (1–2 կադր) "
                 f"դեմքի դեպք կա, մշակումը շարունակվում է։ Ստուգիր դասի էջում՝ «Գաղտնիություն»։")
     return r
@@ -354,7 +354,7 @@ def metadata_stage(ctx: Ctx) -> dict:
         except Exception as e:
             m['auto_note']=' · '.join(filter(None,[m.get('auto_note'),f'OCR բաց թողնվեց՝ {type(e).__name__}: {str(e)[:120]}']))
     return {"title": m["title"], "description": m["youtube_description"], "chapters": m["chapters"],
-            **({"auto_note": m["auto_note"]} if m.get("auto_note") else {})}     # G-26: keep the robot note
+            **({"auto_note": m["auto_note"]} if m.get("auto_note") else {})}     # Preserve the fallback explanation for the job page.
 
 
 def thumbnail(ctx: Ctx) -> dict:
@@ -383,7 +383,7 @@ def _youtube_title(subject: str, n: int, topic: str) -> str:
     if topic.startswith("Դաս՝"):
         topic = topic[len("Դաս՝"):].strip()
     head = " ".join(f"{subject} | Դաս {n}".replace("<", "").replace(">", "").split())
-    if len(head) > 70:                         # The owner's explicit long-prefix exception.
+    if len(head) > 70:                         # Keep the complete course prefix even when it exceeds the title budget.
         return head
     topic = re.split(r",|;|:| - | — ", topic, maxsplit=1)[0].strip()
     words = topic.split()
@@ -542,7 +542,7 @@ def _lesson_number(ctx: Ctx, subject: str) -> int:
 
 
 def next_lesson_number(db, config: dict, group: str, subject: str | None = None) -> int:
-    """G-29 upload page prefill: the number the course's next lesson gets — 1 + its lessons
+    """upload page prefill: the number the course's next lesson gets — 1 + its lessons
     announced in Slack or still queued/running, never below 1 + the highest named number.
     subject=None means the group's only subject. KeyError for an unknown group."""
     group_cfg = config["groups"][group]
@@ -594,6 +594,6 @@ STAGES = [
     ("slack_post", slack_post), ("classroom_post", classroom_post), ("library_add", library_add),
 ]
 
-# G-40/3 (library): summary after metadata, captions after the thumbnail; added by name (merge-friendly).
+# Study notes need metadata; captions need the final timeline.
 from reel.stages.learning_stages import install as _install_learning_stages  # noqa: E402
 _install_learning_stages(STAGES)

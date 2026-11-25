@@ -1,4 +1,4 @@
-"""G-39 A: only temporary databases, fake metadata/publications and role-scoped HTTP."""
+"""Only temporary databases, fake metadata/publications and role-scoped HTTP."""
 from datetime import date, timedelta
 from pathlib import Path
 import json, sqlite3

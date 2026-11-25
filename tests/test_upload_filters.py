@@ -1,4 +1,4 @@
-"""G-42/2: selected-group subjects and fresh library facets, with fake JS networking/temp HTTP only."""
+"""Selected-group subjects and fresh library facets, with fake JS networking/temp HTTP only."""
 from contextlib import closing
 from pathlib import Path
 import shutil

@@ -10,7 +10,7 @@ def test_demo_library_is_optional_scoped_and_metadata_only(tmp_path,monkeypatch)
     db=DB(tmp_path/'test.db')
     with closing(db.conn):
         assert library_entries(db,groups=[])==[]
-        db.conn.execute('CREATE TABLE IF NOT EXISTS demo_lessons(id TEXT PRIMARY KEY)')  # G-40/1 schema may already create it
+        db.conn.execute('CREATE TABLE IF NOT EXISTS demo_lessons(id TEXT PRIMARY KEY)')  # schema may already create it
         fake=ModuleType('reel.demo')
         fake.read_demo_lessons=lambda database,groups=None:[{
             'id':'lesson-'+group,'group':group,'subject':'Python','title':'Դեմո դաս','description':'Նկարագրություն',

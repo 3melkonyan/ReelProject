@@ -114,7 +114,7 @@ def test_new_lesson_scope_active_optout_privacy_done_and_no_demo(db, tmp_path):
     user(db, "lecturer", role="lecturer")
     opted = user(db, "opted")
     mail.save_preferences(db, opted, {"new_lessons": False})
-    if "demo_tag" not in {r[1] for r in db.conn.execute("PRAGMA table_info(users)")}:  # G-40/1 schema has it
+    if "demo_tag" not in {r[1] for r in db.conn.execute("PRAGMA table_info(users)")}:  # schema has it
         db.conn.execute("ALTER TABLE users ADD COLUMN demo_tag TEXT")
     user(db, "demo", demo_tag="g40-demo")
     initialize(db, tmp_path)
@@ -123,7 +123,7 @@ def test_new_lesson_scope_active_optout_privacy_done_and_no_demo(db, tmp_path):
     lesson(db, status="running", published=NOW + timedelta(seconds=1))
     lesson(db, dry=True, published=NOW + timedelta(seconds=1))
     # A metadata-only demo card has no jobs/publications identity and cannot enter the dispatcher.
-    # G-40/1 schema already defines demo_lessons; insert a metadata-only card with its real columns.
+    # schema already defines demo_lessons; insert a metadata-only card with its real columns.
     db.conn.execute("INSERT INTO demo_lessons(id,group_name,subject,title,description,lesson_date,demo_tag) "
                     "VALUES('demo-card','AI 2.6','Python','Դեմո դաս','Նկարագրություն','2026-11-01','g40-demo')")
     report = mail.run_pending(db, tmp_path, NOW + timedelta(seconds=2))

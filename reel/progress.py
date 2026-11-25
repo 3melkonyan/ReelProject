@@ -49,7 +49,7 @@ def ffmpeg_seconds(text):
         key, _, raw = line.partition('=')
         try:
             if key in ('out_time_us', 'out_time_ms'):
-                value = float(raw)/1_000_000  # ffmpeg's historical ms key also uses microseconds
+                value = float(raw)/1_000_000  # ffmpeg's ms key also uses microseconds
             elif key == 'out_time':
                 h, m, s = map(float, raw.split(':')); value = h*3600+m*60+s
         except ValueError:

@@ -1,7 +1,7 @@
-"""G-40/3: library and student experience data (filters, transcript cues, search, watch progress).
+"""Library and student experience data (filters, transcript cues, search, watch progress).
 
-Own tables are created lazily with CREATE TABLE IF NOT EXISTS, so reel/db.py stays untouched
-(G-40/1, G-40/2 and G-40/4 change it in parallel). Every function takes an open reel.db.DB.
+Tables are created lazily so existing installations can add learning features without
+a separate migration. Every function takes an open reel.db.DB.
 """
 from __future__ import annotations
 
@@ -54,11 +54,11 @@ def _subject_names(group_cfg: dict | None) -> list[str]:
 
 
 def _metadata_subjects(db, group: str) -> list[str]:
-    """Optional G-40/1 compatibility: subject periods stored in group_metadata.subjects_json."""
+    """Optional compatibility: subject periods stored in group_metadata.subjects_json."""
     try:
         row = db.conn.execute("SELECT subjects_json FROM group_metadata WHERE name=?", (group,)).fetchone()
         items = json.loads(row[0]) if row and row[0] else []
-    except Exception:  # noqa: BLE001 - the table/column exists only after G-40/1 is merged
+    except Exception:  # noqa: BLE001 - older databases may lack optional subject metadata
         return []
     return _subject_names({"subjects": items if isinstance(items, list) else []})
 
@@ -97,7 +97,7 @@ def transcript_cues(db, job_id: int, work: Path) -> tuple[list[dict], str]:
     """Cues for one lesson from its work folder: (cues, source). Missing files -> ([], 'missing')."""
     plan = db.stage_output(job_id, "segments") or {}
     folder = Path(work) / str(job_id)
-    final = folder / "transcript_final.json"           # G-40/2 smart pauses: already on the final timeline
+    final = folder / "transcript_final.json"           # smart pauses: already on the final timeline
     try:
         if plan.get("time_map"):
             if not final.is_file():
@@ -133,7 +133,7 @@ def save_cues(db, job_id: int, cues: list[dict], source: str) -> None:
 
 
 def ensure_cues(db, job_ids, work: Path) -> None:
-    """Index lessons published before G-40/3 once (the transcript.json survives cleanup)."""
+    """Index previously published lessons once; transcript.json survives cleanup."""
     ensure_schema(db.conn)
     ids = [int(i) for i in job_ids]
     done = {row[0] for row in db.conn.execute(
@@ -157,7 +157,7 @@ def _like(term: str) -> str:
 def search(db, query: str, job_ids, *, per_lesson: int = 5, lessons: int = 30) -> dict:
     """Every query word must occur (any order, partial words: Armenian endings vary).
 
-    Searches the spoken transcript and, when G-40/2's ocr_segments table exists, board/slide text.
+    Searches the spoken transcript and, when the ocr_segments table exists, board/slide text.
     Times are on the final video timeline. Returns {'terms', 'results': [{job_id, hits, total}]}.
     """
     terms = norm_terms(query)

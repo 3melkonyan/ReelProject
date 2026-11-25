@@ -140,7 +140,7 @@ def find_captions(video_id: str, language: str = "hy") -> str | None:
 
 @api_errors
 def upload_captions(video_id: str, caption_path: str, language: str = "hy") -> str:
-    """G-40/3: upload an SRT caption track (published, not a draft). Needs the youtube.force-ssl scope."""
+    """upload an SRT caption track (published, not a draft). Needs the youtube.force-ssl scope."""
     text(video_id, "video_id")
     path = Path(caption_path)
     if not path.is_file() or not 0 < path.stat().st_size < 50 * 1024 * 1024:

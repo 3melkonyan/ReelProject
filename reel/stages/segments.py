@@ -1,8 +1,8 @@
-"""G-28: cut only sentence-verified non-lesson material.
+"""Cut only sentence-verified non-lesson material.
 
 Coarse windows and silence/static signals propose candidates; neither can cut
 on its own. Intro/closing/Q&A boundaries use sentence IDs. Unknown stays intact.
-G-26 full-lesson fallbacks and public interval/timeline contracts are preserved.
+full-lesson fallbacks and public interval/timeline contracts are preserved.
 """
 from __future__ import annotations
 

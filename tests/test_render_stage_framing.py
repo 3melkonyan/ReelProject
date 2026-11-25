@@ -1,4 +1,4 @@
-"""G-24 in the render stage: conservative fallback; G-35 notifies the operator without stopping."""
+"""Rendering uses conservative framing and notifies the operator on fallback."""
 import pytest
 
 import reel.board

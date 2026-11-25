@@ -1,4 +1,4 @@
-"""G-40 demo setup/removal only in temporary roots; no production data or services."""
+"""Demo setup/removal only in temporary roots; no production data or services."""
 from contextlib import contextmanager
 from datetime import date
 import builtins

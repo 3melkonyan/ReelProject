@@ -1,4 +1,4 @@
-"""G-24: the group's 'framing' setting is validated and survives a Settings save (not on the form yet)."""
+"""The group's 'framing' setting is validated and survives a Settings save (not on the form yet)."""
 import json
 
 import pytest

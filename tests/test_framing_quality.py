@@ -1,4 +1,4 @@
-"""G-42 source-bound geometry; synthetic data only."""
+"""Source-bound geometry; synthetic data only."""
 import numpy as np
 import pytest
 from reel import framing as f

@@ -1,4 +1,4 @@
-"""G-42/2 cutting rules: temporary artifacts and fake signals, never media or LLM calls."""
+"""Cutting rules: temporary artifacts and fake signals, never media or LLM calls."""
 import copy
 import json
 

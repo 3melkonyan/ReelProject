@@ -23,7 +23,7 @@ The subject selected for an upload determines that lesson's single playlist. Sub
 - Renaming a group moves `inbox/<old>` to `inbox/<new>`. It is blocked by unfinished lessons, an existing group with the new name or a conflicting destination directory.
 - Deletion requires confirmation. The last group, a group with unfinished jobs, or a group whose inbox contains files cannot be deleted. Lesson history, recordings and YouTube playlists are retained.
 
-Wait for web uploads to finish before these changes. Completed lessons retain their historical group name. A `409` response usually identifies a job or directory that must be handled first. See [retry and reconciliation](OPERATOR.md).
+Wait for web uploads to finish before these changes. Completed lessons retain their original group name. A `409` response usually identifies a job or directory that must be handled first. See [retry and reconciliation](OPERATOR.md).
 
 ## General settings
 
@@ -63,6 +63,6 @@ A queued or stopped job may expose **Cancel selection** while blurring is unfini
 
 In **Settings → Edit group**, enable board framing to detect the board, correct tilt and compose a 16:9 view. New groups default to framing off. If the board cannot be located confidently or the crop is unsuitable, Reel keeps the full frame without an approval request. The lesson's rendering stage shows the applied framing and reason to administrators and viewers.
 
-## Validation history
+## Deployment validation
 
-The original G-21/G-22/G-25 features were checked using temporary databases/configuration and synthetic identity images. Historical notes referring to a later live review are not evidence that such a review occurred. Validate the actual deployment and channel separately.
+Test group management and lecturer selection with temporary data and synthetic identity images before enabling a deployment. Validate the connected publication channel separately.

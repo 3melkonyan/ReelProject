@@ -1,4 +1,4 @@
-"""G-35 geometry, temporal classification and the real single-encode render path."""
+"""Geometry, temporal classification and the real single-encode render path."""
 import json,subprocess
 from pathlib import Path
 import cv2
@@ -29,7 +29,7 @@ def test_temporal_median_removes_moving_lecturer():
 def test_slides_are_projector_evidence_not_growing_board_writing():
     result=f.analyze_samples([(t,mixed(t)) for t in range(0,150,10)],150)
     modes=[r['mode'] for r in result['timeline']]
-    # G-42: an 80-second activation is insufficient projector evidence.
+    # an 80-second activation is insufficient projector evidence.
     assert result['projector_tracks']==0
     assert not {'projector','both'} & set(modes)
     assert all(r['end']-r['start']>=30 for r in result['timeline'])
@@ -53,7 +53,7 @@ def test_camera_move_recomputes_geometry_and_keeps_uncertain_interval_full():
 def test_fit_contains_entire_quad_and_caps_local_pixel_scale(correction):
     _,truth=surface(angle=5,skew=True)
     # A 640px source cannot fill 1920px without either >1.5x or invented borders.
-    # G-42 requires real source pixels, so exercise the cap on a 4K source.
+    # Framing requires real source pixels, so exercise the cap on a 4K source.
     geometry=f.fit(truth/[W,H],W*6,H*6,correction=correction,size=[1920,1080])
     h=np.array(geometry['matrix']);projected=f._project(truth*6,h)
     assert (projected>=-1e-3).all() and (projected<=[1920.001,1080.001]).all()
@@ -185,7 +185,7 @@ def test_projector_can_illuminate_board_without_making_outer_board_a_screen():
         cv2.rectangle(image,(x,top),(right,bottom),(120,120,120),3)
         frames.append((t,image))
     result=f.analyze_samples(frames,100)
-    # G-42: this projection is observed for <120s, so it stays unconfirmed.
+    # this projection is observed for <120s, so it stays unconfirmed.
     assert result['projector_tracks']==0
     assert all(r['mode'] not in ('projector','both') for r in result['timeline'])
 

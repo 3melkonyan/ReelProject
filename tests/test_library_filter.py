@@ -1,4 +1,4 @@
-"""G-40/3 item 1: the library filter lists every permitted group and subject with lesson counts."""
+"""The library filter lists every permitted group and subject with lesson counts."""
 from contextlib import closing
 
 from reel.db import DB

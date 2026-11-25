@@ -798,7 +798,7 @@ async def upload_start(request: Request, who: str = Depends(uploader)):
         clean.append({"name": name, "size": size})
     if len({c["name"].casefold() for c in clean}) != len(clean):
         raise HTTPException(400, "two files have the same name")
-    # G-40/4: "ordered" = the list order is the lesson order (the page sorts by recording time and lets
+    # "ordered" = the list order is the lesson order (the page sorts by recording time and lets
     # the user reorder). Disk names then carry a "01 " prefix when natural name order would differ.
     ordered = body.get("ordered") is True
     disk = _recording.ordered_disk_names([c["name"] for c in clean]) if ordered else [c["name"] for c in clean]
@@ -852,7 +852,7 @@ async def upload_chunk(uid: str, index: int, offset: int, request: Request, _: s
         if not 0 <= index < len(meta["files"]):
             raise HTTPException(404, "unknown file")
         f = meta["files"][index]
-        if f.get("deleted"):                       # G-40/4: a recording part deleted before confirm
+        if f.get("deleted"):                       # a recording part deleted before confirm
             raise HTTPException(410, "part deleted")
         path = _uploads() / uid / "parts" / f["name"]
         if path.is_symlink():
@@ -893,7 +893,7 @@ def _finish_upload(uid: str, who: str):
     parts = pipeline.parts_of(d / "parts")
     if len(parts) != len(meta["files"]):
         raise HTTPException(409, "unexpected files in the upload")
-    try:   # Settings may have changed during a long upload (G-21 review)
+    try:   # Settings may have changed during a long upload
         from reel.config import load_config
         groups = load_config(str(ROOT / "config.yaml"))["groups"]
     except Exception:  # noqa: BLE001
@@ -962,7 +962,7 @@ from reel.web.student_mail_api import make_router as _student_mail_router
 app.include_router(_student_mail_router(globals()))
 from reel.web.watch_statistics_api import make_router as _watch_statistics_router
 app.include_router(_watch_statistics_router(globals()))
-from reel.web.learning_api import make_router as _learning_router   # G-40/3: library, player, stats
+from reel.web.learning_api import make_router as _learning_router   # library, player, stats
 app.include_router(_learning_router(globals()))
 
 from reel.web.account_api import make_router as _account_router
@@ -985,7 +985,7 @@ app.include_router(_demo_router(globals()))
 from reel.web.audit_api import make_router as _audit_router, install as _install_audit
 app.include_router(_audit_router(globals()))
 _install_audit(app, globals())
-from reel.web import recording as _recording   # noqa: E402 - G-40/4: phone recording + upload order
+from reel.web import recording as _recording   # noqa: E402 - phone recording + upload order
 app.include_router(_recording.make_router(globals()))
 from reel.web.two_factor import login as _admin_login, make_router as _two_factor_router
 app.include_router(_two_factor_router(globals()))

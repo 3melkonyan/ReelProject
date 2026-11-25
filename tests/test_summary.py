@@ -1,4 +1,4 @@
-"""G-40/3 item 3: AI summary, key terms and self-check questions; the lesson works without them."""
+"""AI summary, key terms and self-check questions; the lesson works without them."""
 from contextlib import closing
 import json
 

@@ -1,4 +1,4 @@
-"""G-33: local assets, AA semantic tokens, theme persistence and role-safe navigation."""
+"""Local assets, AA semantic tokens, theme persistence and role-safe navigation."""
 from html.parser import HTMLParser
 import json
 from pathlib import Path

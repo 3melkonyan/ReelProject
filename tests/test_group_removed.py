@@ -1,4 +1,4 @@
-"""A lesson whose group was removed in Settings stops at the first stage (G-21 review)."""
+"""A lesson whose group was removed in Settings stops at the first stage."""
 from pathlib import Path
 
 import pytest

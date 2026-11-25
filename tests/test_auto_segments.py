@@ -1,4 +1,4 @@
-"""G-26: cut-planning uncertainty keeps the complete lesson, using mocked signals only."""
+"""Cut-planning uncertainty keeps the complete lesson, using mocked signals only."""
 from __future__ import annotations
 
 import json
@@ -36,7 +36,7 @@ def planner(tmp_path, monkeypatch):
         monkeypatch.setattr(segments, "label_windows", labels)
         monkeypatch.setattr(segments, "offtopic_cuts", lambda *args: list(off_topic))
         monkeypatch.setattr(segments, "silence_cuts", lambda *args: list(silences))
-        # These tests isolate the G-26 final guards from G-28 sentence evidence.
+        # These tests isolate the final guards from sentence evidence.
         monkeypatch.setattr(segments, "_edges", lambda rows, duration, cfg: (0., duration, {}))
         monkeypatch.setattr(segments, "_middle_cuts", lambda *args: (list(off_topic) + list(silences), []))
         return segments.plan("unused-video.mp4", "unused-audio.wav", transcript, total,

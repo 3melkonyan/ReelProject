@@ -1,4 +1,4 @@
-"""G-34: only temporary SQLite/config/media; no real uploads or worker."""
+"""Only temporary SQLite/config/media; no real uploads or worker."""
 import json
 from pathlib import Path
 import subprocess

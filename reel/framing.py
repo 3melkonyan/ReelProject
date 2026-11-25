@@ -1,4 +1,4 @@
-"""G-35: conservative temporal teaching-surface detection and fixed-per-regime transforms.
+"""Conservative temporal teaching-surface detection and fixed-per-regime transforms.
 
 No face models and no network. All times/corners are in the original joined source.
 The legacy chalk-board detector remains a candidate, not a colour assumption.
@@ -119,7 +119,7 @@ def candidates(image):
         columns=(dark[top:bottom]>0).mean(axis=0)>.55
         edges_x=np.flatnonzero(columns)
         if len(edges_x):quads.append(np.float32([[edges_x[0],top],[edges_x[-1],top],[edges_x[-1],bottom],[edges_x[0],bottom]]))
-    # Keep the measured G-24 RANSAC case, including posts and lecturer legs.
+    # Keep the measured RANSAC case, including posts and lecturer legs.
     from reel.board import detect_frame
     old=detect_frame(gray)
     if old is not None:quads.append(order(old))

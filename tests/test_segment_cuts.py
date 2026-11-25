@@ -1,4 +1,4 @@
-"""G-28: fail-open sentence evidence, precise boundaries and consumer contracts."""
+"""Fail-open sentence evidence, precise boundaries and consumer contracts."""
 import json
 
 import pytest

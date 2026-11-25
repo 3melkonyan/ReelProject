@@ -1,4 +1,4 @@
-"""G-41/2: shared headings/navigation/status, with pure mocked JavaScript only."""
+"""Shared headings/navigation/status, with pure mocked JavaScript only."""
 from test_brand import run_node
 
 

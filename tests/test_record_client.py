@@ -1,4 +1,4 @@
-"""G-40/4 item 1, browser side: record.js and the upload order run as JS units in Node.
+"""Browser side: record.js and the upload order run as JS units in Node.
 
 Fake MediaRecorder, fetch, IndexedDB-less storage (memory fallback), wake lock and network; no browser.
 """

@@ -1,4 +1,4 @@
-"""G-40/4 item 1: phone recording parts on the resumable upload, upload order, current subject.
+"""Phone recording parts on the resumable upload, upload order, current subject.
 
 Real app source under a temporary root (test_web_upload's fixture), fake Slack, no real DB or config.
 """

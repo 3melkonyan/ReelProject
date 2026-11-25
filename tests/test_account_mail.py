@@ -1,4 +1,4 @@
-"""G-39 mail helpers: fake DNS/SMTP only; never read account environment files."""
+"""Mail helpers: fake DNS/SMTP only; never read account environment files."""
 from __future__ import annotations
 
 from email import policy

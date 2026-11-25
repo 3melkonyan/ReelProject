@@ -185,7 +185,7 @@ def notify_expired(database, config, notifier, today=None):
 
 
 def reconcile_metadata(database, old_name, new_name=None, subjects=None):
-    """Run inside the core-config transaction; historical jobs and memberships stay untouched."""
+    """Run inside the core-config transaction; completed jobs and memberships stay untouched."""
     row = database.conn.execute('SELECT * FROM group_metadata WHERE name=?', (old_name,)).fetchone()
     done = legacy_completed(database)
     if new_name is None:

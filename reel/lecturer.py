@@ -1,4 +1,4 @@
-"""G-22: automatic lecturer recognition — who is the lecturer of this lesson?
+"""Automatic lecturer recognition — who is the lecturer of this lesson?
 
 The academy's rule: the person most often in front of the camera, at the board,
 is the lecturer. The rendered lesson is sampled every SAMPLE_EVERY seconds, faces
@@ -354,7 +354,7 @@ def discover(video: str | Path, out_dir: str | Path, *, duration: float | None =
         want = _unit(np.array(choice["centre"], dtype=np.float32))
         sims = [float(d["centre"] @ want) for d in identities] if want is not None else []
         k = int(np.argmax(sims)) if sims else -1
-        if k < 0 or sims[k] < CHOICE_SIM:     # owner policy 2026-11-19: never stop -> blur everyone
+        if k < 0 or sims[k] < CHOICE_SIM:     # never stop -> blur everyone
             return publish({"mode": "none", "refs_dir": None, "reason": "chosen lecturer not found again",
                             "auto_note": "the lecturer chosen on the job page was not found again — everyone blurred"})
         lecturer, mode = identities[k], "chosen"

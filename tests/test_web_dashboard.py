@@ -1,4 +1,4 @@
-"""G-29 uses the real HTTP application with an isolated DB/config/media root."""
+"""Exercise the real HTTP application with an isolated DB/config/media root."""
 import json
 from pathlib import Path
 import sys
@@ -26,7 +26,7 @@ def test_next_number_course_scope_and_readonly(isolated):
     c = web.client("uploader")
     query = "/api/uploads/next-number?" + urlencode({"group":"Group-B", "subject":"Python"})
     assert c.call("GET", query)[1] == {"number":1,"subject":"Python"}
-    # G-36 accounts exist before any lesson. The lookup must still not mutate lesson data.
+    # accounts exist before any lesson. The lookup must still not mutate lesson data.
     database = DB(web.root / "reel.db")
     assert database.conn.execute('SELECT count(*) FROM jobs').fetchone()[0] == 0
     assert database.conn.execute('SELECT count(*) FROM stages').fetchone()[0] == 0

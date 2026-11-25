@@ -3,7 +3,7 @@
 A trycloudflare quick tunnel dies after the Mac sleeps or the network drops ("Tunnel not
 found"), and every restart gets a new URL. This watcher notices a wake-up (a gap in the wall
 clock) or a dead public URL, restarts the tunnel with tools/share.sh when needed, and opens the
-current link in the default browser (owner's choice: no email). Only the tunnel/dashboard are
+current link in the default browser (without email notifications). Only the tunnel/dashboard are
 touched, never the worker.
 
   nohup .venv/bin/python tools/tunnel_watch.py >> logs/tunnel_watch.log 2>&1 &

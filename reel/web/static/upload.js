@@ -208,7 +208,7 @@ window.addEventListener("beforeunload",e=>{if(S.up){e.preventDefault();e.returnV
 window.addEventListener("online",resumeUpload);
 document.addEventListener("visibilitychange",()=>{if(!document.hidden){resumeUpload();if(S.up&&uploadBusy)uploadAwake();}});
 
-/* G-40/4: several parts are put in recording order (the MP4/MOV 'mvhd' creation time, else the file
+/* several parts are put in recording order (the MP4/MOV 'mvhd' creation time, else the file
    time); the user can move them up or down before sending. Only small header slices are read. */
 async function videoCreated(file) {
   try {

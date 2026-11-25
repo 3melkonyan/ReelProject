@@ -1,7 +1,7 @@
-"""C-6: privacy guard (PRD Ո1) — the last check before anything is published.
+"""Privacy guard — the last check before anything is published.
 
 Re-detects faces on the BLURRED video and judges them against the blur stage's own
-decisions (G-9.6), see judge(). FaceID (YuNet + SFace) is shared with reel/blur.py.
+decisions, see judge(). FaceID (YuNet + SFace) is shared with reel/blur.py.
 """
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ DET_MODEL = ROOT / "models" / "face_detection_yunet_2023mar.onnx"
 REC_MODEL = ROOT / "models" / "face_recognition_sface_2021dec.onnx"
 COSINE_MATCH = 0.363      # SFace recommended threshold for "same person"
 DET_SCORE = 0.7
-WIDTH = 1920              # G-42: preserve >=16px rendered faces in the guard too
+WIDTH = 1920              # preserve >=16px rendered faces in the guard too
 
 
 class FaceID:
@@ -92,8 +92,8 @@ def _frames(video: Path, fps: float, width: int):
         proc.wait()
 
 
-# --- guard policy (G-9.6) ----------------------------------------------------------
-# G-27: unsure faces are counted only, without warnings or stops. Confident
+# --- guard policy ----------------------------------------------------------
+# unsure faces are counted only, without warnings or stops. Confident
 # students still use the sustained-event policy below. No-lecturer fallback
 # retains the previous blur-everyone enforcement.
 # Blur decisions explain lecturer tracks, deliberately visible unsure faces,

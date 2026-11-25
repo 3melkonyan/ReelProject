@@ -1,4 +1,4 @@
-"""G-25 render summaries, using source-exec under a temporary app root only."""
+"""Render summaries, using source-exec under a temporary app root only."""
 from __future__ import annotations
 
 import builtins

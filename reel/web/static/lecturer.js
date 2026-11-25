@@ -1,4 +1,4 @@
-/* G-22: admin-only lecturer snapshots and explicit choices. app.js owns routing. */
+/* admin-only lecturer snapshots and explicit choices. app.js owns routing. */
 async function renderLecturerPanel(d) {
   const panel = $("#jd-lecturer");
   if (!panel) return;

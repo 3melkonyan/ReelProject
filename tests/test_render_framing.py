@@ -1,4 +1,4 @@
-"""G-24: render applies the board framing (scale -> rotate -> crop) on the CPU path."""
+"""Render applies the board framing (scale -> rotate -> crop) on the CPU path."""
 import subprocess
 
 from reel.stages.render import framing_chain, render

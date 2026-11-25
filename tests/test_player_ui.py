@@ -1,4 +1,4 @@
-"""G-40/3 item 4: fake-YouTube player, watched intervals and account isolation. No server or playback."""
+"""Fake-YouTube player, watched intervals and account isolation. No server or playback."""
 from test_brand import run_node
 
 

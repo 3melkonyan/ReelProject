@@ -1,4 +1,4 @@
-"""G-42/2: first-topic titles, whole words and immutable publication metadata; no network."""
+"""First-topic titles, whole words and immutable publication metadata; no network."""
 from copy import deepcopy
 from types import SimpleNamespace
 

@@ -1,4 +1,4 @@
-"""G-26 summaries and passive UI notes; source-only fixtures never import the web app."""
+"""Summaries and passive UI notes; source-only fixtures never import the web app."""
 from __future__ import annotations
 
 import ast
@@ -111,7 +111,7 @@ for(const [note,meaning] of samples){
 const unknown='unknown English <img src=x onerror="bad()"> & detail';
 assert(line({auto_note:unknown}).includes(esc(unknown)));
 assert(!line({auto_note:unknown}).includes("<img"));
-// Date editor has its own G-39 tests; keep this fixture focused on passive stage notes.
+// Date editor has its own tests; keep this fixture focused on passive stage notes.
 context.renderLessonDate=()=>{};
 async function run(){
  for(const role of ["viewer","admin"]){

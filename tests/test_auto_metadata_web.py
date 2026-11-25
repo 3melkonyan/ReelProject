@@ -1,4 +1,4 @@
-"""G-26 chapterless metadata and persisted fallback notes on the job page."""
+"""Chapterless metadata and persisted fallback notes on the job page."""
 from __future__ import annotations
 
 import json

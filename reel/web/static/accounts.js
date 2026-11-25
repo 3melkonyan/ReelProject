@@ -54,7 +54,7 @@ async function viewProfile() {
   for(const id of ['profile-name','profile-password']) $("#"+id).onsubmit=async event=>{event.preventDefault();const button=event.target.querySelector('button');button.disabled=true;try{await api('/api/accounts/'+(id==='profile-name'?'profile':'password'),{method:'POST',body:JSON.stringify(Object.fromEntries(new FormData(event.target)))});if(id==='profile-password'){S.role=null;S.user=null;renderLogin('Գաղտնաբառը փոխված է։ Կրկին մուտք գործեք։');}else{S.user.name=event.target.elements.name.value;refreshAccountAvatars();report('Անունը պահպանված է։');}}catch(error){report(error.message);}finally{button.disabled=false;}};
   $("#profile-avatar-form").onsubmit=async event=>{event.preventDefault();const file=$("#avatar-file").files[0];if(!file)return;if(file.size>5*1024*1024){report('Նկարի առավելագույն չափը5 ՄԲ է։');return;}const button=event.target.querySelector('button');button.disabled=true;try{const response=await fetch('/api/accounts/avatar',{method:'POST',credentials:'same-origin',headers:{'X-Requested-With':'reel','Content-Type':file.type},body:file});const data=await response.json();if(!response.ok)throw Error(data.detail);S.user.avatar=data.avatar;refreshAccountAvatars();report('Նկարը պահպանված է։');}catch(error){report(error.message);}finally{button.disabled=false;}};
 }
-/* G-39: scoped account directory, invitations and a separate edit page. */
+/* scoped account directory, invitations and a separate edit page. */
 function accountsStyles() {
   if ($("#accounts-css")) return;
   const style = document.createElement("style");

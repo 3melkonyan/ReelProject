@@ -1,4 +1,4 @@
-"""G-40/3 pipeline stages. None of them ever stops a lesson: a failure becomes a note (automation first)."""
+"""Pipeline stages. None of them ever stops a lesson: a failure becomes a note (automation first)."""
 from __future__ import annotations
 
 import time
@@ -78,7 +78,7 @@ def summary_stage(ctx: Ctx) -> dict:
 
 
 def install(stages: list) -> None:
-    """Insert the G-40/3 stages into reel.stages.STAGES by name, so other branches' edits keep merging."""
+    """Insert optional learning stages after their required inputs are available."""
     def after(anchor: str, entry: tuple) -> None:
         names = [name for name, _ in stages]
         if entry[0] not in names:

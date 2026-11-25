@@ -1,4 +1,4 @@
-"""Admin-only lecturer inspection and atomic per-job choices (G-22)."""
+"""Admin-only lecturer inspection and atomic per-job choices."""
 from __future__ import annotations
 
 import json

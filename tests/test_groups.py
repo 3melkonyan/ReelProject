@@ -1,4 +1,4 @@
-"""G-40 groups: temporary DB/config, exact membership, dates and fake expiry delivery."""
+"""Groups: temporary DB/config, exact membership, dates and fake expiry delivery."""
 from __future__ import annotations
 
 from contextlib import closing

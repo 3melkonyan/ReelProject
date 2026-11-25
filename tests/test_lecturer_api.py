@@ -1,4 +1,4 @@
-"""G-22 HTTP tests: source-exec app, ephemeral server and exclusively temporary data."""
+"""HTTP tests: source-exec app, ephemeral server and exclusively temporary data."""
 from __future__ import annotations
 
 import builtins

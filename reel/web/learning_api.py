@@ -1,4 +1,4 @@
-"""G-40/3 library API: filter options, lesson player data, search, watch progress and statistics."""
+"""Library API: filter options, lesson player data, search, watch progress and statistics."""
 from __future__ import annotations
 
 from contextlib import closing

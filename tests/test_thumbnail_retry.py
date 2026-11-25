@@ -1,4 +1,4 @@
-"""thumbnail_set: a fresh upload may refuse the thumbnail for a minute; retry, never block publishing."""
+"""Thumbnail_set: a fresh upload may refuse the thumbnail for a minute; retry, never block publishing."""
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -25,7 +25,7 @@ def test_retry_after_early_403_succeeds_quietly():
 def test_gives_up_after_three_tries_with_a_note_and_no_slack_message():
     result, waits, notify = run(Exception("HTTP 403"))
     assert result["set"] is False and result["attempts"] == 3 and waits == [0, 60, 120]
-    assert notify.call_count == 0 and "published without it" in result["auto_note"]   # owner policy 2026-11-19
+    assert notify.call_count == 0 and "published without it" in result["auto_note"]
 
 
 def test_no_thumbnail_file_skips():

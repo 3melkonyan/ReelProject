@@ -1,4 +1,4 @@
-"""The final G-28 plan still reaches render, chapter mapping and the cuts API."""
+"""The final plan still reaches render, chapter mapping and the cuts API."""
 import json
 import subprocess
 

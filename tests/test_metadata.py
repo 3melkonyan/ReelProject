@@ -183,7 +183,7 @@ def test_markdown_is_rejected_in_all_public_fields(field):
  with pytest.raises(ValueError,match='plain text'):metadata._validate(m,[(0,3000)],require_armenian=True)
 
 
-# Compact actual English MAP topics from the two G-17 evaluation cases.
+# Compact actual English MAP topics from the two evaluation cases.
 @pytest.mark.parametrize('total,changes',[
  (8147.24,[(17,'Function Call Context'),(707,'Dynamic this Resolution'),
   (1516,'Array Iteration and Functional Programming'),(2277,'Interpreter Execution Model'),

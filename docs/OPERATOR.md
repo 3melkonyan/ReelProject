@@ -19,7 +19,7 @@ Outputs are in `work/ID/`; logs are in `logs/daemon.log`. Wait for `done`: a You
 
 ## Stopped jobs
 
-Read the specific error before retrying. Some messages below describe historical stops; current conservative fallbacks may retain content or use basic metadata instead.
+Read the specific error before retrying. Some messages below describe previous failure cases; current conservative fallbacks may retain content or use basic metadata instead.
 
 | Message or condition | Meaning and action |
 | --- | --- |

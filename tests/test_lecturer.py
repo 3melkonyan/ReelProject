@@ -1,4 +1,4 @@
-"""G-22: automatic lecturer recognition (reel/lecturer.py) on synthetic identity features.
+"""Automatic lecturer recognition (reel/lecturer.py) on synthetic identity features.
 
 No video: _sample() is replaced by synthetic samples. Each person is a random unit
 vector in SFace's 128-D space (two random people: cosine ~0 +- 0.09); a sample is
@@ -80,7 +80,7 @@ def test_the_person_most_often_in_frame_is_the_lecturer(tmp_path, monkeypatch):
 
 def test_two_people_equally_often_is_unsure_and_blurs_everyone(tmp_path, monkeypatch):
     s = samples([(PEOPLE[0], range(0, 400, 2)), (PEOPLE[1], range(1, 300, 2))], frames=400)
-    r = run(tmp_path, monkeypatch, s)                     # owner policy 2026-11-19: never stop
+    r = run(tmp_path, monkeypatch, s)                     # never stop
     assert r["mode"] == "none" and "everyone blurred" in r["auto_note"]
     data = stored(tmp_path)
     assert data["mode"] == "none" and "almost equally" in data["reason"]

@@ -1,5 +1,5 @@
 "use strict";
-/* G-40/4 · Ձայնագրում հեռախոսից (lesson recording in the phone's browser).
+/* Lesson recording in the phone's browser.
    Each part streams while it is recorded: MediaRecorder timeslice chunks are stored in IndexedDB,
    then sent in order through the existing resumable upload (PUT /api/uploads/<id>/<part>?offset=N).
    A dropped connection only delays sending. The session, its parts and the first server calls are

@@ -1,4 +1,4 @@
-"""G-40/4 phone recording in the browser, built on the existing resumable upload.
+"""Phone recording in the browser, built on the existing resumable upload.
 
 A recording session is an ordinary upload folder ``out/uploads/<uid>/`` whose ``meta.json`` has
 ``kind: "recording"``. Its parts are created while the lecturer records (part 1, part 2 ...). The bytes

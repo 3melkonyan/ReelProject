@@ -1,4 +1,4 @@
-"""Lesson numbers: the upload page prefill (next_lesson_number, G-29) and the number a
+"""Lesson numbers: the upload page prefill (next_lesson_number) and the number a
 lesson is published with (_lesson_number) follow the same rules."""
 from types import SimpleNamespace
 

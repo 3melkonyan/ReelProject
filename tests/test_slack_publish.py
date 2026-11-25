@@ -1,4 +1,4 @@
-"""G-42/2: immediate YouTube readiness polling, unchanged Slack text and local idempotency."""
+"""Immediate YouTube readiness polling, unchanged Slack text and local idempotency."""
 from types import SimpleNamespace
 
 import pytest

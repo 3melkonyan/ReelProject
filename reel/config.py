@@ -84,7 +84,7 @@ def validate_config(config: object) -> dict:
             _text(item["name"], f"groups.{name}.subjects.name")
             pl = item.get("playlist")
             if pl is None:
-                pl = ""     # owner 2026-11-19: no playlist yet -> the lesson is published without one
+                pl = ""     # no playlist yet -> the lesson is published without one
             if not isinstance(pl, str):
                 raise ValueError(f"groups.{name}.subjects.playlist must be a string")
             subject, pl = item["name"].strip(), pl.strip()
@@ -106,7 +106,7 @@ def validate_config(config: object) -> dict:
         for lecturer in lecturers:
             _text(lecturer, "lecturer")
         group["lecturers"] = lecturers
-        if "framing" in group and group["framing"] not in ("auto", "board", "projector", "off"):    # G-24
+        if "framing" in group and group["framing"] not in ("auto", "board", "projector", "off"):
             raise ValueError(f"groups.{name}.framing must be 'auto', 'board', 'projector' or 'off'")
         if "framing_correction" in group and group["framing_correction"] not in ("rotate", "perspective"):
             raise ValueError(f"groups.{name}.framing_correction must be 'rotate' or 'perspective'")

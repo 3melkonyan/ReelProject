@@ -1,4 +1,4 @@
-"""Short real-media G-23 matrix; all generated inputs and outputs live in pytest temp dirs.
+"""Short real-media matrix; all generated inputs and outputs live in pytest temp dirs.
 
 No detector, model, database, original lesson, worker or service is started here.
 The shared 2-second fixtures keep the complete hardware-assisted matrix small.
@@ -72,14 +72,14 @@ def media_runtime_budget():
     def bounded_run(*args, **kwargs):
         remaining = deadline - time.monotonic()
         if remaining <= 0:
-            pytest.fail("G-23 media module exhausted its shared 88.5-second subprocess budget")
+            pytest.fail("media module exhausted its shared 88.5-second subprocess budget")
         explicit = kwargs.get("timeout")
         kwargs["timeout"] = min(explicit, remaining) if explicit is not None else remaining
         try:
             return original_run(*args, **kwargs)
         except subprocess.TimeoutExpired:
             if time.monotonic() >= deadline:
-                pytest.fail("G-23 media module exhausted its shared 88.5-second subprocess budget")
+                pytest.fail("media module exhausted its shared 88.5-second subprocess budget")
             raise
 
     patch.setattr(subprocess, "run", bounded_run)
@@ -88,12 +88,12 @@ def media_runtime_budget():
             pytest.skip("real media tests require ffmpeg and ffprobe")
         encoders = run(["ffmpeg", "-hide_banner", "-encoders"]).stdout
         if "hevc_videotoolbox" not in encoders:
-            pytest.skip("G-23 hardware media matrix requires HEVC VideoToolbox")
+            pytest.skip("hardware media matrix requires HEVC VideoToolbox")
         yield encoders
     finally:
         patch.undo()
         elapsed = time.monotonic() - started
-        assert elapsed < 90, f"G-23 media module exceeded 90 seconds: {elapsed:.2f}s"
+        assert elapsed < 90, f"media module exceeded 90 seconds: {elapsed:.2f}s"
 
 
 @pytest.fixture(scope="module")

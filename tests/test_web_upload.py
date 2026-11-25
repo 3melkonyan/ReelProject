@@ -193,7 +193,7 @@ def test_admin_sets_the_subject_of_a_lesson_that_is_not_published_yet(web):
 
 
 def test_finish_refuses_a_group_removed_during_the_upload(web):
-    """G-21 review: Settings can change while a long upload runs; finish re-checks the group."""
+    """Settings can change while a long upload runs; finish re-checks the group."""
     c = web.client("uploader")
     code, r = c.call("POST", "/api/uploads", body={"group": "Group-B", "subject": "Python", "lesson": "L",
                                                    "files": [{"name": "a.mp4", "size": 3}]})

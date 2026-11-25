@@ -100,7 +100,7 @@ def extract(video,plan,options,*,time_map=None,recognizer=None):
 def save(conn,job_id,rows):
     """Only called by an enabled processing stage; tests use isolated SQLite.
 
-    Table owner: G-40/2. Search consumers can SELECT by job_id, final t_start/t_end.
+    Search consumers can SELECT by job_id, final t_start/t_end.
     """
     conn.execute('CREATE TABLE IF NOT EXISTS ocr_segments (job_id INTEGER NOT NULL REFERENCES jobs(id) ON DELETE CASCADE, t_start REAL NOT NULL, t_end REAL NOT NULL, source TEXT NOT NULL, text TEXT NOT NULL)')
     conn.execute('CREATE INDEX IF NOT EXISTS ocr_segments_job_time ON ocr_segments(job_id,t_start)')

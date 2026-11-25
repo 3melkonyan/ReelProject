@@ -1,4 +1,4 @@
-"""Branded Reel emails beyond account links (G-40/4): the admin sign-in code, privacy notices,
+"""Branded Reel emails beyond account links: the admin sign-in code, privacy notices,
 problem alerts and lesson reports.
 
 Same look as ``reel.web.account_mail`` (black band with the CID logo, card, light/dark), a plain-text

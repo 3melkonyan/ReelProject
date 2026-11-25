@@ -142,7 +142,7 @@ def board_motion(video,start,end,framing):
 def pauses(result,video,audio,transcript,framing,options,max_ratio):
     from reel.stages.segments import detect_silences
     r=copy.deepcopy(result)
-    if r.get('auto_note'):return r # preserve G-26 full-lesson fallback
+    if r.get('auto_note'):return r # preserve full-lesson fallback
     rows=transcript.get('segments',[]) if isinstance(transcript,dict) else transcript or []
     events=[];keep=r['keep'];total=r['original_sec']
     for start,end in detect_silences(audio,-40,options['min_sec']):
