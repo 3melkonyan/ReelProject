@@ -48,7 +48,10 @@ def validate_config(config: object) -> dict:
     "lecturers": [names] (may be empty = automatic lecturer), "classroom_course_id": str (optional)}.
     Legacy 'playlist_id: X' is accepted and becomes one subject named after the group."""
     config = copy.deepcopy(config)
-    _mapping(config, "config", {"groups", "operator_slack_channel", "cut"}, frozenset({"time_savings"}))
+    _mapping(config, "config", {"groups", "operator_slack_channel", "cut"}, frozenset({"time_savings", "ui_language"}))
+    if "ui_language" in config:
+        from reel.i18n import validate_language
+        validate_language(config["ui_language"])
     if "time_savings" in config:
         assumptions = _mapping(config["time_savings"], "time_savings",
                                {"editing_min_per_hour", "publishing_min_per_lesson"})
