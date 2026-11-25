@@ -1,5 +1,5 @@
 """Cut decisions survive pipeline adapters; smart pauses share the same safety budget."""
-import json
+
 from types import SimpleNamespace
 
 from reel import stages

@@ -6,9 +6,9 @@ from reel.i18n import t as _t
 from contextlib import closing
 import json
 import math
-import os
+
 import re
-import tempfile
+
 import threading
 from datetime import datetime, timezone
 from pathlib import Path

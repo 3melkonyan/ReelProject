@@ -12,7 +12,7 @@ import pytest
 import reel.blur
 import reel.lecturer
 import reel.stages as st
-from reel.pipeline import Ctx, StopJob
+from reel.pipeline import Ctx
 from face_models import requires_face_models
 
 

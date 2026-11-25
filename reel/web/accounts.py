@@ -75,9 +75,10 @@ def fields(name,email,role,selected,known):
 
 
 def public_user(row):
+    columns = set(row.keys())
     value = {k:row[k] for k in ('id','login','email','name','role','active','created_at','last_login_at')}
-    removed = row['removed_at'] if 'removed_at' in row.keys() else None
-    deleted = row['deleted_at'] if 'deleted_at' in row.keys() else None
+    removed = row['removed_at'] if 'removed_at' in columns else None
+    deleted = row['deleted_at'] if 'deleted_at' in columns else None
     return value | {'groups':json.loads(row['groups_json']), 'removed_at':removed, 'deleted_at':deleted,
                     'removed':bool(removed), 'deleted':bool(deleted),
                     'avatar':f"/api/accounts/avatars/{row['id']}?v={row['avatar']}" if row['avatar'] and not deleted else None}
@@ -200,7 +201,7 @@ def public_base(root):
         except OSError: return None
         if not re.fullmatch(r'https://[a-z0-9-]+\.trycloudflare\.com',url):return None
     try:
-        parsed=urlsplit(url);parsed.port
+        parsed=urlsplit(url);_ = parsed.port  # Validate the lazily parsed port.
     except ValueError:return None
     if (parsed.scheme not in ('https','http') or not parsed.hostname or parsed.username or parsed.password or parsed.query or parsed.fragment
             or any(c in url for c in '\r\n') or (parsed.scheme=='http' and parsed.hostname not in ('127.0.0.1','localhost'))):return None

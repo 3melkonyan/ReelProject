@@ -10,7 +10,7 @@ from reel.db import DB
 from reel.insights import cut_summary, library_records, statistics
 from reel.progress import Tracker, byte_fraction, ffmpeg_seconds, weights
 from reel.config import validate_config
-from test_web_upload import web
+
 
 
 def seed(root):

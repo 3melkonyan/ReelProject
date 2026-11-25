@@ -1,10 +1,10 @@
-import json
+
 import pytest
 from fastapi import HTTPException
 from reel.db import DB
 from reel.i18n import t
 from reel.web import privacy
-from test_web_upload import web
+
 from test_accounts import invite,PASSWORD
 
 

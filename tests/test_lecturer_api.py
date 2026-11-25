@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import builtins
-import copy
+
 import io
 import json
 import os

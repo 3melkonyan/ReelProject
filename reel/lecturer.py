@@ -235,7 +235,7 @@ def _pick_refs(s: _Samples, ident: dict, duration: float) -> list[int]:
     if len(chosen) > 1:     # an isolated crop (matches no other reference) is dropped. Not a
         sims = s.unit[chosen] @ s.unit[chosen].T      # majority rule: front and profile views of
         agree = (sims >= COSINE_MATCH).sum(axis=1) - 1  # one person legitimately match less
-        chosen = [i for i, a in zip(chosen, agree) if a >= 1]
+        chosen = [i for i, a in zip(chosen, agree, strict=False) if a >= 1]
     return chosen
 
 
@@ -429,7 +429,7 @@ def track_refs(video: str | Path, analysis: list[dict], out_dir: str | Path, *, 
     unit = np.stack(units)
     if len(others):
         far = (unit @ np.stack([_unit(np.array(o)) for o in others]).T).max(axis=1) < COSINE_MATCH
-        cands = [a for a, ok in zip(cands, far) if ok]
+        cands = [a for a, ok in zip(cands, far, strict=False) if ok]
         unit = unit[far]
     if not cands:
         return 0

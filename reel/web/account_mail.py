@@ -107,7 +107,7 @@ def _url(value: object) -> str:
         raise ValueError("Invalid account URL")
     try:
         parsed = urlsplit(value)
-        parsed.port
+        _ = parsed.port  # Access validates malformed or out-of-range ports.
     except ValueError:
         raise ValueError("Invalid account URL") from None
     if (parsed.scheme not in ("https", "http") or not parsed.hostname or parsed.username or parsed.password

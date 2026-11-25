@@ -4,6 +4,7 @@ One delivery per incident/recipient/channel. Delivery is claimed durably BEFORE 
 external call: a timeout/crash is left for operator review rather than sending duplicates.
 """
 from __future__ import annotations
+from contextlib import suppress
 
 from reel.i18n import t as _t
 import asyncio,json,logging,os,shutil,time
@@ -77,8 +78,8 @@ def poll(conn,root,*,alive=None,free=None,email=None,slack=None):
             with language_context(recipient_language(root,address)):
                 text=conditions(conn,root,alive=alive,free=free).get(key,text)
                 event=f'alert:{key}:{gen}'
-                once(conn,event,address,'email',lambda address=address: email(address,text) if email else brand_mail.send(root,address,_t('text.notifications.reel_issue_alert'),eyebrow=_t('text.notifications.administrators_only'),title=_t('text.notifications.attention_required'),paragraphs=[text],note=_t('text.notifications.duplicate_emails_will_not_be_sent_for')))
-                once(conn,event,address,'slack',lambda address=address: (slack or slack_admin)(address,'⚠️ Reel · '+text))
+                once(conn,event,address,'email',lambda address=address, text=text: email(address,text) if email else brand_mail.send(root,address,_t('text.notifications.reel_issue_alert'),eyebrow=_t('text.notifications.administrators_only'),title=_t('text.notifications.attention_required'),paragraphs=[text],note=_t('text.notifications.duplicate_emails_will_not_be_sent_for')))
+                once(conn,event,address,'slack',lambda address=address, text=text: (slack or slack_admin)(address,'⚠️ Reel · '+text))
     return len(active)
 
 
@@ -110,8 +111,8 @@ def install(app,env):
         task=getattr(app.state,'reel_monitor',None)
         if task:
             task.cancel()
-            try:await task
-            except asyncio.CancelledError:pass
+            with suppress(asyncio.CancelledError):
+                await task
     from contextlib import asynccontextmanager
     previous=app.router.lifespan_context
     @asynccontextmanager

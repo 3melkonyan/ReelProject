@@ -1,5 +1,5 @@
 """A lesson whose group was removed in Settings stops at the first stage."""
-from pathlib import Path
+
 
 import pytest
 

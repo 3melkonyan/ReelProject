@@ -185,7 +185,7 @@ def observed_run(cmd, *, run=subprocess.run, total=None, **kwargs):
                         if hasattr(sink, "check_cancel"):
                             sink.check_cancel()
                         if timeout and time.monotonic()-started >= timeout:
-                            raise subprocess.TimeoutExpired(args, timeout)
+                            raise subprocess.TimeoutExpired(args, timeout) from None
                         value = ffmpeg_seconds(read_progress(progress))
                         if value is not None and expected:
                             # Render includes audio measurement / validation passes; only encode advances.

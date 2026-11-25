@@ -1,6 +1,6 @@
 """Selected assets, keyboard menu, role navigation and upload date intent."""
-from pathlib import Path
-import hashlib,json,subprocess,xml.etree.ElementTree as ET
+
+import json, subprocess, xml.etree.ElementTree as ET
 from PIL import Image
 from test_brand import run_node,STATIC,NODE
 

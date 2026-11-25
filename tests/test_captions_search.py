@@ -11,7 +11,6 @@ from reel.db import DB
 from reel.pipeline import Ctx
 from reel.publish.errors import PublishError
 from reel.web import accounts as a
-from test_web_upload import web  # noqa: F401 - pytest fixture
 
 KEEP = [[20, 500], [600, 990]]
 SEGMENTS = [
@@ -33,11 +32,11 @@ def test_final_cues_follow_the_cut_timeline():
 
 
 def test_split_wrap_and_formats():
-    long = {"start": 100, "end": 120, "text": " ".join(["բառ%02d" % i for i in range(40)])}
+    long = {"start": 100, "end": 120, "text": " ".join([f"բառ{i:02d}" for i in range(40)])}
     parts = captions.split_cues([long])
     assert len(parts) >= 3 and all(len(p["text"]) <= captions.MAX_CHARS for p in parts)
     assert parts[0]["start"] == 100 and parts[-1]["end"] == 120
-    assert all(x["end"] == y["start"] for x, y in zip(parts, parts[1:]))
+    assert all(x["end"] == y["start"] for x, y in zip(parts, parts[1:], strict=False))
     assert " ".join(p["text"] for p in parts) == long["text"]
     srt = captions.to_srt([{"start": 3661.5, "end": 3663.25, "text": "a <b> --> c"}])
     assert srt == "1\n01:01:01,500 --> 01:01:03,250\na ‹b› → c\n"
@@ -90,7 +89,8 @@ class FakeYouTube:
         return None
 
     def upload_captions(self, video, path, language="hy"):
-        self.calls.append((video, open(path, encoding="utf-8").read(), language))
+        with open(path, encoding="utf-8") as stream:
+            self.calls.append((video, stream.read(), language))
         if self.fail:
             raise self.fail
         return "caption-1"
@@ -188,7 +188,7 @@ const fs=require('fs'),vm=require('vm'),assert=require('assert/strict');
 const app=fs.readFileSync(process.argv[1],'utf8'),source=fs.readFileSync(process.argv[1].replace('app.js','learning.js'),'utf8');
 const box={innerHTML:'',isConnected:true},els={'#library-text-results':box,'#library-group':{value:'Group-B'},'#library-subject':{value:''}};
 const c={S:{},$:s=>els[s],setTimeout,clearTimeout,clock:s=>String(s)};vm.createContext(c);require(require('path').resolve('tests/browser_locale.cjs')).install(c);
-vm.runInContext(app.slice(app.indexOf('const esc ='),app.indexOf('\n',app.indexOf('const esc ='))),c);vm.runInContext(source,c);
+vm.runInContext(app.slice(app.indexOf('const esc ='),app.indexOf('const STATUS =')),c);vm.runInContext(source,c);
 assert.equal(c.markTerms('<b>closure</b> Closure',['closure']),'&lt;b&gt;<mark>closure</mark>&lt;/b&gt; <mark>Closure</mark>');
 c.S.library=[{job_id:1,group:'Group-A',subject:'Python',title:'A',url:'https://youtu.be/aaaaaaaaaaa'},
  {job_id:2,group:'Group-B',subject:'Python',title:'B',url:'https://youtu.be/bbbbbbbbbbb'}];

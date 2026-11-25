@@ -44,12 +44,14 @@ def test_all_entrypoint_manifest_and_css_resources_are_local_and_exist():
 def tokens(dark=False):
     css = (STATIC / 'app.css').read_text()
     block = re.search(r':root\s*\{(.*?)\}', css, re.S).group(1)
-    result = dict(re.findall(r'(--[\w-]+):([^;]+);', block))
+    result = dict(re.findall(r'(--[\w-]+)\s*:\s*([^;]+);', block))
     if dark:
         block = re.search(r':root\[data-theme="dark"\]\s*\{(.*?)\}', css, re.S).group(1)
-        result.update(re.findall(r'(--[\w-]+):([^;]+);', block))
+        result.update(re.findall(r'(--[\w-]+)\s*:\s*([^;]+);', block))
     def resolve(name):
         value = result[name].strip()
+        if value.startswith('#'):
+            value = value.upper()
         return resolve(value[4:-1]) if value.startswith('var(') else value
     return resolve
 
@@ -58,7 +60,7 @@ def luminance(color):
     value = color.lstrip('#')
     rgb = [int(value[i:i+2], 16) / 255 for i in (0, 2, 4)]
     rgb = [c / 12.92 if c <= .04045 else ((c + .055) / 1.055) ** 2.4 for c in rgb]
-    return sum(c*w for c, w in zip(rgb, (.2126, .7152, .0722)))
+    return sum(c*w for c, w in zip(rgb, (.2126, .7152, .0722), strict=False))
 
 
 @pytest.mark.parametrize('dark', [False, True])

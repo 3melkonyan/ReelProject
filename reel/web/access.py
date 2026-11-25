@@ -1,7 +1,7 @@
 """One request boundary for personal-session validity, CSRF and group authorization."""
 
 from reel.i18n import t as _t
-import json,re
+import re
 from contextlib import ExitStack
 from reel.i18n import language_context, current_language
 from reel.language import user_language
@@ -32,8 +32,8 @@ def install(app,env):
         languages=ExitStack()
         try:
             path=request.url.path
-            if path.startswith('/api/') and request.method in ('POST','PUT','DELETE','PATCH'):
-                if request.headers.get('x-requested-with')!='reel':raise HTTPException(400,_t('access.invalid_request'))
+            if path.startswith('/api/') and request.method in ('POST','PUT','DELETE','PATCH') and request.headers.get('x-requested-with')!='reel':
+                raise HTTPException(400,_t('access.invalid_request'))
             principal=None;session=request.session
             if session.get('user_id') is not None:
                 d=env['db']()

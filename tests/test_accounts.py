@@ -1,14 +1,14 @@
 """Temporary account databases, HTTP group matrix, fake SMTP only."""
 from concurrent.futures import ThreadPoolExecutor
-import base64,io,json,logging,secrets,sqlite3,struct,sys,time,zlib
+import io, json, struct, sys, time, zlib
 import threading
-from pathlib import Path
-from types import SimpleNamespace
+
+
 import pytest
 from PIL import Image
 from reel.db import DB
 from reel.web import accounts as a
-from test_web_upload import web
+
 
 PASSWORD='Անձնական-password-123'
 

@@ -86,7 +86,7 @@ def main() -> None:
     for index in indices:
         best = sorted(clusters[index]["items"], key=lambda x: x[0], reverse=True)
         selected, times = [], []
-        for q, t, cr in best:
+        for _quality, t, cr in best:
             if all(abs(t - u) >= 300 for u in times):
                 selected.append(cr); times.append(t)
             if len(selected) >= a.keep:

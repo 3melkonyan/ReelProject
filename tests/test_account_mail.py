@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from email import policy
 from email.parser import BytesParser
-from pathlib import Path
+
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 

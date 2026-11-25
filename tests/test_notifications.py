@@ -13,8 +13,10 @@ def fixture(tmp_path):
 
 def test_only_admins_and_dedup_survives_restart(tmp_path):
     d,jid=fixture(tmp_path);sent=[]
-    email=lambda address,text:sent.append(('email',address,text)) or True
-    slack=lambda address,text:sent.append(('slack',address,text)) or True
+    def email(address, text):
+        return sent.append(('email',address,text)) or True
+    def slack(address, text):
+        return sent.append(('slack',address,text)) or True
     for _ in range(3):n.poll(d.conn,tmp_path,alive=False,free=1,email=email,slack=slack)
     assert len(sent)==4 and {x[1] for x in sent}=={'admin@example.test'}
     d.conn.close();d=DB(tmp_path/'test.db')

@@ -1,7 +1,8 @@
 """Audit: temp SQLite/HTTP only, with fake mail and publication dependencies."""
+import sqlite3
 from contextlib import closing
 import json
-import time
+
 from urllib.parse import urlencode
 
 import pytest
@@ -9,7 +10,7 @@ import pytest
 from reel.audit import audit, audit_context, write_event
 from reel.db import DB
 from reel.web import accounts
-from test_web_upload import web
+
 
 
 @pytest.fixture(autouse=True)
@@ -52,7 +53,7 @@ def test_publication_and_audit_are_atomic_and_not_duplicated(tmp_path, monkeypat
         row = db.conn.execute('SELECT * FROM audit_events').fetchone()
         assert row['target'] == f'job:{job}' and json.loads(row['details']) == {'target': 'youtube'}
         assert 'example.test' not in row['details']
-        with pytest.raises(Exception):
+        with pytest.raises(sqlite3.IntegrityError):
             db.add_publication(job, 'youtube', 'duplicate', 'https://example.test/duplicate')
         assert db.conn.execute('SELECT count(*) FROM audit_events').fetchone()[0] == 1
         import reel.audit as module

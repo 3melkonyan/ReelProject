@@ -15,7 +15,7 @@ import pytest
 from reel.db import DB
 from reel.web import accounts, admin, group_management as gm
 from reel.web.group_status import completed_groups, set_completed
-from test_admin_api import web, group_url
+from test_admin_api import group_url
 
 GROUP = {'subjects':[{'name':'Python','playlist':'PL-private-python'}, {'name':'JavaScript','playlist':'PL-private-js'}],
          'slack_channel':'C-private-channel', 'lecturers':[]}
@@ -41,18 +41,18 @@ def payload(lecturer=None, tas=(), *, start='2026-01-01', end='2026-12-31'):
         {'name':'JavaScript','lecturer_id':None,'start_date':None,'end_date':None}], 'ta_ids':list(tas)}
 
 
-def app_module(web):
+def app_module(admin_web):
     return next(module for module in list(sys.modules.values())
-                if getattr(module,'__name__','').startswith('_reel_admin_web_') and getattr(module,'ROOT',None)==web.root)
+                if getattr(module,'__name__','').startswith('_reel_admin_web_') and getattr(module,'ROOT',None)==admin_web.root)
 
 
 @pytest.fixture
-def http(web, monkeypatch):
+def http(admin_web, monkeypatch):
     notes = []
-    monkeypatch.setattr(app_module(web), 'notify_group_expiry', lambda channel,text:notes.append((channel,text)), raising=False)
+    monkeypatch.setattr(app_module(admin_web), 'notify_group_expiry', lambda channel,text:notes.append((channel,text)), raising=False)
     from reel.publish import slack
     monkeypatch.setattr(slack, '_send', lambda *args,**kwargs:pytest.fail('group tests must not contact live Slack'))
-    return web, notes
+    return admin_web, notes
 
 
 def test_team_assignments_are_exact_members_and_display_only(database):
@@ -155,22 +155,22 @@ def test_demo_expiry_never_calls_or_claims_notifier(database,marker):
 
 
 def test_cards_details_team_scopes_masking_counts_and_readonly_ta(http,monkeypatch):
-    web, notes = http
-    d = DB(web.root/'reel.db')
+    admin_web, notes = http
+    d = DB(admin_web.root/'reel.db')
     with closing(d.conn):
         teacher = person(d,'member-teacher','lecturer',['Group-A'])
         other = person(d,'other-teacher','lecturer',['Group-B'])
         ta = person(d,'member-ta','student',['Group-A'])
-        jid = d.create_job('fixture.mp4','groups-count','Group-A')
+        d.create_job('fixture.mp4','groups-count','Group-A')
         d.conn.execute('INSERT INTO demo_lessons(id,group_name,subject,title,description,lesson_date,demo_tag) VALUES(?,?,?,?,?,?,?)',
                        ('fixture-demo','Group-A','Python','Դաս','Նկարագրություն','2026-01-01','g40-demo-v1'))
-    admin_client = web.client('admin')
+    admin_client = admin_web.client('admin')
     core = admin_client.call('GET','/api/admin/config')[1]['config']['groups']['Group-A']
     core['subjects'][0]['playlist'] = 'PL-private-python'
     core['slack_channel'] = 'CFIXTURE-private-channel'
     assert admin_client.call('PUT',group_url('Group-A'),core)[0] == 200
     def logged_in(login):
-        client = web.client();assert client.call('POST','/api/login',{'login':login,'password':PASSWORD})[0]==200
+        client = admin_web.client();assert client.call('POST','/api/login',{'login':login,'password':PASSWORD})[0]==200
         return client
     lecturer = logged_in('member-teacher');student = logged_in('member-ta')
     code, details = admin_client.call('GET','/api/admin/group-details/Group-A')
@@ -196,46 +196,46 @@ def test_cards_details_team_scopes_masking_counts_and_readonly_ta(http,monkeypat
     assert student.call('GET','/api/groups/Group-A/team')[1]['team']['tas'][0]['id'] == ta
     assert student.call('GET','/api/groups/Group-B/team')[0] == 404
     assert lecturer.call('GET','/api/groups/Group-B/team')[0] == 404
-    assert web.client().call('GET','/api/groups/Group-A/team')[0] == 401
+    assert admin_web.client().call('GET','/api/groups/Group-A/team')[0] == 401
     from reel.web import thumbnail_styles
     seen = []
     monkeypatch.setattr(thumbnail_styles,'_preview',lambda style:seen.append(style) or b'fixture-png')
     assert lecturer.call('GET',card['thumbnail_url']) == (200,b'fixture-png')
     assert seen and lecturer.call('GET','/api/group-cards/Group-B/thumbnail.png')[0] == 404
     assert admin_client.call('GET','/api/group-cards?status=invalid')[0] == 400
-    d = DB(web.root/'reel.db')
+    d = DB(admin_web.root/'reel.db')
     with closing(d.conn):assert d.conn.execute('SELECT role FROM users WHERE id=?',(ta,)).fetchone()[0]=='student'
 
 
 def test_core_rename_delete_membership_guards_and_metadata_save_rollback(http,monkeypatch):
-    web, _ = http
-    d = DB(web.root/'reel.db')
+    admin_web, _ = http
+    d = DB(admin_web.root/'reel.db')
     with closing(d.conn):
         member = person(d,'enrolled-student','student',['Group-A'])
         gm.save_details(d,'Group-A',GROUP,payload(end='2026-11-20'))
         set_completed(d,'Group-A',True)
-    client = web.client('admin')
+    client = admin_web.client('admin')
     core = client.call('GET','/api/admin/config')[1]['config']['groups']['Group-A']
-    before = (web.root/'config.yaml').read_bytes()
+    before = (admin_web.root/'config.yaml').read_bytes()
     assert client.call('PUT',group_url('Group-A'),{**core,'rename_to':'Renamed'})[0] == 409
     assert client.call('DELETE',group_url('Group-A'))[0] == 409
-    assert (web.root/'config.yaml').read_bytes() == before
-    d = DB(web.root/'reel.db')
+    assert (admin_web.root/'config.yaml').read_bytes() == before
+    d = DB(admin_web.root/'reel.db')
     with closing(d.conn):d.conn.execute("UPDATE users SET groups_json='[]' WHERE id=?",(member,))
     original = admin.save_config
     def fail(*args,**kwargs):raise OSError('fixture disk failure')
     monkeypatch.setattr(admin,'save_config',fail)
     assert client.call('PUT',group_url('Group-A'),{**core,'rename_to':'Renamed'})[0] == 500
-    d = DB(web.root/'reel.db')
+    d = DB(admin_web.root/'reel.db')
     with closing(d.conn):assert d.conn.execute('SELECT name FROM group_metadata').fetchone()[0]=='Group-A'
     monkeypatch.setattr(admin,'save_config',original)
     assert client.call('PUT',group_url('Group-A'),{**core,'rename_to':'Renamed'})[0] == 200
-    d = DB(web.root/'reel.db')
+    d = DB(admin_web.root/'reel.db')
     with closing(d.conn):
         assert d.conn.execute('SELECT name FROM group_metadata').fetchone()[0]=='Renamed'
         assert 'Renamed' in completed_groups(d) and 'Group-A' not in completed_groups(d)
     assert client.call('DELETE',group_url('Renamed'))[0] == 200
-    d = DB(web.root/'reel.db')
+    d = DB(admin_web.root/'reel.db')
     with closing(d.conn):
         assert d.conn.execute('SELECT count(*) FROM group_metadata').fetchone()[0]==0
         assert 'Renamed' not in completed_groups(d)

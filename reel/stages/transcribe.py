@@ -5,11 +5,14 @@ import json
 import subprocess
 from reel.progress import observed_run as _observed_run
 
-def observed_run(*args, **kwargs):
-    return _observed_run(*args, run=subprocess.run, **kwargs)
+
 
 import time
 from pathlib import Path
+
+
+def observed_run(*args, **kwargs):
+    return _observed_run(*args, run=subprocess.run, **kwargs)
 
 DEFAULT_MODEL = "mlx-community/whisper-large-v3-mlx"
 # Measured on a real lesson (2026-11-17): nudges English terms to Latin script (e.g. "C++").

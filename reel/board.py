@@ -206,7 +206,8 @@ def plan(corners, width: int, height: int, *, aspect: float = ASPECT, margin: fl
         w *= 0.99
     h = w / aspect
     cut = max((max(0, x - x0) + max(0, x1 - x - w)) / (x1 - x0), (max(0, y - y0) + max(0, y1 - y - h)) / (y1 - y0))
-    even = lambda v: int(round(v / 2) * 2)
+    def even(v):
+        return int(round(v / 2) * 2)
     output_h = max(2, int(output_w / aspect) // 2 * 2)
     return {"size": [width, height], "output_size": [output_w, output_h], "max_upscale": 1.5,
             "cap_ok": output_w / max(2, even(w)) <= 1.5, "rotate_deg": round(-tilt, 3),

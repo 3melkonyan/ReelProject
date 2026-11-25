@@ -2,6 +2,7 @@
 
 Fake MediaRecorder, fetch, IndexedDB-less storage (memory fallback), wake lock and network; no browser.
 """
+import re
 from pathlib import Path
 import shutil
 import subprocess
@@ -178,7 +179,7 @@ vm.createContext(c);require(require('path').resolve('tests/browser_locale.cjs'))
 
 def test_record_page_is_routed_for_uploaders_and_assets_are_loaded():
     app = (STATIC / "app.js").read_text()
-    assert '["record","mic",i18nText("ui.app.record")]' in app and "fn = viewRecord" in app
+    assert re.search(r'\[\s*"record",\s*"mic",\s*i18nText\("ui.app.record"\),?\s*\]', app) and "fn = viewRecord" in app
     index = (STATIC / "index.html").read_text()
     assert '<script src="/record.js"></script>' in index and '/recording.css' in index
     text = (STATIC / "record.js").read_text()

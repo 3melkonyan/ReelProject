@@ -13,7 +13,7 @@ import pytest
 from reel.i18n import t
 from reel.db import DB
 from reel.web import accounts as a
-from test_web_upload import web
+
 
 PASSWORD = 'account-fixture-password-123'
 

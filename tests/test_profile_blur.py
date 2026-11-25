@@ -20,10 +20,8 @@ def test_nested_timers_are_exclusive_and_phase_paths_separate_guard():
             with stats.measure("yunet"):
                 now[0] += 2
             now[0] += 1
-        with stats.measure("phase.privacy"):
-            with stats.measure("phase.analyze"):
-                with stats.measure("yunet"):
-                    now[0] += 3
+        with stats.measure('phase.privacy'), stats.measure('phase.analyze'), stats.measure('yunet'):
+            now[0] += 3
     rows = {(r["phase"], r["metric"]): r for r in stats.report()["metrics"]}
     analysis = rows["run/analyze", "phase.analyze"]
     assert analysis["wall_inclusive_sec"] == 4
@@ -36,9 +34,8 @@ def test_nested_timers_are_exclusive_and_phase_paths_separate_guard():
 
 def test_timer_records_failure_and_preserves_exception():
     stats = profile.Measurements()
-    with pytest.raises(ValueError, match="synthetic"):
-        with stats.measure("phase.analyze"):
-            raise ValueError("synthetic")
+    with pytest.raises(ValueError, match='synthetic'), stats.measure('phase.analyze'):
+        raise ValueError("synthetic")
     assert stats.stack() == []
     assert stats.report()["metrics"][0]["calls"] == 1
 
@@ -103,15 +100,14 @@ def test_instrumentation_restores_every_patch_on_failure(monkeypatch):
         monkeypatch.setattr(module, "FaceID", FakeFaceID)
     originals = (subprocess.Popen, cv2.resize, blur.analyze, blur._Tracker.update, lecturer.discover)
     stats = profile.Measurements()
-    with pytest.raises(ValueError, match="synthetic"):
-        with profile.instrument(stats), stats.measure("phase.analyze"):
-            assert blur.FaceID is lecturer.FaceID is privacy.FaceID
-            fid = blur.FaceID([])
-            image = np.zeros((2, 2, 3), np.uint8)
-            assert fid.faces(image).shape == (0, 15)
-            assert fid.best_match(fid.feature(image, [])) == .5
-            assert cv2.resize(image, (1, 1)).shape == (1, 1, 3)
-            raise ValueError("synthetic")
+    with pytest.raises(ValueError, match='synthetic'), profile.instrument(stats), stats.measure('phase.analyze'):
+        assert blur.FaceID is lecturer.FaceID is privacy.FaceID
+        fid = blur.FaceID([])
+        image = np.zeros((2, 2, 3), np.uint8)
+        assert fid.faces(image).shape == (0, 15)
+        assert fid.best_match(fid.feature(image, [])) == .5
+        assert cv2.resize(image, (1, 1)).shape == (1, 1, 3)
+        raise ValueError("synthetic")
     assert originals == (subprocess.Popen, cv2.resize, blur.analyze, blur._Tracker.update, lecturer.discover)
     assert blur.FaceID is lecturer.FaceID is privacy.FaceID is FakeFaceID
     names = {r["metric"] for r in stats.report()["metrics"]}
@@ -201,9 +197,8 @@ def test_background_pipe_metrics_keep_the_creating_phase():
 def test_progress_events_describe_phase_boundaries():
     events = []
     stats = profile.Measurements(progress=events.append)
-    with stats.measure("phase.run"):
-        with stats.measure("identify"):
-            pass
+    with stats.measure('phase.run'), stats.measure('identify'):
+        pass
     assert [event["event"] for event in events] == ["started", "finished"]
     assert all(event["phase"] == "run" for event in events)
     assert events[-1]["wall_sec"] >= 0

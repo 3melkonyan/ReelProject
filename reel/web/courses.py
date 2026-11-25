@@ -15,7 +15,8 @@ def catalog():
     return [{**r,'label':_t(NAMES[r['id']])} for r in rows]
 
 def course_id(name):
-    norm=lambda x:' '.join(re.sub(r'[^\w\s]',' ',x.casefold()).split())
+    def norm(x):
+        return ' '.join(re.sub(r'[^\w\s]',' ',x.casefold()).split())
     key=norm(name)
     if re.match(r'^ai\s+\d',key):return 'ai-modern'
     for row in sorted(catalog(),key=lambda r:len(r['name']),reverse=True):
@@ -40,7 +41,7 @@ def make_router(env):
         return cfg['groups'][name]
     def snapshot(d,name,item):
         result=group_snapshot(d,name,item)
-        for s,raw in zip(result['subjects'],item['subjects']):s['has_playlist']=bool(raw.get('playlist'))
+        for s,raw in zip(result['subjects'],item['subjects'], strict=False):s['has_playlist']=bool(raw.get('playlist'))
         linked=d.conn.execute('SELECT course_id FROM group_course_links WHERE name=?',(name,)).fetchone()
         ident=linked[0] if linked else course_id(name)
         return {**result,'short_name':short_group(name,ident),'course_id':ident}

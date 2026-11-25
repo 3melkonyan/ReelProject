@@ -1,4 +1,5 @@
 """Shared validation and exception translation; no retry or publication state."""
+from contextlib import suppress
 from functools import wraps
 import json
 import socket
@@ -33,10 +34,8 @@ def api_errors(function):
         except HttpError as exc:
             status = int(exc.resp.status)
             reasons = set()
-            try:
+            with suppress((ValueError, TypeError, AttributeError)):
                 reasons = {item.get("reason", "") for item in json.loads(exc.content).get("error", {}).get("errors", [])}
-            except (ValueError, TypeError, AttributeError):
-                pass
             transient = status in {408, 429} or status >= 500 or bool(reasons & {"rateLimitExceeded", "userRateLimitExceeded", "quotaExceeded", "dailyLimitExceeded", "backendError"})
             # Do not expose request URIs, bodies, tokens, or remote error text.
             raise PublishError(f"{function.__name__}: Google API HTTP {status}", transient) from None

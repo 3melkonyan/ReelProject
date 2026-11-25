@@ -8,7 +8,6 @@ from reel import learning, lesson_summary, llm
 from reel.db import DB
 from reel.pipeline import Ctx
 from reel.web import accounts as a
-from test_web_upload import web  # noqa: F401 - pytest fixture
 
 GOOD = {
     "summary": ["1. Դասում քննարկվեց closure-ը և դրա կիրառությունները։",
@@ -156,7 +155,7 @@ def test_ui_notes_escape_and_label_ai():
 const fs=require('fs'),vm=require('vm'),assert=require('assert/strict');
 const app=fs.readFileSync(process.argv[1],'utf8'),source=fs.readFileSync(process.argv[1].replace('app.js','learning.js'),'utf8');
 const c={S:{},ic:()=>''};vm.createContext(c);require(require('path').resolve('tests/browser_locale.cjs')).install(c);
-vm.runInContext(app.slice(app.indexOf('const esc ='),app.indexOf('\n',app.indexOf('const esc ='))),c);vm.runInContext(source,c);
+vm.runInContext(app.slice(app.indexOf('const esc ='),app.indexOf('const STATUS =')),c);vm.runInContext(source,c);
 const html=c.notesHtml({summary:['<script>x</script>'],terms:[{term:'closure',meaning:'բացատրություն'}],questions:['Ի՞նչ է closure-ը։']});
 assert(html.includes('&lt;script&gt;')&&!html.includes('<script>'));assert(html.includes('AI-ով')&&html.includes('Ստուգեք ինքներդ'));
 assert(c.notesHtml(null).includes('դեռ չկա'));

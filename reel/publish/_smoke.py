@@ -73,27 +73,6 @@ def classroom_smoke() -> None:
 
 
 def library_smoke() -> None:
-    from reel.publish import library as library
-    with TemporaryDirectory() as directory:
-        destination = Path(directory) / "library.jsonl"
-        with patch.object(library, "_path", return_value=destination):
-            entry = {"job_id": "job-1", "group": "Group-A", "title": "Հայերեն դաս", "url": "https://example.com/video", "published_at": "2026-11-17T12:00:00Z"}
-            library.add(entry)
-            library.add({**entry, "job_id": "job-2"})
-            rows = destination.read_text().splitlines()
-            assert len(rows) == 2 and json.loads(rows[0]) == entry
-            assert "Հայերեն" in rows[0]
-            for bad in [{}, {**entry, "url": "bad"}, {**entry, "extra": object()}]:
-                try:
-                    library.add(bad)
-                    raise AssertionError("Expected PublishError")
-                except PublishError:
-                    pass
-            assert len(destination.read_text().splitlines()) == 2
-    print("OK: Library temporary-file append, Unicode roundtrip, invalid entries leave no rows")
-
-
-def library_smoke() -> None:
     from reel.publish import library as lib
     entry = dict(job_id="job-1", group="Խումբ", title="Դաս\nմեկ", url="https://example.com/video", published_at="2026-11-17T00:00:00Z")
     # Resolve the real project path while cwd is mocked to an unrelated directory.

@@ -4,7 +4,6 @@ from contextlib import closing
 from reel.db import DB
 from reel.learning import library_facets
 from reel.web import accounts as a
-from test_web_upload import web  # noqa: F401 - pytest fixture
 
 PASSWORD = 'g40-library-password'
 CONFIG = {'AI 2.6': {'subjects': [{'name': 'Python', 'playlist': 'PL1'}, {'name': 'Math', 'playlist': ''}]},

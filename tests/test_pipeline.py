@@ -71,7 +71,7 @@ def test_stopjob_and_nonretryable_stop_immediately(tmp_path):
         db, jid = mk(tmp_path / type(exc).__name__)
         n = {"c": 0}
 
-        def s(ctx, exc=exc):
+        def s(ctx, exc=exc, n=n):
             n["c"] += 1
             raise exc
 

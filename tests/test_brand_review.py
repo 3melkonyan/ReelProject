@@ -1,6 +1,8 @@
 """Opaque CTA contrast, dark defaults and one Armenian label source."""
+import ast
+import json
 import re
-from pathlib import Path
+
 from test_brand import tokens,luminance,run_node,STATIC
 
 
@@ -14,8 +16,8 @@ def test_brand_button_exact_color_contrast_and_neutral_surfaces():
     for key in ('--bg','--surface','--surface-2','--border'):
         h=dark(key).lstrip('#');assert h[:2]==h[2:4]==h[4:6]
     css=(STATIC/'app.css').read_text()
-    assert 'font-size:16px;font-weight:600' in css
-    assert 'opacity:1' in css and '--light-rays:' in css
+    assert re.search(r'font-size:\s*16px;\s*font-weight:\s*600', css)
+    assert re.search(r'opacity:\s*1', css) and '--light-rays:' in css
 
 
 def test_every_stage_has_one_armenian_label_source(hy_locale):
@@ -27,14 +29,22 @@ def test_every_stage_has_one_armenian_label_source(hy_locale):
     assert len(STAGE_LABEL)==len(pipeline)>=17
     assert all(re.search('[Ա-Ֆա-ֆև]',label) and not re.search('[A-Za-z_]',label) for label in STAGE_LABEL.values())
     source=(STATIC.parent/'app.py').read_text()
-    assert 'from reel.web.labels import localized_stages, stage_labels' in source
-    assert 'STAGES = [' not in source
+    tree = ast.parse(source)
+    labels_import = next(node for node in tree.body if isinstance(node, ast.ImportFrom) and node.module == 'reel.web.labels')
+    assert {'localized_stages', 'stage_labels'} <= {alias.name for alias in labels_import.names}
+    assert not any(isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id == 'STAGES' for target in node.targets) for node in tree.body)
 
 
 def test_dark_before_paint_and_short_searches():
     source=(STATIC/'index.html').read_text()
     assert 'data-theme="dark"' in source
-    assert "t==='dark'||t==='light'?t:'dark'" in source
+    scripts = re.findall(r'<script>(.*?)</script>', source, re.S)
+    run_node("const vm=require('vm'), assert=require('assert/strict');" +
+             "const scripts=" + json.dumps(scripts) + ";" +
+             "for(const saved of [null,'dark','light','invalid']) {" +
+             "const context={localStorage:{getItem:key=>key==='reel-theme'?saved:null},document:{documentElement:{dataset:{}}}};" +
+             "vm.createContext(context);scripts.forEach(script=>vm.runInContext(script,context));" +
+             "assert.equal(context.document.documentElement.dataset.theme,saved==='light'?'light':'dark');}")
     assert 'prefers-color-scheme: dark' not in source
     for file in ('app.js','insights.js'):
         text=(STATIC/file).read_text()

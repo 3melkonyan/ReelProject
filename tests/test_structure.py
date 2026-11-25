@@ -3,7 +3,7 @@ import pytest
 from reel.db import DB
 from reel.web.accounts import create_user
 from reel.web.courses import course_id,short_group,catalog
-from test_web_upload import web
+
 
 
 def test_catalog_and_short_names(hy_locale):

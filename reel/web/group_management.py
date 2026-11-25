@@ -262,7 +262,7 @@ def make_router(env):
                 snapshot = group_snapshot(database,name,item)
                 if status!='all' and snapshot['status']!=status:
                     continue
-                for subject,original in zip(snapshot['subjects'],item['subjects']):
+                for subject,original in zip(snapshot['subjects'],item['subjects'], strict=False):
                     subject['playlist'] = _mask(original.get('playlist'))
                 snapshots.append({**snapshot,'slack':_mask(item.get('slack_channel')),
                                   'classroom':_mask(item.get('classroom_course_id')),

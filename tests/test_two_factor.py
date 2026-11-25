@@ -1,8 +1,8 @@
-import time,asyncio
+import time
 import pytest
 from reel.db import DB
 from reel.web import two_factor as tf
-from test_web_upload import web
+
 
 
 @pytest.fixture
@@ -44,7 +44,8 @@ def test_five_attempts_expiry_resend_cooldown(secured):
 
 
 def test_resend_invalidates_previous_and_preserves_attempts(secured):
-    web,codes=secured;c=begin(web);old=codes[-1][1]
+    web,codes=secured
+    c=begin(web)
     d=DB(web.root/'reel.db');d.conn.execute('UPDATE admin_challenges SET sent_at=sent_at-61,attempts=1');d.conn.close()
     assert c.call('POST','/api/admin-auth/resend')[0]==200
     d=DB(web.root/'reel.db');assert d.conn.execute('SELECT attempts FROM admin_challenges').fetchone()[0]==1

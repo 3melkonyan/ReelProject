@@ -13,12 +13,15 @@ import json
 import subprocess
 from reel.progress import observed_run as _observed_run
 
-def observed_run(*args, **kwargs):
-    return _observed_run(*args, run=subprocess.run, **kwargs)
+
 
 from pathlib import Path
 
 from reel.pipeline import StopJob
+
+
+def observed_run(*args, **kwargs):
+    return _observed_run(*args, run=subprocess.run, **kwargs)
 
 JOIN_TOL_SEC = 1.5      # per part: container/priming rounding of a stream-copy concat
 

@@ -54,7 +54,7 @@ def _single_worker_lock():
     import fcntl
     path = ROOT / "out" / "worker.lock"
     path.parent.mkdir(exist_ok=True)
-    fh = open(path, "w")
+    fh = open(path, "w")  # noqa: SIM115 - The returned handle owns the worker lifetime lock.
     try:
         fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except BlockingIOError:
@@ -131,9 +131,8 @@ def cmd_retry(db: DB, args) -> None:
 def cmd_resolve(db: DB, args) -> None:
     """After a crash during a Slack/Classroom post: record what really happened."""
     marker = ROOT / "work" / str(args.id) / f"pub_{args.target}.pending"
-    if args.state == "posted":
-        if not db.publication(args.id, args.target):
-            db.add_publication(args.id, args.target, "manual", None)
+    if args.state == "posted" and not db.publication(args.id, args.target):
+        db.add_publication(args.id, args.target, "manual", None)
     marker.unlink(missing_ok=True)
     print(f"job {args.id} {args.target}: {args.state}; now run: reel retry {args.id}")
 

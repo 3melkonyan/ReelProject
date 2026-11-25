@@ -4,6 +4,7 @@ Delivery is reconciled from completed, privacy-passed real publications. A uniqu
 claim prevents concurrent sends; an ambiguous SMTP outcome is never resent.
 """
 from __future__ import annotations
+from contextlib import suppress
 
 from reel.i18n import t as _t, localized_message, current_language as _language
 
@@ -90,7 +91,7 @@ def _groups(user):
 
 
 def _student(user):
-    return _eligible(user) and user["role"] == "student" and not (user["demo_tag"] if "demo_tag" in user.keys() else None)
+    return _eligible(user) and user["role"] == "student" and not dict(user).get("demo_tag")
 
 
 def _lessons(database):
@@ -271,14 +272,10 @@ def install_scheduler(app, env):
 
     async def loop():
         while not stop.is_set():
-            try:
-                await asyncio.to_thread(tick)
-            except Exception:
-                pass  # No exception text, email addresses, credentials or URLs enter logs.
-            try:
+            with suppress(Exception):
+                await asyncio.to_thread(tick)  # No exception text, email addresses, credentials or URLs enter logs.
+            with suppress(TimeoutError):
                 await asyncio.wait_for(stop.wait(), timeout=60)
-            except TimeoutError:
-                pass
 
     async def start():
         nonlocal task, stop

@@ -28,25 +28,25 @@ from contextlib import closing
 
 from starlette.concurrency import run_in_threadpool
 import time
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, Request, BackgroundTasks
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from starlette.middleware.sessions import SessionMiddleware
+
 
 from reel import pipeline
 from reel.db import DB
 from reel import lesson_dates
 from reel.web import accounts as account_auth
+from reel.web.labels import localized_stages, stage_labels
 
 ROOT = Path(__file__).resolve().parents[2]
 STATIC = Path(__file__).parent / "static"
 WORK = ROOT / "work"
 SECRETS_FILE = ROOT / "secrets" / "web.json"
 
-from reel.web.labels import localized_stages, stage_labels
 PUB_TARGETS = ["youtube", "playlist", "slack", "classroom", "library"]
 
 
@@ -381,7 +381,7 @@ def summary(who: str = Depends(role)):
         "hours_processed": round(sum(j["duration_sec"] or 0 for j in done) / 3600, 1),
         "running": running, "recent": sorted(jobs+demos,key=lambda j:j["updated"] or 0,reverse=True)[:6], "worker": _worker(), "inbox": [x for x in _inbox() if account_auth.allowed(x["group"])],
         "disk_free_gb": round(shutil.disk_usage(ROOT).free / 1e9),
-        "stages": [{"name": n, "label": l} for n, l in localized_stages()],
+        "stages": [{"name": n, "label": label} for n, label in localized_stages()],
     }
 
 
@@ -608,7 +608,7 @@ def groups(_: str = Depends(role)):
                 for n in g.get("lecturers", [])]
         out.append({"name": name, "playlist": ", ".join(mask(s["playlist"]) for s in g["subjects"] if s["playlist"]),
                     "subjects": [{"name": s["name"], "playlist": mask(s["playlist"])} for s in g["subjects"]],
-                    "lecturer_mode": "refs" if any(l["refs"] for l in lect) else "auto",
+                    "lecturer_mode": "refs" if any(item["refs"] for item in lect) else "auto",
                     "slack": mask(g.get("slack_channel")),
                     "classroom": mask(g.get("classroom_course_id")), "lecturers": lect,
                     "inbox": f"inbox/{name}/"})
@@ -832,7 +832,7 @@ async def upload_start(request: Request, who: str = Depends(uploader)):
         _atomic_json(d / "meta.json", {"group": group, "subject": subject, "lesson": lesson,
                                      "lesson_date": previous.get("lesson_date", day),
                                      "lesson_date_changed": previous.get("lesson_date_changed", changed),
-                                     "files": [{"name": n, "size": c["size"]} for n, c in zip(disk, clean)],
+                                     "files": [{"name": n, "size": c["size"]} for n, c in zip(disk, clean, strict=False)],
                                      "by": who, "uploader_id": previous.get("uploader_id", (account_auth.PRINCIPAL.get() or {}).get("id")),
                                      "owner_token": previous.get("owner_token") or request.session.setdefault("upload_owner", secrets.token_urlsafe(24))})
         have = [(d / "parts" / n) for n in disk]
@@ -960,9 +960,9 @@ async def upload_cancel(uid: str, _: str = Depends(uploader)):
         return {"ok": True}
 
 
-from reel.web import admin as _admin_api   # noqa: E402 - /api/admin/* settings API
+from reel.web import admin as _admin_api
 app.include_router(_admin_api.router)
-from reel.web import lecturer_api as _lecturer_api   # noqa: E402 - job-page lecturer panel API
+from reel.web import lecturer_api as _lecturer_api
 app.include_router(_lecturer_api.router)
 from reel.web import thumbnail_styles as _thumbnail_styles_api
 app.include_router(_thumbnail_styles_api.router)
@@ -1001,7 +1001,7 @@ app.include_router(_demo_router(globals()))
 from reel.web.audit_api import make_router as _audit_router, install as _install_audit
 app.include_router(_audit_router(globals()))
 _install_audit(app, globals())
-from reel.web import recording as _recording   # noqa: E402 - phone recording + upload order
+from reel.web import recording as _recording
 app.include_router(_recording.make_router(globals()))
 from reel.web.two_factor import login as _admin_login, make_router as _two_factor_router
 app.include_router(_two_factor_router(globals()))

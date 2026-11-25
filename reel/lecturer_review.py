@@ -211,10 +211,9 @@ def resolve_for_blur(ctx):
         try:
             review = row(ctx.db, ctx.job_id)
             path = directory(root, ctx.job_id) / 'lecturer_choice.json'
-            if not review['decision']:
-                if not _recover_choice(ctx.db, root, ctx.job_id):
-                    candidates = report(root, ctx.job_id).get('identities', [])
-                    _decide(ctx.db, root, ctx.job_id, 'identity' if candidates else 'none', 1, None, 'automatic', True)
+            if not review['decision'] and not _recover_choice(ctx.db, root, ctx.job_id):
+                candidates = report(root, ctx.job_id).get('identities', [])
+                _decide(ctx.db, root, ctx.job_id, 'identity' if candidates else 'none', 1, None, 'automatic', True)
             ctx.db.conn.execute('COMMIT')
             return json.loads(path.read_text())
         except BaseException:

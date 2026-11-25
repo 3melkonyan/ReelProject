@@ -9,7 +9,7 @@ import pytest
 from reel.db import DB
 from reel import thumbnail
 from reel.web import admin, thumbnail_styles
-from test_web_upload import web, send
+from test_web_upload import send
 
 
 @pytest.fixture
@@ -123,7 +123,7 @@ def test_probe_dimensions(isolated,monkeypatch,dimensions,low):
     web,module=isolated
     calls=[]
     def probe(args,**kwargs):
-        calls.append(args);return SimpleNamespace(stdout=json.dumps({"streams":[dict(zip(("width","height"),dimensions))]}))
+        calls.append(args);return SimpleNamespace(stdout=json.dumps({"streams":[dict(zip(("width","height"),dimensions, strict=False))]}))
     monkeypatch.setattr(module,"subprocess",SimpleNamespace(run=probe,SubprocessError=RuntimeError))
     result=module._upload_video_info([Path("one.mov"),Path("two.mov")])
     assert len(calls)==2 and all(a[0]=="ffprobe" for a in calls)

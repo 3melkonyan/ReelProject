@@ -1,4 +1,5 @@
 """Shared headings/navigation/status, with pure mocked JavaScript only."""
+from test_player_ui import DOM
 from test_brand import run_node
 
 
@@ -61,7 +62,7 @@ def test_library_demo_card_has_every_required_field_and_no_playback_action():
 const fs=require('fs'),vm=require('vm'),assert=require('assert/strict');
 const app=fs.readFileSync(process.argv[1],'utf8'),source=fs.readFileSync(process.argv[1].replace('app.js','learning.js'),'utf8');
 const c={S:{},ic:()=>'',formatLessonDate:String,fmtDur:String,clock:String};vm.createContext(c);require(require('path').resolve('tests/browser_locale.cjs')).install(c);
-vm.runInContext(app.slice(app.indexOf('const esc ='),app.indexOf('\n',app.indexOf('const esc ='))),c);vm.runInContext(source,c);
+vm.runInContext(app.slice(app.indexOf('const esc ='),app.indexOf('const STATUS =')),c);vm.runInContext(source,c);
 const card=c.libraryCardHtml({job_id:'demo-42',demo:true,playable:false,title:'<Անվանում>',subject:'<Առարկա>',group:'<Խումբ>',lesson_date:'2026-11-20',thumbnail:'/fixture/thumbnail.png',description:'<Նկարագրություն>'});
 for(const value of ['/fixture/thumbnail.png','&lt;Անվանում&gt;','&lt;Առարկա&gt;','&lt;Խումբ&gt;','2026-11-20','Ցուցադրական'])assert(card.includes(value),value);
 assert(!card.includes('href='));assert(!card.includes('data-notes'));assert(!card.includes('progress'));assert(!card.includes('Դիտել դասը'));
@@ -73,7 +74,6 @@ assert(!actual.includes('Ցուցադրական'));assert(!actual.includes('Pyth
 
 
 # The existing fake DOM is shared with the player checks; no browser/server is started.
-from test_player_ui import DOM
 
 
 

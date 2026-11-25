@@ -8,34 +8,33 @@ import subprocess
 
 import pytest
 
-from test_web import web  # noqa: F401 - source-exec app with temporary DB/work/secrets
 
 
-def write_metadata(web, note="grounded chapters unavailable — default metadata"):
+def write_metadata(processed_web, note="grounded chapters unavailable — default metadata"):
     value = {"title": "Դաս՝ Փորձնական, 2026-11-19", "description": "Դասի տեսագրություն։",
              "youtube_description": "Դասի տեսագրություն։", "chapters": [], "auto_note": note}
-    (web.work / "metadata.json").write_text(json.dumps(value, ensure_ascii=False), encoding="utf-8")
+    (processed_web.work / "metadata.json").write_text(json.dumps(value, ensure_ascii=False), encoding="utf-8")
     return value
 
 
-def stage(web, status="done", note=None):
+def stage(processed_web, status="done", note=None):
     def update(database):
-        database.stage_start(web.job, "metadata")
+        database.stage_start(processed_web.job, "metadata")
         output = {"title": "Դաս", "description": "Նկարագրություն", "chapters": []}
         if note is not None:
             output["auto_note"] = note
         if status == "done":
-            database.stage_done(web.job, "metadata", output)
+            database.stage_done(processed_web.job, "metadata", output)
         elif status == "failed":
-            database.stage_failed(web.job, "metadata", "critical source failure")
-    web.mutate(update)
+            database.stage_failed(processed_web.job, "metadata", "critical source failure")
+    processed_web.mutate(update)
 
 
 @pytest.mark.parametrize("role", ["viewer", "admin"])
-def test_done_metadata_note_is_visible_even_with_an_older_wrapper_output(web, role):
-    metadata = write_metadata(web)
-    stage(web)
-    reply = web.client(role).request("GET", f"/api/jobs/{web.job}")
+def test_done_metadata_note_is_visible_even_with_an_older_wrapper_output(processed_web, role):
+    metadata = write_metadata(processed_web)
+    stage(processed_web)
+    reply = processed_web.client(role).request("GET", f"/api/jobs/{processed_web.job}")
     assert reply.status == 200
     body = reply.json()
     info = next(item["info"] for item in body["stages"] if item["name"] == "metadata")
@@ -44,28 +43,28 @@ def test_done_metadata_note_is_visible_even_with_an_older_wrapper_output(web, ro
     assert body["metadata"]["title"] == metadata["title"]
 
 
-def test_explicit_database_note_takes_precedence_over_older_artifact(web):
-    write_metadata(web, "older artifact note")
-    stage(web, note="current stage note")
-    body = web.client("viewer").request("GET", f"/api/jobs/{web.job}").json()
+def test_explicit_database_note_takes_precedence_over_older_artifact(processed_web):
+    write_metadata(processed_web, "older artifact note")
+    stage(processed_web, note="current stage note")
+    body = processed_web.client("viewer").request("GET", f"/api/jobs/{processed_web.job}").json()
     info = next(item["info"] for item in body["stages"] if item["name"] == "metadata")
     assert info["auto_note"] == "current stage note"
 
 
 @pytest.mark.parametrize("status", ["pending", "running", "failed"])
-def test_unfinished_metadata_does_not_show_a_stale_artifact_note(web, status):
-    write_metadata(web)
+def test_unfinished_metadata_does_not_show_a_stale_artifact_note(processed_web, status):
+    write_metadata(processed_web)
     if status != "pending":
-        stage(web, status)
-    body = web.client("viewer").request("GET", f"/api/jobs/{web.job}").json()
+        stage(processed_web, status)
+    body = processed_web.client("viewer").request("GET", f"/api/jobs/{processed_web.job}").json()
     info = next(item["info"] for item in body["stages"] if item["name"] == "metadata")
     assert "auto_note" not in info
 
 
-def test_nontext_artifact_notes_are_not_exposed(web):
-    write_metadata(web, {"private": "not a human-readable decision"})
-    stage(web)
-    body = web.client("viewer").request("GET", f"/api/jobs/{web.job}").json()
+def test_nontext_artifact_notes_are_not_exposed(processed_web):
+    write_metadata(processed_web, {"private": "not a human-readable decision"})
+    stage(processed_web)
+    body = processed_web.client("viewer").request("GET", f"/api/jobs/{processed_web.job}").json()
     info = next(item["info"] for item in body["stages"] if item["name"] == "metadata")
     assert "auto_note" not in info
 

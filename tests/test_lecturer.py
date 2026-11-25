@@ -14,7 +14,7 @@ import numpy as np
 import pytest
 
 from reel import lecturer as lec
-from reel.pipeline import StopJob
+
 from reel.stages.privacy import COSINE_MATCH, FaceID
 from face_models import requires_face_models
 
@@ -75,7 +75,7 @@ def test_the_person_most_often_in_frame_is_the_lecturer(tmp_path, monkeypatch):
     assert len(fid.refs) == r["refs"]
     assert all(float(lec._unit(f) @ PEOPLE[0]) > 0.8 for f in fid.refs)        # the lecturer, not the student
     times = sorted(r["ref_times"])
-    assert all(b - a >= 50 for a, b in zip(times, times[1:]))                     # spread over the lesson
+    assert all(b - a >= 50 for a, b in zip(times, times[1:], strict=False))                     # spread over the lesson
 
 
 def test_two_people_equally_often_is_unsure_and_blurs_everyone(tmp_path, monkeypatch):

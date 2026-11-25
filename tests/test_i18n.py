@@ -20,7 +20,8 @@ def test_catalogs_have_the_same_keys_and_placeholders():
     assert english
     for key in english:
         assert english[key].strip() and armenian[key].strip(), key
-        fields = lambda text: {name for _, name, _, _ in Formatter().parse(text) if name is not None}
+        def fields(text):
+            return {name for _, name, _, _ in Formatter().parse(text) if name is not None}
         assert fields(english[key]) == fields(armenian[key]), key
 
 
@@ -30,9 +31,8 @@ def test_armenian_default_explicit_english_and_scope_cleanup():
     with language_context("en"):
         assert t("stage.join") == "Join recording parts"
         assert t("stage.join", language="hy") == catalog("hy")["stage.join"]
-        with pytest.raises(RuntimeError):
-            with language_context("hy"):
-                raise RuntimeError("unwind")
+        with pytest.raises(RuntimeError), language_context('hy'):
+            raise RuntimeError("unwind")
         assert current_language() == "en"
     assert current_language() == "hy"
     with pytest.raises(KeyError):

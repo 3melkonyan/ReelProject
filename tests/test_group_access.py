@@ -3,8 +3,8 @@ import pytest
 
 from reel.db import DB
 from reel.web import accounts as a
-from reel.web.group_status import completed_groups, set_completed
-from test_web_upload import web
+from reel.web.group_status import completed_groups
+
 
 PASSWORD = 'fixture-group-password'
 

@@ -1,10 +1,10 @@
 from contextlib import closing
 import json
-from pathlib import Path
+
 import yaml
 from reel.db import DB
 from reel.demo import job_cards,read_demo_lessons
-from reel.insights import statistics
+
 from tools import demo_seed as seed
 
 

@@ -49,7 +49,8 @@ def test_smart_pauses_preserve_writing_unknown_speech_and_ratio(monkeypatch):
 def test_board_face_and_outside_pixels_untouched():
     yy,xx=np.indices((180,320));image=(170+(xx%7)*5).astype(np.uint8)
     # Detector's 320px image coordinates; protect a static face plus margin.
-    detector=lambda _:np.array([[130,60,30,35]])
+    def detector(_):
+        return np.array([[130,60,30,35]])
     enhance=BoardEnhancer(plan(),{'amount':.3},detector)
     enhance.apply(image,0);out=enhance.apply(image,1)
     assert np.array_equal(out[:18],image[:18])

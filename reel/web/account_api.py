@@ -1,10 +1,11 @@
 """Account/profile/admin routes on Reel's existing SessionMiddleware cookie."""
 from __future__ import annotations
+from contextlib import suppress
 
 from reel.i18n import t as _t
 from contextlib import closing
 import io,json,re,secrets,time,warnings
-from pathlib import Path
+
 import sqlite3
 from urllib.parse import urlsplit
 from starlette.concurrency import run_in_threadpool
@@ -262,8 +263,8 @@ def make_router(env):
                     d.conn.execute('UPDATE users SET removed_at=coalesce(removed_at,?),active=0,session_version=session_version+1 WHERE id=?',(a.utc(),uid))
             d.conn.execute('COMMIT')
             for path in avatar_files:
-                try:path.unlink(missing_ok=True)
-                except OSError:pass
+                with suppress(OSError):
+                    path.unlink(missing_ok=True)
             return {'ok':True}
         except BaseException:
             if d.conn.in_transaction:d.conn.execute('ROLLBACK')

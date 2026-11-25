@@ -70,7 +70,7 @@ def blank_silent_windows(wins: list[dict], quiet: list[tuple[float, float]], cov
 
 def label_windows(wins: list[dict], batch: int = 12, model: str = llm.DEFAULT_MODEL) -> list[str]:
     labels: list[str] = ["silence" if not w["text"].strip() else "" for w in wins]
-    todo = [k for k, l in enumerate(labels) if not l]          # empty windows never go to the LLM
+    todo = [k for k, label in enumerate(labels) if not label]          # empty windows never go to the LLM
     sub = [wins[k] for k in todo]
     got_all: list[str] = []
     for b in range(0, len(sub), batch):
@@ -104,8 +104,8 @@ def label_windows(wins: list[dict], batch: int = 12, model: str = llm.DEFAULT_MO
             except (llm.LLMError, KeyError, TypeError, ValueError):
                 continue
         got_all += [got.get(b + k, "unclear") for k in range(len(chunk))]
-    for k, l in zip(todo, got_all):
-        labels[k] = l
+    for k, label in zip(todo, got_all, strict=False):
+        labels[k] = label
     return labels
 
 
@@ -157,7 +157,7 @@ def detect_silences(media: str | Path, noise_db: float, min_sec: float) -> list[
         capture_output=True, text=True, check=True)
     starts = [float(x) for x in re.findall(r"silence_start: ([\d.]+)", r.stderr)]
     ends = [float(x) for x in re.findall(r"silence_end: ([\d.]+)", r.stderr)]
-    return list(zip(starts, ends))
+    return list(zip(starts, ends, strict=False))
 
 
 def visual_activity(video: str | Path, start: float, end: float) -> float:
@@ -455,7 +455,7 @@ def plan(video: str | Path, audio: str | Path, transcript_json: str | Path,
     planned_ratio = 1 - final / total
     result = {
         "keep": [[s, e] for s, e in keep], "cuts": cuts,
-        "labels": [{"start": w["start"], "end": w["end"], "label": l} for w, l in zip(wins, labels)],
+        "labels": [{"start": w["start"], "end": w["end"], "label": label} for w, label in zip(wins, labels, strict=False)],
         "original_sec": round(total, 1), "final_sec": round(final, 1),
         "cut_ratio": round(1 - final / total, 3), "unclear_ratio": round(unclear, 3),
         "interior_cut_ratio": round(interior_ratio, 3),

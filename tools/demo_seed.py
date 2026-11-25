@@ -180,10 +180,10 @@ def _user(database, login, name, role, groups, password_hash="!demo-unusable"):
     first_latin=['ani','aram','mariam','hayk','lilit','narek','sona','davit','anna','gor','mane','tigran','narine','vahe','elen','ashot','lusine','samvel','arpi','artur']
     last_latin=['sargsyan','hakobyan','grigoryan','harutyunyan','martirosyan','mkrtchyan','avetisyan','davtyan','gevorgyan','manukyan','petrosyan','margaryan','stepanyan','vardanyan','sahakyan','hovhannisyan','khachatryan','simonyan','minasyan','melkonyan']
     f=first_latin[FIRST.index(first)] if first in FIRST else 'demo'
-    l=last_latin[LAST.index(last)] if last in LAST else 'demoyan'
-    email=f+'.'+l+'@example.com';suffix=1
+    item=last_latin[LAST.index(last)] if last in LAST else 'demoyan'
+    email=f+'.'+item+'@example.com';suffix=1
     while database.conn.execute('SELECT 1 FROM users WHERE email=?',(email,)).fetchone():
-        suffix+=1;email=f+'.'+l+str(suffix)+'@example.com'
+        suffix+=1;email=f+'.'+item+str(suffix)+'@example.com'
     if database.conn.execute("SELECT 1 FROM users WHERE lower(login)=lower(?) OR lower(email)=lower(?)", (login, email)).fetchone():
         raise DemoConflict("Refusing to overwrite an existing account: " + login)
     created = datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -273,7 +273,7 @@ def apply(root=PROJECT, *, today=None):
                 login = "demo-lecturer" if course["id"] == "ai-modern" else "demo-g40-lecturer-" + course["id"]
                 lecturer_ids[course["id"]] = _user(database, login, FIRST[index] + " " + LAST[index], "lecturer", group_names,
                                                 _hash_password(password) if login == "demo-lecturer" else "!demo-unusable")
-            student = _user(database, "demo-student", "Անի Դեմոյան", "student", [REAL_GROUP], _hash_password(password))
+            _user(database, "demo-student", "Անի Դեմոյան", "student", [REAL_GROUP], _hash_password(password))
             assistant = _user(database, "demo-ta", "Նարեկ Դեմոյան", "student", [REAL_GROUP], _hash_password(password))
             before_settings = {row["key"]: row["value"] for row in database.conn.execute("SELECT * FROM account_settings")}
             audit_start = database.conn.execute("SELECT coalesce(max(id),0) FROM audit_events").fetchone()[0]
@@ -382,7 +382,7 @@ def remove(root=PROJECT):
             for ident in adopted_users:
                 row = _row(database, "users", "id", ident)
                 adopted_groups.update(json.loads(row["groups_json"]))
-            for kind, key, payload in _records(database, "lesson"):
+            for kind, key, _payload in _records(database, "lesson"):
                 database.conn.execute("DELETE FROM demo_lessons WHERE id=? AND demo_tag=?", (key, TAG))
                 _forget(database, kind, key)
             migration = _records(database, "migration_config")
@@ -472,7 +472,7 @@ def remove(root=PROJECT):
                     continue
                 database.conn.execute("RELEASE SAVEPOINT g40_demo_user")
                 _forget(database, kind, key)
-            for kind, key, payload in _records(database, "audit"):
+            for kind, key, _payload in _records(database, "audit"):
                 database.conn.execute("DELETE FROM audit_events WHERE id=? AND demo=1", (int(key),))
                 _forget(database, kind, key)
             for kind, key, payload in _records(database, "setting"):

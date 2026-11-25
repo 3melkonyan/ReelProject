@@ -6,7 +6,6 @@ import pytest
 
 from reel import timeline
 from reel.stages import segments, render, metadata
-from test_web import web  # noqa: F401 - isolated temporary DB/work/test server
 
 
 @pytest.fixture
@@ -47,7 +46,7 @@ def test_existing_chapter_planner_uses_new_keep_without_removed_topics(planned):
     keep=[(a*1000,b*1000) for a,b in planned['keep']]
     topics=['Function Scope and this Binding','Dynamic this Resolution','Function Declaration',
             'Arrow Function Performance','Compiler Optimization','Interpreter Execution Model','Closure','Bytecode Generation']
-    changes=[{'t':t,'topic':topic} for t,topic in zip([0,200,400,2500,2800,3100,3400,3800],topics)]
+    changes=[{'t':t,'topic':topic} for t,topic in zip([0,200,400,2500,2800,3100,3400,3800],topics, strict=False)]
     changes.append({'t':1500,'topic':'RemovedTopic'})
     chapters=metadata._chapter_plan([{'start':0,'topic':topics[0],'topic_changes':changes}],keep)
     assert len(chapters)>=3 and all(c['t']!=1500 for c in chapters)
@@ -56,9 +55,9 @@ def test_existing_chapter_planner_uses_new_keep_without_removed_topics(planned):
 
 
 @pytest.mark.parametrize('role',['admin','viewer'])
-def test_real_cuts_api_exposes_exact_applied_intervals(planned,web,role):
-    (web.work/'segments.json').write_text(json.dumps(planned))
-    response=web.client(role).request('GET',f'/api/jobs/{web.job}')
+def test_real_cuts_api_exposes_exact_applied_intervals(planned,processed_web,role):
+    (processed_web.work/'segments.json').write_text(json.dumps(planned))
+    response=processed_web.client(role).request('GET',f'/api/jobs/{processed_web.job}')
     assert response.status==200
     artifact=response.json()['segments']
     assert artifact['keep']==planned['keep'] and artifact['cuts']==planned['cuts']

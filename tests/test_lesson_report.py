@@ -1,6 +1,6 @@
 import json,time
 from reel.db import DB
-from reel.lesson_report import poll,contents
+from reel.lesson_report import poll
 from reel.web.accounts import create_user
 
 
@@ -9,7 +9,9 @@ def test_group_scoped_report_once_and_no_previous_lesson_mass_email(tmp_path):
     for login,role,group in [('one','lecturer','A'),('two','lecturer','B'),('admin','admin','A')]:
         create_user(d,login+'-user','strong-password-123',dict(name=login,email=login+'@example.test',role=role,groups=[group] if role!='admin' else []))
     jid=d.create_job('video','hash','A');d.set_job(jid,status='done')
-    sent=[];send=lambda *args:sent.append(args) or True
+    sent=[]
+    def send(*args):
+        return sent.append(args) or True
     assert poll(d.conn,tmp_path,send=send,now=time.time()+5)==0
     # A completion after the persisted watermark is picked up after monitor downtime.
     d.conn.execute("UPDATE jobs SET updated_at=datetime('now','+10 seconds') WHERE id=?",(jid,))

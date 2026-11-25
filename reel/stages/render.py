@@ -8,10 +8,13 @@ import subprocess
 from reel.encoding import h264_encoder
 from reel.progress import observed_run as _observed_run
 
-def observed_run(*args, **kwargs):
-    return _observed_run(*args, run=subprocess.run, **kwargs)
+
 
 from pathlib import Path
+
+
+def observed_run(*args, **kwargs):
+    return _observed_run(*args, run=subprocess.run, **kwargs)
 
 TARGET = {"I": -16.0, "TP": -1.5, "LRA": 11.0}
 # Phone footage (iPhone 4K / HDR HEVC 10-bit / 60 fps / rotated) is normalised to what every later
@@ -113,7 +116,8 @@ def framing_chain(framing: dict, info: dict) -> str:
     x, y, cw, ch = (v * W / fw for v in framing["crop"])
     ow, oh = framing.get("output_size", (1920, 1080))
     k = ow / cw
-    even = lambda v: max(2, int(round(v / 2)) * 2)
+    def even(v):
+        return max(2, int(round(v / 2)) * 2)
     sw, sh = even(W * k), even(H * k)
     cx = min(max(int(round(x * k)), 0), sw - ow)
     cy = min(max(int(round(y * k)), 0), sh - oh)

@@ -5,7 +5,7 @@ from reel.i18n import t as _t
 from contextlib import closing
 import fcntl
 import hashlib
-import json
+
 import os
 from pathlib import Path
 import subprocess
@@ -14,7 +14,7 @@ import tempfile
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse
 from starlette.concurrency import run_in_threadpool
-from reel.insights import library_records, statistics, cut_summary
+from reel.insights import statistics, cut_summary
 from reel.web import accounts as account_auth
 
 _ENCODE = threading.Lock()

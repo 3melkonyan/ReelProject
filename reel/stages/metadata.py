@@ -15,7 +15,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from reel import llm, timeline
-from reel.pipeline import StopJob
+
 from reel.stages.segments import fmt
 
 PART_SEC = 600  # summarise in 10-minute parts
@@ -381,7 +381,7 @@ def generate(transcript_json: str | Path, keep, out_dir: Path, *,
     last_text = None          # model title/description from a structurally valid response
     generation_mode = "llm"
     feedback = ""
-    for attempt in range(2):
+    for _attempt in range(2):
         try:
             response = llm.chat_json(REDUCE_SYS + feedback, reduce_in, model=model, temperature=0.3,
                                      schema=_reduce_schema(plan))

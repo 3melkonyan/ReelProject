@@ -1,8 +1,8 @@
 import json
 from contextlib import closing
 from reel.db import DB
-from test_two_factor import secured,begin
-from test_web_upload import web
+from test_two_factor import begin
+
 
 
 def test_real_second_factor_events_are_secret_free(secured):

@@ -1,7 +1,7 @@
 """Resumable retirement and cancellation with fake services and temporary job data."""
 from contextlib import closing
 import json
-from pathlib import Path
+
 from types import SimpleNamespace
 
 import pytest
@@ -9,7 +9,7 @@ import pytest
 from reel.db import DB
 from reel import lesson_deletion as deletion, pipeline
 from reel.job_lifecycle import job_lock
-from test_web_upload import web
+
 
 
 def prepared(root):
@@ -136,7 +136,7 @@ def test_deletion_api_rejects_nonadministrators(web,role):
 
 def test_admin_api_requires_confirmation_and_returns_retryable_state(web,monkeypatch):
     db,job=prepared(web.root);db.conn.close()
-    calls=adapters(monkeypatch,'youtube');admin=web.client('admin')
+    adapters(monkeypatch,'youtube');admin=web.client('admin')
     endpoint=f'/api/jobs/{job}/delete'
     assert admin.call('POST',endpoint,body={})[0]==400
     status,first=admin.call('POST',endpoint,body={'confirm':True})

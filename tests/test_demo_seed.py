@@ -77,7 +77,7 @@ def root(tmp_path):
     (tmp_path / "config.yaml.bak").write_bytes(b"original backup left untouched after removal")
     with database(tmp_path) as db:
         real_user(db, "real-owner", [], "admin")
-        member = real_user(db, "real-member", ["Group-A", "Real Other"])
+        real_user(db, "real-member", ["Group-A", "Real Other"])
         job = db.create_job("original.mp4", "original-sha", "Group-A", "JavaScript")
         db.set_job(job, status="done")
         db.conn.execute("INSERT INTO account_settings VALUES('real-setting','keep')")

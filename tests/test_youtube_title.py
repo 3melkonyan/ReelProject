@@ -33,7 +33,7 @@ def test_upload_uses_the_numbered_title_and_slack_reuses_its_number(tmp_path):
     outputs = {"metadata": {"title": "Դաս՝ Closures", "description": "d"}, "blur": {"final": "f.mp4"}}
     c = SimpleNamespace(db=db, job_id=jid, group="G", config={"groups": {"G": group}}, workdir=tmp_path,
                         out=lambda n: outputs[n],
-                        publish_once=lambda target, do, find=None: dict(zip(("external_id", "url"), do())))
+                        publish_once=lambda target, do, find=None: dict(zip(("external_id", "url"), do(), strict=False)))
     yt = MagicMock()
     yt.upload.return_value = {"video_id": "vid", "url": "https://youtu.be/vid"}
     with patch.object(st, "_pub", return_value=yt):

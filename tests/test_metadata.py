@@ -1,6 +1,6 @@
 """Metadata constraints independent of the local language model."""
-import copy,json,math
-from pathlib import Path
+import json
+
 import pytest
 from reel.stages import metadata
 
@@ -61,7 +61,7 @@ def test_invalid_timestamps_rejected(timestamp):
 
 def test_cut_timeline_stays_inside_final_video():
  m=sample(6,3000)
- for c,t in zip(m['chapters'],[100,600,1300,1800,2300,2800]):c['t']=t
+ for c,t in zip(m['chapters'],[100,600,1300,1800,2300,2800], strict=False):c['t']=t
  r=metadata._validate(m,[(100,1000),(1200,3100)],require_armenian=True)
  assert [c['final_t'] for c in r['chapters']]==[0,500,1000,1500,2000,2500]
 
@@ -206,14 +206,14 @@ def test_grounded_plan_spans_actual_long_and_clip_topics(total,changes):
  heads=[c['topic'].split()[0].casefold() for c in plan]
  assert len(set(heads))==len(heads) and all(not head[0].isdigit() for head in heads)
  assert plan[0]['final_t']==0 and plan[-1]['final_t']>=total*.8
- assert all(b['final_t']-a['final_t']>=60 for a,b in zip(plan,plan[1:]))
+ assert all(b['final_t']-a['final_t']>=60 for a,b in zip(plan,plan[1:], strict=False))
  assert all(c['t'] in {0,*[t for t,_ in changes]} for c in plan)
  assert all(c['source_topic'] in {topic for _,topic in changes} for c in plan)
 
 
 def test_plan_maps_cuts_and_ignores_topics_in_removed_content():
  keep=[(100,1000),(1300,3500)]
- changes=[{'t':t,'topic':topic} for t,topic in zip([100,500,900,1300,1700,2100,2500,2900,3300],ENGLISH_TOPICS)]
+ changes=[{'t':t,'topic':topic} for t,topic in zip([100,500,900,1300,1700,2100,2500,2900,3300],ENGLISH_TOPICS, strict=False)]
  changes.append({'t':1100,'topic':'RemovedTopic'})
  plan=metadata._chapter_plan([{'start':100,'topic':'Function Scope','topic_changes':changes}],keep)
  assert plan[0]['t']==100 and plan[0]['final_t']==0
@@ -247,7 +247,7 @@ def test_model_cannot_override_fixed_chapter_count_timestamps_or_subjects(tmp_pa
  result=metadata.generate(path,[(0,3000)],tmp_path/'result')
  assert len(result['chapters'])==len(plans)
  assert [c['t'] for c in result['chapters']]==[c['t'] for c in plans]
- assert all(c['title'].startswith(p['topic']+'․ ') for c,p in zip(result['chapters'],plans))
+ assert all(c['title'].startswith(p['topic']+'․ ') for c,p in zip(result['chapters'],plans, strict=False))
 
 
 @pytest.mark.parametrize('alter',['missing','extra'])

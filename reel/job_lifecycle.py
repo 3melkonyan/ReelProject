@@ -10,9 +10,8 @@ class JobCancelled(BaseException):
 
 
 def check_cancel(database, job_id):
-    if database is not None and getattr(database, 'conn', None) is not None:
-        if database.conn.execute('SELECT 1 FROM lesson_deletions WHERE job_id=?', (job_id,)).fetchone():
-            raise JobCancelled()
+    if database is not None and getattr(database, 'conn', None) is not None and database.conn.execute('SELECT 1 FROM lesson_deletions WHERE job_id=?', (job_id,)).fetchone():
+        raise JobCancelled()
 
 
 @contextmanager

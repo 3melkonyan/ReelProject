@@ -1,8 +1,8 @@
 """Early scan, first-answer ownership and local reference retention on synthetic identities."""
 from contextlib import closing
 import json
-from types import SimpleNamespace
-from pathlib import Path
+
+
 
 import numpy as np
 import pytest
@@ -12,7 +12,7 @@ from reel.db import DB
 from reel import lecturer_review as reviews, lecturer
 from reel.pipeline import Ctx
 from reel.web.accounts import create_user
-from test_web_upload import web
+
 
 
 def prepare(root, uploader=None):

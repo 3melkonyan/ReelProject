@@ -69,7 +69,7 @@ class BoardEnhancer:
         if not np.any(mask):return
         shifts=[cv2.mean(p,mask=mask.astype(np.uint8))[0]-128 for p in (u,v)]
         if any(abs(s)>24 for s in shifts):return
-        for plane,shift in zip((u,v),shifts):
+        for plane,shift in zip((u,v),shifts, strict=False):
             if abs(shift)<.5:continue
             values=np.clip(plane.astype(np.float32)-np.clip(shift*self.amount,-4,4),16,240).astype(np.uint8)
             plane[mask]=values[mask]

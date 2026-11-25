@@ -1,6 +1,6 @@
 """Geometry, temporal classification and the real single-encode render path."""
 import json,subprocess
-from pathlib import Path
+
 import cv2
 import numpy as np
 import pytest
@@ -87,7 +87,7 @@ def make_video(path,seconds=3,fps=8):
     process=subprocess.Popen(['ffmpeg','-v','error','-y','-f','rawvideo','-pix_fmt','bgr24','-s',f'{W}x{H}','-r',str(fps),'-i','pipe:0',
                               '-f','lavfi','-i',f'sine=frequency=440:sample_rate=48000:duration={seconds}',
                               '-t',str(seconds),'-c:v','libx264','-preset','ultrafast','-pix_fmt','yuv420p','-c:a','aac',str(path)],stdin=subprocess.PIPE,stderr=subprocess.PIPE)
-    for i in range(seconds*fps):process.stdin.write(surface(angle=3,skew=True)[0].tobytes())
+    for _ in range(seconds*fps):process.stdin.write(surface(angle=3,skew=True)[0].tobytes())
     process.stdin.close();stderr=process.stderr.read();assert process.wait(timeout=60)==0,stderr
 
 

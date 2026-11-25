@@ -5,9 +5,9 @@ The legacy chalk-board detector remains a candidate, not a colour assumption.
 """
 from __future__ import annotations
 from collections import deque
-import itertools
+
 import math
-from pathlib import Path
+
 import subprocess
 import time
 
@@ -114,7 +114,7 @@ def candidates(image):
     _,dark=cv2.threshold(gray,0,255,cv2.THRESH_BINARY_INV+cv2.THRESH_OTSU)
     occupied=(dark[:,max(1,int(.02*w)):int(.98*w)]>0).mean(axis=1)>.45
     boundaries=np.flatnonzero(np.diff(np.r_[False,occupied,False].astype(int)))
-    for top,bottom in zip(boundaries[::2],boundaries[1::2]):
+    for top,bottom in zip(boundaries[::2],boundaries[1::2], strict=False):
         if bottom-top<.2*h:continue
         columns=(dark[top:bottom]>0).mean(axis=0)>.55
         edges_x=np.flatnonzero(columns)
@@ -370,7 +370,6 @@ def magnification(matrix,points):
 def _unbounded_fit(corners,width,height,*,correction='rotate',size=None,margin=.02,max_upscale=MAX_UPSCALE,rotation_deg=None):
     """Smallest output-aspect rect enclosing the levelled target, widened for local scale cap."""
     size=size or output_size(width,height);ow,oh=size;aspect=ow/oh
-    full=np.float32([[0,0],[width,0],[width,height],[0,height]])
     if corners is None:
         scale=min(ow/width,oh/height)
         h=np.array([[scale,0,(ow-width*scale)/2],[0,scale,(oh-height*scale)/2],[0,0,1.]])
@@ -389,7 +388,7 @@ def _unbounded_fit(corners,width,height,*,correction='rotate',size=None,margin=.
     cw=max((hi[0]-lo[0])*(1+2*margin),(hi[1]-lo[1])*(1+2*margin)*aspect)
     grid=np.array([q[0]*(1-u)*(1-v)+q[1]*u*(1-v)+q[2]*u*v+q[3]*(1-u)*v for u in np.linspace(0,1,5) for v in np.linspace(0,1,5)])
     for _ in range(12):
-        ch=cw/aspect;scale=ow/cw
+        scale=ow/cw
         h=np.array([[scale,0,ow/2-centre[0]*scale],[0,scale,oh/2-centre[1]*scale],[0,0,1.]])@base
         source_quad=_project([[0,0],[ow,0],[ow,oh],[0,oh]],np.linalg.inv(h))
         output_grid=np.array([[x,y] for x in np.linspace(0,ow,5) for y in np.linspace(0,oh,5)])

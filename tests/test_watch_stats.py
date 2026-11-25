@@ -9,7 +9,7 @@ from reel import learning, watch_statistics as stats
 from reel.db import DB
 from reel.insights import library_records
 from reel.web import accounts
-from test_web_upload import web
+
 
 PASSWORD = 'watch-statistics-fixture-password'
 STAMP = '2026-11-20T10:00:00+00:00'
@@ -113,7 +113,7 @@ def test_one_lesson_does_not_create_a_missed_pair(database):
 def test_admin_all_lecturer_own_scope_and_group_filter_keeps_selector_options(database):
     admin = user(database,'administrator','admin');teacher = user(database,'teacher','lecturer')
     a = user(database,'student-a');b = user(database,'student-b',groups=('Group-B',))
-    first = lesson(database,'a');second = lesson(database,'b',group='Group-B')
+    first=lesson(database,'a');lesson(database,'b',group='Group-B')
     records = library_records(database)
     selected = stats.statistics(database,records,principal(admin),group='Group-A',known_groups=['Group-A','Group-B'])
     assert selected['groups']==[{'name':'Group-A'},{'name':'Group-B'}]
@@ -191,7 +191,7 @@ def test_core_never_adds_demo_or_non_youtube_rows(database):
 def test_http_route_scope_privacy_progress_and_no_other_operational_rights(web):
     d = DB(web.root/'reel.db')
     with closing(d.conn):
-        teacher = user(d,'http-teacher','lecturer')
+        user(d,'http-teacher','lecturer')
         ta = user(d,'http-ta');student = user(d,'http-student');outsider = user(d,'http-outsider',groups=('Group-B',))
         first = lesson(d,'public-a');second = lesson(d,'public-b',group='Group-B')
         lesson(d,'private-a',privacy=False)

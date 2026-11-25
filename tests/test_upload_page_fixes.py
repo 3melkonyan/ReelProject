@@ -6,8 +6,7 @@ import threading
 from pathlib import Path
 
 from reel import thumbnail as th
-from test_web_upload import web, send          # noqa: F401 - fixtures
-from test_web_dashboard import isolated               # noqa: F401 - fixture
+from test_web_upload import send          # noqa: F401 - fixtures
 
 ROOT = Path(__file__).resolve().parents[1]
 NODE = shutil.which("node") or "node"

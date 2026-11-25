@@ -1,9 +1,9 @@
 """Academy presentation contract: temporary data, honest demo metrics, no operational-rights expansion."""
 from contextlib import closing
-from copy import deepcopy
+
 from datetime import date,datetime,timezone
 import json
-from pathlib import Path
+
 
 import pytest
 
@@ -11,7 +11,7 @@ from reel import academy
 from reel.db import DB
 from reel.web import accounts
 from reel.web.academy_api import make_router
-from test_web_upload import web
+
 
 NOW=date(2026,11,21)
 PASSWORD='academy-fixture-password'
@@ -146,7 +146,7 @@ def test_missing_source_duration_does_not_invent_editing_savings(data):
 
 def test_scope_and_technical_projection_use_actual_memberships_and_filtered_jobs(data,monkeypatch):
     d,root=data;teacher=user(d,'teacher');admin=user(d,'admin','admin')
-    a=job(d,'python');b=job(d,'math',subject='Math');job(d,'other-group',group='Group-B',subject='JavaScript')
+    job(d,'python');job(d,'math',subject='Math');job(d,'other-group',group='Group-B',subject='JavaScript')
     demo(d,'outside')
     def forbidden(*args,**kwargs):pytest.fail('nonadmin invoked technical aggregator')
     original=academy.insights.statistics;monkeypatch.setattr(academy.insights,'statistics',forbidden)

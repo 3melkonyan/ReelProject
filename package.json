@@ -1,0 +1,12 @@
+{
+  "name": "reel",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "format": "prettier --write \"reel/web/static/**/*.{js,css,html}\"",
+    "format:check": "prettier --check \"reel/web/static/**/*.{js,css,html}\""
+  },
+  "devDependencies": {
+    "prettier": "3.6.2"
+  }
+}

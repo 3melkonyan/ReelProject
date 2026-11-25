@@ -110,10 +110,9 @@ def test_worker_failure_aborts_and_propagates_before_success(failure):
             raise BrokenPipeError('encoder stopped')
         return 0 if failure == 'short_write' else len(buffer)
 
-    with pytest.raises((RuntimeError, BrokenPipeError)):
-        with FrameIO(read, write, 1, aborted.set) as frames:
-            for buffer in frames:
-                frames.release(buffer)
+    with pytest.raises((RuntimeError, BrokenPipeError)), FrameIO(read, write, 1, aborted.set) as frames:
+        for buffer in frames:
+            frames.release(buffer)
     assert aborted.is_set()
     assert not frames.reader.is_alive() and not frames.writer.is_alive()
 
@@ -132,11 +131,10 @@ def test_processing_failure_unblocks_io_before_joining_workers():
         assert unblock.wait(5)
         return False
 
-    with pytest.raises(ValueError, match='processing failed'):
-        with FrameIO(read, None, 1, unblock.set) as frames:
-            next(frames)
-            assert entered.wait(5)
-            raise ValueError('processing failed')
+    with pytest.raises(ValueError, match='processing failed'), FrameIO(read, None, 1, unblock.set) as frames:
+        next(frames)
+        assert entered.wait(5)
+        raise ValueError('processing failed')
     assert unblock.is_set()
     assert not frames.reader.is_alive()
 

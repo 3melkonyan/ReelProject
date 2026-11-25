@@ -15,7 +15,7 @@ from reel import pipeline
 from reel.db import DB
 from reel.web import recording
 from reel.web.accounts import create_user
-from test_web_upload import send, web  # noqa: F401 - pytest fixture reused
+from test_web_upload import send  # noqa: F401 - pytest fixture reused
 
 
 @pytest.fixture

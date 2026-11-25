@@ -8,7 +8,7 @@ from __future__ import annotations
 from reel.i18n import t as _t
 import csv
 import io
-import json
+
 import re
 import shutil
 import subprocess

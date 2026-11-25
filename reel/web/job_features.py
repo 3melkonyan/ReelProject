@@ -1,7 +1,7 @@
 """Upload review, local reference inventory and per-user job notifications."""
 from contextlib import closing
 import os
-from pathlib import Path
+
 import re
 import shutil
 

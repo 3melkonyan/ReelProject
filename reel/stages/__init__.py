@@ -8,7 +8,7 @@ import json
 import os
 import re
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from reel.pipeline import Ctx, StopJob, _notify
@@ -169,17 +169,16 @@ def render_stage(ctx: Ctx) -> dict:
     from reel.stages.processing import for_ctx
     options=for_ctx(ctx)
     try:
-        if options['board_enhance']['enabled'] or options['ocr']['enabled']:
-            if not framing or framing.get('version')!=2:
-                from reel.framing import analyze_video
-                # Obtain the target, preserving requested off framing via identity geometry.
-                detected=analyze_video(src,mode='auto',correction='rotate')
-                if _group(ctx).get('framing','off')=='off':
-                    from reel.stages.render import video_info,target_size
-                    info=video_info(src);w,h=info['width'],info['height'];ow,oh=target_size(info)
-                    detected['output_size']=[ow,oh];detected['transition_sec']=0
-                    for row in detected['timeline']:row['matrix']=[[ow/w,0,0],[0,oh/h,0],[0,0,1]]
-                framing=detected
+        if (options['board_enhance']['enabled'] or options['ocr']['enabled']) and (not framing or framing.get('version')!=2):
+            from reel.framing import analyze_video
+            # Obtain the target, preserving requested off framing via identity geometry.
+            detected=analyze_video(src,mode='auto',correction='rotate')
+            if _group(ctx).get('framing','off')=='off':
+                from reel.stages.render import video_info,target_size
+                info=video_info(src);w,h=info['width'],info['height'];ow,oh=target_size(info)
+                detected['output_size']=[ow,oh];detected['transition_sec']=0
+                for row in detected['timeline']:row['matrix']=[[ow/w,0,0],[0,oh/h,0],[0,0,1]]
+            framing=detected
     except Exception as exc:
         note['auto_note']=f"{_t('processing.board_processing_skipped')} {type(exc).__name__}"
         _notify(f"{_t('processing.lesson')} {ctx.job_id}{_t('processing.the_board_region_could_not_be_detected')}")
@@ -594,7 +593,7 @@ def library_add(ctx: Ctx) -> dict:
              "title": ctx.out("metadata")["title"],
              "lesson_no": yt.get("lesson_no"), "duration": (ctx.out("segments") if ctx.db is not None else ctx._outputs.get("segments", {})).get("final_sec"),
              "chapters": ctx.out("metadata").get("chapters", []),
-             "url": yt["url"], "published_at": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+             "url": yt["url"], "published_at": datetime.now(UTC).isoformat(timespec="seconds")}
 
     def do():
         library.add(entry)

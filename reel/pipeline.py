@@ -19,9 +19,9 @@ from pathlib import Path
 from typing import Callable
 from contextvars import ContextVar
 
-_JOB_NOTICE = ContextVar("reel_job_notice", default=None)
-
 from reel.db import DB
+
+_JOB_NOTICE = ContextVar("reel_job_notice", default=None)
 
 MAX_ATTEMPTS = 3
 BACKOFF_SEC = (0, 30, 120)
@@ -290,8 +290,11 @@ def enqueue(db: DB, root: Path, path: Path, parts: list[Path], grp: str, notify=
     return job_id, None
 
 
+_INBOX_SEEN: dict[Path, tuple[object, float]] = {}
+
+
 def scan_inbox(db: DB, root: Path, config: dict, notify=_notify,
-               _seen: dict[Path, tuple[object, float]] = {}) -> list[int]:  # noqa: B006
+               _seen: dict[Path, tuple[object, float]] = _INBOX_SEEN) -> list[int]:
     """Enqueue stable new lessons from inbox/<group>/ -- a video file, or a folder with the parts
     of one lesson (joined by the 'join' stage). Moves each to archive/<job_id>/."""
     created = []

@@ -5,7 +5,7 @@ from urllib.request import Request
 import yaml
 
 from reel.i18n import catalog
-from test_web_upload import web
+
 
 
 def configure(web, language):
@@ -54,7 +54,7 @@ def test_language_preference_follows_account_and_overrides_browser(web):
     password = 'language-fixture-password-123'
     with closing(DB(web.root / 'reel.db').conn) as conn:
         from types import SimpleNamespace
-        first = create_user(SimpleNamespace(conn=conn), 'language-one', password,
+        create_user(SimpleNamespace(conn=conn), 'language-one', password,
                             dict(name='First', email='first@example.test', role='student', groups=['Group-A']))
         create_user(SimpleNamespace(conn=conn), 'language-two', password,
                     dict(name='Second', email='second@example.test', role='student', groups=['Group-A']))

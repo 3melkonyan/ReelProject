@@ -12,7 +12,7 @@ import reel
 from reel.db import DB
 from reel.learning import library_facets
 from reel.web import accounts
-from test_web_upload import web
+
 
 PROJECT=Path(reel.__file__).resolve().parents[1]
 NODE=Path(shutil.which('node') or 'node')

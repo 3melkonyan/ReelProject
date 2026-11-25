@@ -6,6 +6,7 @@ that every face was found. Input video is normalized to a constant frame rate
 before piping because rawvideo cannot carry variable frame timestamps.
 """
 from __future__ import annotations
+from contextlib import suppress
 
 from collections import deque
 from bisect import bisect_left, bisect_right
@@ -166,7 +167,7 @@ def _classify_analysis(records: list[dict], *, fallback: bool = False) -> None:
         sims = [a.get("sim") for a in evidence]
         finite = [isinstance(v, (int, float)) and math.isfinite(v) for v in sims]
         known = any(a.get("lecturer") for a in items) or any(
-            ok and sim >= COSINE_MATCH for ok, sim in zip(finite, sims))
+            ok and sim >= COSINE_MATCH for ok, sim in zip(finite, sims, strict=False))
         clear = [a for a in evidence if a.get("clear")]
         student = (all(finite) and len(clear) >= MIN_CLEAR_SAMPLES
                    and all(a["sim"] < STUDENT_MAX for a in clear)
@@ -239,9 +240,9 @@ def _identify(fid: FaceID, image: np.ndarray, tracker: _Tracker, t: float, keep:
         features.append(feature)
     identities = tracker.update(boxes, recognized, t)
     items = [{"box": list(box), "lecturer": known, "sim": sim, "small": min(box[2:]) < SMALL_FACE_PX, **quality}
-             for box, known, sim, quality in zip(boxes, identities, similarities, qualities)]
+             for box, known, sim, quality in zip(boxes, identities, similarities, qualities, strict=False)]
     if keep:     # identity features for reel.lecturer.track_refs
-        for item, feature in zip(items, features):
+        for item, feature in zip(items, features, strict=False):
             item["feat"] = feature
     return items
 
@@ -376,7 +377,7 @@ def analyze(video: str, refs_dirs: list[str], fps: float = 5.0, keep_features: b
                         image = np.frombuffer(buffer, dtype=np.uint8).reshape(small_height, small_width, 3)
                         t = index / fps
                         items = _identify(fid, image, tracker, t, keep_features)
-                        for item, track in zip(items, tracker.current):
+                        for item, track in zip(items, tracker.current, strict=False):
                             x, y, w, h = item["box"]
                             item["box"] = [round(x * sx), round(y * sy), round(w * sx), round(h * sy)]
                             result.append({"t": round(t, 6), **item, "_track": track})
@@ -433,10 +434,8 @@ def _retained(history: deque, frame_index: int, boxes: list, hold_frames: int) -
 
 def _stop(process: subprocess.Popen | None) -> None:
     if process is not None and process.poll() is None:
-        try:
+        with suppress(ProcessLookupError):
             process.terminate()
-        except ProcessLookupError:
-            pass
         try:
             process.wait(timeout=5)
         except subprocess.TimeoutExpired:
@@ -587,10 +586,8 @@ def blur_faces(video_in: str, video_out: str, refs_dirs: list[str], *,
                 if decoder is not None and decoder.stdout is not None:
                     decoder.stdout.close()
                 if encoder is not None and encoder.stdin is not None:
-                    try:
+                    with suppress(BrokenPipeError):
                         encoder.stdin.close()
-                    except BrokenPipeError:
-                        pass
         if not temporary.stat().st_size:
             raise RuntimeError("ffmpeg produced an empty blurred video")
         if decisions_path:
@@ -662,11 +659,9 @@ def _unit_smoke() -> None:
     assert _retained(history, 1, [], 3) == boxes[:1]
     assert _retained(history, 3, [], 3) == boxes[:1]
     assert _retained(history, 4, [], 3) == []
-    try:
+    with suppress(RuntimeError):
         _read_frame(io.BytesIO(b"short"), bytearray(10))
         raise AssertionError("Truncated frame was accepted")
-    except RuntimeError:
-        pass
     print("OK: lecturer exemption, uncertain/NaN/failed recognition kept, missing refs fallback, margin/clipping, hold/expiry, truncated frame")
 
 

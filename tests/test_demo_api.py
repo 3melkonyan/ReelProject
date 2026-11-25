@@ -6,7 +6,7 @@ import pytest
 from reel.db import DB
 from reel.demo import read_demo_lessons
 from reel.web.accounts import create_user
-from test_web_upload import web
+
 
 
 @pytest.mark.parametrize('role', ['student', 'lecturer', 'admin'])

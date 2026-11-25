@@ -76,7 +76,7 @@ def poll(conn,root,*,send=None,now=None):
             with language_context(recipient_language(root,lecturer['email'])):
                 language=recipient_language(root,lecturer['email'])
                 report=reports.setdefault(language,contents(conn,job,root))
-                def deliver():
+                def deliver(lecturer=lecturer, job=job, report=report):
                     if send:return send(lecturer['email'],job,report)
                     return brand_mail.send(root,lecturer['email'],_t('text.lesson_report.reel_lesson_processing_report'),
                         eyebrow=_t('text.lesson_report.lesson_report'),title=report['title'],

@@ -1,11 +1,11 @@
 """Preserved item-4 backend: exact watch unions, private resume and fresh authorization."""
 from contextlib import closing
-import json
+
 import pytest
 from reel import learning
 from reel.db import DB
 from reel.web import accounts
-from test_web_upload import web
+
 
 PASSWORD='only-a-test-password'
 

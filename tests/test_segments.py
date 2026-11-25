@@ -33,7 +33,7 @@ def test_unclear_never_bridges_offtopic_runs():
     # uncertain text cannot be promoted to outside, even between runs.
     assert (120, 360, "break") not in cuts
     # a lone silence between lesson windows is NOT cut by the LLM rule
-    assert all(not (s == 480) for s, _, _ in cuts)
+    assert all(s != 480 for s, _, _ in cuts)
 
 
 def test_window_size_must_be_positive():
