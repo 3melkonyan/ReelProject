@@ -1,8 +1,9 @@
 """Selected-group subjects and fresh library facets, with fake JS networking/temp HTTP only."""
-from contextlib import closing
-from pathlib import Path
+
 import shutil
 import subprocess
+from contextlib import closing
+from pathlib import Path
 from urllib.parse import quote
 
 import pytest
@@ -13,15 +14,15 @@ from reel.db import DB
 from reel.learning import library_facets
 from reel.web import accounts
 
+PROJECT = Path(reel.__file__).resolve().parents[1]
+NODE = Path(shutil.which("node") or "node")
 
-PROJECT=Path(reel.__file__).resolve().parents[1]
-NODE=Path(shutil.which('node') or 'node')
 
-
-@pytest.mark.parametrize('mode',['reset','stale_success','stale_failure'])
+@pytest.mark.parametrize("mode", ["reset", "stale_success", "stale_failure"])
 def test_upload_subjects_reset_to_new_group_and_stale_number_results_are_ignored(mode):
-    if not NODE.is_file():pytest.skip('Node is not available')
-    script=r'''
+    if not NODE.is_file():
+        pytest.skip("Node is not available")
+    script = r"""
 const fs=require('fs'),vm=require('vm'),assert=require('assert/strict'),mode=process.argv[2];
 const elements={},notices=[],pending=[];let mounted=false,requests=0;
 function element(){return {dataset:{},classList:{add(){},remove(){}},addEventListener(){},hidden:false,disabled:false,value:'',options:[]};}
@@ -64,61 +65,104 @@ vm.createContext(context);require(require('path').resolve('tests/browser_locale.
  assert.equal(subject.value,'Math');assert.equal(number.value,7,'stale old-group response changed the current lesson number');
  assert.equal(number.disabled,false);assert.equal(notices.length,0,'stale old-group request displayed a warning');
 })().catch(error=>{console.error(error);process.exitCode=1;});
-'''
-    result=subprocess.run([str(NODE),'-e',script,str(PROJECT/'reel/web/static/upload.js'),mode],capture_output=True,text=True,timeout=15)
-    assert result.returncode==0,result.stdout+result.stderr
+"""
+    result = subprocess.run(
+        [str(NODE), "-e", script, str(PROJECT / "reel/web/static/upload.js"), mode],
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
 
 
 def test_library_facets_pure_adds_new_zero_lesson_groups_and_subjects_with_scope():
-    config={'Own':{'subjects':[{'name':'Python','playlist':''}]}}
-    before=library_facets([],config,(),frozenset({'Own'}))
-    assert before['groups'][0]['subjects']==[{'name':'Python','lessons':0}]
-    config['Own']['subjects'].append({'name':'Rust','playlist':''})
-    config['New']={'subjects':[{'name':'New Subject','playlist':''}]}
-    admin=library_facets([],config,(),None)
-    assert {group['name'] for group in admin['groups']}=={'Own','New'}
-    own=library_facets([],config,(),frozenset({'Own'}))
-    assert [group['name'] for group in own['groups']]==['Own']
-    assert {subject['name'] for subject in own['groups'][0]['subjects']}=={'Python','Rust'}
-    assert all(subject['lessons']==0 for subject in own['groups'][0]['subjects'])
+    config = {"Own": {"subjects": [{"name": "Python", "playlist": ""}]}}
+    before = library_facets([], config, (), frozenset({"Own"}))
+    assert before["groups"][0]["subjects"] == [{"name": "Python", "lessons": 0}]
+    config["Own"]["subjects"].append({"name": "Rust", "playlist": ""})
+    config["New"] = {"subjects": [{"name": "New Subject", "playlist": ""}]}
+    admin = library_facets([], config, (), None)
+    assert {group["name"] for group in admin["groups"]} == {"Own", "New"}
+    own = library_facets([], config, (), frozenset({"Own"}))
+    assert [group["name"] for group in own["groups"]] == ["Own"]
+    assert {subject["name"] for subject in own["groups"][0]["subjects"]} == {"Python", "Rust"}
+    assert all(subject["lessons"] == 0 for subject in own["groups"][0]["subjects"])
 
 
-@pytest.mark.parametrize('group,foreign',[('Group-A','Python'),('Group-B','Group-A')])
-def test_upload_api_rejects_another_groups_subject_before_creating_an_upload(web,group,foreign):
-    client=web.client('uploader')
-    code,_=client.call('POST','/api/uploads',body={'group':group,'subject':foreign,'lesson_number':13,
-                                               'files':[{'name':'fixture.mov','size':8}]})
-    assert code==400
-    assert client.call('GET','/api/uploads/next-number?group='+quote(group)+'&subject='+quote(foreign))[0]==400
-    assert not list(web.root.glob('out/uploads/*/meta.json'))
+@pytest.mark.parametrize("group,foreign", [("Group-A", "Python"), ("Group-B", "Group-A")])
+def test_upload_api_rejects_another_groups_subject_before_creating_an_upload(web, group, foreign):
+    client = web.client("uploader")
+    code, _ = client.call(
+        "POST",
+        "/api/uploads",
+        body={
+            "group": group,
+            "subject": foreign,
+            "lesson_number": 13,
+            "files": [{"name": "fixture.mov", "size": 8}],
+        },
+    )
+    assert code == 400
+    assert (
+        client.call(
+            "GET", "/api/uploads/next-number?group=" + quote(group) + "&subject=" + quote(foreign)
+        )[0]
+        == 400
+    )
+    assert not list(web.root.glob("out/uploads/*/meta.json"))
 
 
 def test_library_api_refreshes_new_group_subject_and_only_the_students_own_scope(web):
-    config_path=web.root/'config.yaml';config=yaml.safe_load(config_path.read_text())
-    config['groups']['Group-B']['subjects'].append({'name':'Rust','playlist':''})
-    config['groups']['New Group']={'subjects':[{'name':'New Subject','playlist':''}],'lecturers':[],'slack_channel':'Cnew'}
-    config_path.write_text(yaml.safe_dump(config,allow_unicode=True),encoding='utf-8')
-    d=DB(web.root/'reel.db')
+    config_path = web.root / "config.yaml"
+    config = yaml.safe_load(config_path.read_text())
+    config["groups"]["Group-B"]["subjects"].append({"name": "Rust", "playlist": ""})
+    config["groups"]["New Group"] = {
+        "subjects": [{"name": "New Subject", "playlist": ""}],
+        "lecturers": [],
+        "slack_channel": "Cnew",
+    }
+    config_path.write_text(yaml.safe_dump(config, allow_unicode=True), encoding="utf-8")
+    d = DB(web.root / "reel.db")
     with closing(d.conn):
-        for login,group in [('own-student','Group-B'),('new-student','New Group')]:
-            accounts.create_user(d,login,'g42-filter-fixture-password',{'name':'Փորձնական ուսանող','email':login+'@example.test',
-                                                                     'role':'student','groups':[group]})
-    admin=web.client('admin');code,facets=admin.call('GET','/api/library/facets')
-    assert code==200
-    admin_groups={item['name']:item for item in facets['groups']}
-    assert 'New Group' in admin_groups
-    assert {'name':'Rust','lessons':0} in admin_groups['Group-B']['subjects']
-    assert admin_groups['New Group']['subjects']==[{'name':'New Subject','lessons':0}]
-    for login,group in [('own-student','Group-B'),('new-student','New Group')]:
-        client=web.client();assert client.call('POST','/api/login',body={'login':login,'password':'g42-filter-fixture-password'})[0]==200
-        code,result=client.call('GET','/api/library/facets')
-        assert code==200 and [item['name'] for item in result['groups']]==[group]
-        if group=='Group-B':assert {'name':'Rust','lessons':0} in result['groups'][0]['subjects']
+        for login, group in [("own-student", "Group-B"), ("new-student", "New Group")]:
+            accounts.create_user(
+                d,
+                login,
+                "g42-filter-fixture-password",
+                {
+                    "name": "Փորձնական ուսանող",
+                    "email": login + "@example.test",
+                    "role": "student",
+                    "groups": [group],
+                },
+            )
+    admin = web.client("admin")
+    code, facets = admin.call("GET", "/api/library/facets")
+    assert code == 200
+    admin_groups = {item["name"]: item for item in facets["groups"]}
+    assert "New Group" in admin_groups
+    assert {"name": "Rust", "lessons": 0} in admin_groups["Group-B"]["subjects"]
+    assert admin_groups["New Group"]["subjects"] == [{"name": "New Subject", "lessons": 0}]
+    for login, group in [("own-student", "Group-B"), ("new-student", "New Group")]:
+        client = web.client()
+        assert (
+            client.call(
+                "POST",
+                "/api/login",
+                body={"login": login, "password": "g42-filter-fixture-password"},
+            )[0]
+            == 200
+        )
+        code, result = client.call("GET", "/api/library/facets")
+        assert code == 200 and [item["name"] for item in result["groups"]] == [group]
+        if group == "Group-B":
+            assert {"name": "Rust", "lessons": 0} in result["groups"][0]["subjects"]
 
 
 def test_library_view_entry_refreshes_fresh_cached_facets_but_same_view_poll_reuses_ttl():
-    if not NODE.is_file():pytest.skip('Node is not available')
-    script=r'''
+    if not NODE.is_file():
+        pytest.skip("Node is not available")
+    script = r"""
 const fs=require('fs'),vm=require('vm'),assert=require('assert/strict');
 let now=100000,facetRequests=0,lessonRequests=0;
 const elements={};
@@ -163,6 +207,11 @@ context.renderLibrary=()=>{};
  now+=30001;await context.viewLibrary();
  assert.equal(facetRequests,3,'the ordinary same-view TTL refresh stopped working');
 })().catch(error=>{console.error(error);process.exitCode=1;});
-'''
-    result=subprocess.run([str(NODE),'-e',script,str(PROJECT/'reel/web/static/insights.js')],capture_output=True,text=True,timeout=15)
-    assert result.returncode==0,result.stdout+result.stderr
+"""
+    result = subprocess.run(
+        [str(NODE), "-e", script, str(PROJECT / "reel/web/static/insights.js")],
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr

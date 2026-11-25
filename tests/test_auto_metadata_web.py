@@ -1,19 +1,26 @@
 """Chapterless metadata and persisted fallback notes on the job page."""
+
 from __future__ import annotations
 
 import json
-from pathlib import Path
 import shutil
 import subprocess
+from pathlib import Path
 
 import pytest
 
 
-
 def write_metadata(processed_web, note="grounded chapters unavailable — default metadata"):
-    value = {"title": "Դաս՝ Փորձնական, 2026-11-19", "description": "Դասի տեսագրություն։",
-             "youtube_description": "Դասի տեսագրություն։", "chapters": [], "auto_note": note}
-    (processed_web.work / "metadata.json").write_text(json.dumps(value, ensure_ascii=False), encoding="utf-8")
+    value = {
+        "title": "Դաս՝ Փորձնական, 2026-11-19",
+        "description": "Դասի տեսագրություն։",
+        "youtube_description": "Դասի տեսագրություն։",
+        "chapters": [],
+        "auto_note": note,
+    }
+    (processed_web.work / "metadata.json").write_text(
+        json.dumps(value, ensure_ascii=False), encoding="utf-8"
+    )
     return value
 
 
@@ -27,6 +34,7 @@ def stage(processed_web, status="done", note=None):
             database.stage_done(processed_web.job, "metadata", output)
         elif status == "failed":
             database.stage_failed(processed_web.job, "metadata", "critical source failure")
+
     processed_web.mutate(update)
 
 
@@ -73,7 +81,7 @@ def test_actual_video_and_tabs_render_without_chapters():
     node = shutil.which("node")
     if not node:
         pytest.skip("Node is required for this UI consumer check")
-    script = r'''
+    script = r"""
 const fs=require('node:fs'), vm=require('node:vm'), assert=require('node:assert/strict');
 const source=fs.readFileSync('reel/web/static/app.js','utf8');
 const start=source.indexOf('function renderVideo(d)');
@@ -97,7 +105,13 @@ for(const role of ['viewer','admin']){
  for(const tab of ['meta','cuts','privacy','pub']){context.S.tab=tab;context.renderTabs();assert(get('#jd-tabs').innerHTML.length>0);}
 }
 console.log('OK: actual video and all tabs accept chapterless metadata for viewer/admin');
-'''
-    result = subprocess.run([node, "-"], input=script, text=True, capture_output=True,
-                            cwd=Path(__file__).resolve().parents[1], timeout=20)
+"""
+    result = subprocess.run(
+        [node, "-"],
+        input=script,
+        text=True,
+        capture_output=True,
+        cwd=Path(__file__).resolve().parents[1],
+        timeout=20,
+    )
     assert result.returncode == 0, result.stdout + result.stderr

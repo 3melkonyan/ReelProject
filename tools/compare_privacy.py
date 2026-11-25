@@ -11,25 +11,31 @@ Every reference rectangle must remain fully covered, regardless of size.
 Metrics must include a blur stage; the independent scan report supplies sampling
 metadata. Outputs are restricted to this checkout's ignored out/performance/.
 """
+
 from __future__ import annotations
 
 import argparse
-from bisect import bisect_left, bisect_right
-from collections import defaultdict
 import json
 import math
-from pathlib import Path
 import sqlite3
-
+from bisect import bisect_left, bisect_right
+from collections import defaultdict
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def _number(value, label: str, *, minimum: float = 0, integer: bool = False):
-    if (isinstance(value, bool) or not isinstance(value, (int, float))
-            or not math.isfinite(value) or value < minimum
-            or (integer and int(value) != value)):
-        raise ValueError(f"{label} must be a finite {'integer' if integer else 'number'} >= {minimum}")
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or not math.isfinite(value)
+        or value < minimum
+        or (integer and int(value) != value)
+    ):
+        raise ValueError(
+            f"{label} must be a finite {'integer' if integer else 'number'} >= {minimum}"
+        )
     return int(value) if integer else float(value)
 
 
@@ -54,6 +60,7 @@ def read_json(path: str | Path) -> dict:
                 raise ValueError(f"Duplicate JSON key: {key}")
             result[key] = value
         return result
+
     return _object(json.loads(Path(path).read_text(), object_pairs_hook=unique), str(path))
 
 
@@ -68,7 +75,9 @@ def read_stage_metrics(path: str | Path, job_id: int = 1) -> dict:
     source = Path(path).expanduser().resolve()
     wal = source.with_name(source.name + "-wal")
     if wal.exists() and wal.stat().st_size:
-        raise ValueError("nonempty SQLite WAL; use completed checkpointed DB or explicit metrics JSON")
+        raise ValueError(
+            "nonempty SQLite WAL; use completed checkpointed DB or explicit metrics JSON"
+        )
     uri = source.as_uri() + "?mode=ro&immutable=1"
     conn = sqlite3.connect(uri, uri=True)
     try:
@@ -115,8 +124,12 @@ def _validate(data: dict, metrics: dict, label: str) -> tuple[float, int]:
                 # pixelation rectangles are clipped and remain nonnegative.
                 minimum = -math.inf if key != "pixelated" and n <= 2 else 0
                 _number(value, f"{label}.{key}[{i}][{n}]", minimum=minimum)
-            if (key == "pixelated" and (row[3] <= row[1] or row[4] <= row[2])
-                    or key != "pixelated" and (row[3] <= 0 or row[4] <= 0)):
+            if (
+                key == "pixelated"
+                and (row[3] <= row[1] or row[4] <= row[2])
+                or key != "pixelated"
+                and (row[3] <= 0 or row[4] <= 0)
+            ):
                 raise ValueError(f"{label}.{key}[{i}] has an empty/inverted box")
     count = _number(blur.get("blurred_boxes"), f"{label} blur.blurred_boxes", integer=True)
     if count != len(data["pixelated"]):
@@ -132,16 +145,25 @@ def _validate(data: dict, metrics: dict, label: str) -> tuple[float, int]:
 
 def _matches(reference, candidate) -> bool:
     """Require full forward containment; overlap alone can expose face pixels."""
-    return (candidate[0] <= reference[0] and candidate[1] <= reference[1]
-            and candidate[2] >= reference[2] and candidate[3] >= reference[3])
+    return (
+        candidate[0] <= reference[0]
+        and candidate[1] <= reference[1]
+        and candidate[2] >= reference[2]
+        and candidate[3] >= reference[3]
+    )
 
 
 def _bin(size: float) -> str:
     return "ge24" if size >= 24 else "16_to_lt24" if size >= 16 else "lt16"
 
 
-def compare(reference: dict, new: dict, reference_metrics: dict, new_metrics: dict,
-            privacy: dict | None = None) -> dict:
+def compare(
+    reference: dict,
+    new: dict,
+    reference_metrics: dict,
+    new_metrics: dict,
+    privacy: dict | None = None,
+) -> dict:
     """Compare every logged reference region, at the identical output frame.
 
     Invalid metadata raises ValueError; valid but unacceptable results return
@@ -164,12 +186,16 @@ def compare(reference: dict, new: dict, reference_metrics: dict, new_metrics: di
     pixelated = defaultdict(list)
     for frame, *box in new["pixelated"]:
         pixelated[frame].append(box)
-    identities = sorted((t, [x, y, x + w, y + h], kind)
-                        for kind in ("lecturer", "unsure")
-                        for t, x, y, w, h in new[kind])
+    identities = sorted(
+        (t, [x, y, x + w, y + h], kind)
+        for kind in ("lecturer", "unsure")
+        for t, x, y, w, h in new[kind]
+    )
     identity_times = [row[0] for row in identities]
-    bins = {name: {"total": 0, "matched": 0, "missed": 0, "recall": None}
-            for name in ("ge24", "16_to_lt24", "lt16")}
+    bins = {
+        name: {"total": 0, "matched": 0, "missed": 0, "recall": None}
+        for name in ("ge24", "16_to_lt24", "lt16")
+    }
     misses = []
     open_faces = []
     open_lecturers = []
@@ -181,16 +207,25 @@ def compare(reference: dict, new: dict, reference_metrics: dict, new_metrics: di
         covered = any(_matches(box, candidate) for candidate in pixelated.get(frame, ()))
         bucket["matched" if covered else "missed"] += 1
         if not covered:
-            item = {"reference_index": index, "frame": frame, "t": frame / ref_fps,
-                    "size_px": size, "width": right - left, "height": bottom - top,
-                    "box": box, "bin": _bin(size)}
+            item = {
+                "reference_index": index,
+                "frame": frame,
+                "t": frame / ref_fps,
+                "size_px": size,
+                "width": right - left,
+                "height": bottom - top,
+                "box": box,
+                "bin": _bin(size),
+            }
             misses.append(item)
             # Covered boxes remain protected even when an identity record overlaps;
             # such overlap is not evidence of an open face.
             t = frame / new_fps
             first = bisect_left(identity_times, t - 0.3 - 1e-9)
             last = bisect_right(identity_times, t + 0.3 + 1e-9)
-            kinds = {kind for _, candidate, kind in identities[first:last] if _matches(box, candidate)}
+            kinds = {
+                kind for _, candidate, kind in identities[first:last] if _matches(box, candidate)
+            }
             if kinds:
                 open_faces.append({**item, "open_states": sorted(kinds)})
                 if "lecturer" in kinds:
@@ -245,40 +280,59 @@ def compare(reference: dict, new: dict, reference_metrics: dict, new_metrics: di
             value = _number(summary.get(key), f"new metrics.privacy.{key}", integer=True)
             if value != privacy[key]:
                 errors.append(f"privacy report disagrees with stage summary: {key}")
-    privacy_result.update(analysis_fps=rate, frames=samples,
-                          expected_samples=expected, full_duration_count=coverage,
-                          independent_detection="requires_code_audit")
-    return {"status": "FAIL" if errors else "PASS", "errors": errors,
-            "reference_frames": ref_frames, "new_frames": new_frames,
-            "reference_fps": ref_fps, "new_fps": new_fps,
-            "duration_seconds": ref_frames / ref_fps,
-            "reference_pixelated": len(reference["pixelated"]),
-            "new_pixelated": len(new["pixelated"]), "bins": bins,
-            "miss_count": len(misses), "misses": misses,
-            "open_face_count": len(open_faces), "open_faces": open_faces,
-            "open_lecturer_count": len(open_lecturers), "open_lecturers": open_lecturers,
-            "lecturer_mode": new_blur["lecturer_mode"], "lecturer": lecturer_metrics,
-            "privacy": privacy_result,
-            "limitations": [
-                "size_px is the shorter side of the logged pixelated rectangle, including blur margins; raw face size is unavailable",
-                "privacy independence and >=16px detector sensitivity require a code audit; counters cannot prove them",
-                "privacy coverage is checked from reported rate/count; summaries cannot prove sample timestamps or report provenance",
-                "explicitly open identities use the actual +/-0.3s policy window; recall still requires identical pixelated frames",
-            ]}
+    privacy_result.update(
+        analysis_fps=rate,
+        frames=samples,
+        expected_samples=expected,
+        full_duration_count=coverage,
+        independent_detection="requires_code_audit",
+    )
+    return {
+        "status": "FAIL" if errors else "PASS",
+        "errors": errors,
+        "reference_frames": ref_frames,
+        "new_frames": new_frames,
+        "reference_fps": ref_fps,
+        "new_fps": new_fps,
+        "duration_seconds": ref_frames / ref_fps,
+        "reference_pixelated": len(reference["pixelated"]),
+        "new_pixelated": len(new["pixelated"]),
+        "bins": bins,
+        "miss_count": len(misses),
+        "misses": misses,
+        "open_face_count": len(open_faces),
+        "open_faces": open_faces,
+        "open_lecturer_count": len(open_lecturers),
+        "open_lecturers": open_lecturers,
+        "lecturer_mode": new_blur["lecturer_mode"],
+        "lecturer": lecturer_metrics,
+        "privacy": privacy_result,
+        "limitations": [
+            "size_px is the shorter side of the logged pixelated rectangle, including blur margins; raw face size is unavailable",
+            "privacy independence and >=16px detector sensitivity require a code audit; counters cannot prove them",
+            "privacy coverage is checked from reported rate/count; summaries cannot prove sample timestamps or report provenance",
+            "explicitly open identities use the actual +/-0.3s policy window; recall still requires identical pixelated frames",
+        ],
+    }
 
 
 def write_report(path: str | Path, result: dict) -> None:
     destination = Path(path).expanduser().resolve()
     allowed = (ROOT / "out" / "performance").resolve()
-    if (not allowed.is_relative_to(ROOT.resolve())
-            or not destination.is_relative_to(allowed) or destination == allowed):
+    if (
+        not allowed.is_relative_to(ROOT.resolve())
+        or not destination.is_relative_to(allowed)
+        or destination == allowed
+    ):
         raise ValueError("output must be a file inside this tree's ignored out/performance/")
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_text(json.dumps(result, indent=2, ensure_ascii=False, allow_nan=False) + "\n")
 
 
 def main(argv=None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument("new_decisions", type=Path)
     parser.add_argument("--reference", type=Path, required=True)
     for side in ("reference", "new"):
@@ -288,15 +342,30 @@ def main(argv=None) -> int:
     parser.add_argument("--job-id", type=int, default=1)
     parser.add_argument("--reference-job-id", type=int, default=1)
     parser.add_argument("--privacy-output", type=Path)
-    parser.add_argument("--output", type=Path, help="full JSON, including every miss; only out/performance/ is writable")
+    parser.add_argument(
+        "--output",
+        type=Path,
+        help="full JSON, including every miss; only out/performance/ is writable",
+    )
     args = parser.parse_args(argv)
     try:
-        reference_metrics = (read_json(args.reference_metrics) if args.reference_metrics
-                             else read_stage_metrics(args.reference_db, args.reference_job_id))
-        new_metrics = (read_json(args.new_metrics) if args.new_metrics
-                       else read_stage_metrics(args.new_db, args.job_id))
-        result = compare(read_json(args.reference), read_json(args.new_decisions), reference_metrics,
-                         new_metrics, read_json(args.privacy_output) if args.privacy_output else None)
+        reference_metrics = (
+            read_json(args.reference_metrics)
+            if args.reference_metrics
+            else read_stage_metrics(args.reference_db, args.reference_job_id)
+        )
+        new_metrics = (
+            read_json(args.new_metrics)
+            if args.new_metrics
+            else read_stage_metrics(args.new_db, args.job_id)
+        )
+        result = compare(
+            read_json(args.reference),
+            read_json(args.new_decisions),
+            reference_metrics,
+            new_metrics,
+            read_json(args.privacy_output) if args.privacy_output else None,
+        )
     except (ValueError, TypeError, KeyError, OverflowError, OSError, sqlite3.Error) as exc:
         result = {"status": "FAIL", "errors": [f"invalid/incomplete comparison input: {exc}"]}
     if args.output:
@@ -306,8 +375,11 @@ def main(argv=None) -> int:
             result["status"] = "FAIL"
             result["errors"].append(f"report not written: {exc}")
     # Full misses are retained in JSON output, while the terminal stays compact.
-    display = {key: value for key, value in result.items()
-               if key not in ("misses", "open_faces", "open_lecturers", "limitations")}
+    display = {
+        key: value
+        for key, value in result.items()
+        if key not in ("misses", "open_faces", "open_lecturers", "limitations")
+    }
     print(json.dumps(display, indent=2, ensure_ascii=False, allow_nan=False))
     return 0 if result["status"] == "PASS" else 1
 

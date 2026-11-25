@@ -1,36 +1,195 @@
 "use strict";
 /* Admin audit view; all user-provided values remain escaped. */
-const AUDIT_ACTIONS = {"group.course":i18nText("ui.audit.group_course_changed"),"auth.challenge":i18nText("ui.audit.sign_in_verification_sent"),"auth.verified":i18nText("ui.audit.two_step_sign_in_confirmed"),"auth.failed":i18nText("ui.audit.sign_in_verification_failed"),"auth.remembered":i18nText("ui.audit.signed_in_with_a_remembered_device"),"auth.resend":i18nText("ui.audit.sign_in_verification_resent"),"auth.devices_removed":i18nText("ui.audit.remembered_devices_cleared"),"privacy.consent":i18nText("ui.audit.consent_saved"),"alert.delivery":i18nText("ui.audit.alert_delivery"),"report.delivery":i18nText("ui.audit.report_delivery"),"recording.start":i18nText("ui.audit.recording_started"),"recording.part":i18nText("ui.audit.recording_part_added"),"recording.close":i18nText("ui.audit.recording_part_closed"),"recording.confirm":i18nText("ui.audit.recording_confirmed"),"recording.part_delete":i18nText("ui.audit.recording_part_removed"),"recording.cancel":i18nText("ui.audit.recording_cancelled"),"invite.create":i18nText("ui.audit.invitation_created"),"invite.resend":i18nText("ui.audit.invitation_resent"),"invite.revoke":i18nText("ui.audit.invitation_cancelled"),"user.role":i18nText("ui.audit.role_changed"),"user.groups":i18nText("ui.audit.groups_changed"),"user.active":i18nText("ui.audit.account_activity_changed"),"user.remove":i18nText("ui.audit.user_removed"),"user.restore":i18nText("ui.audit.user_restored"),"user.delete":i18nText("ui.audit.user_deleted"),"group.save":i18nText("ui.audit.group_saved"),"group.delete":i18nText("ui.audit.group_deleted"),"group.complete":i18nText("ui.audit.group_completed"),"group.restore":i18nText("ui.audit.group_restored"),"group.update":i18nText("ui.audit.dates_and_team_changed"),"group.team":i18nText("ui.audit.team_changed"),"group.expired":i18nText("ui.audit.group_dates_ended"),"publication":i18nText("ui.app.publishing"),"job.retry":i18nText("ui.audit.lesson_restarted")};
+const AUDIT_ACTIONS = {
+  "group.course": i18nText("ui.audit.group_course_changed"),
+  "auth.challenge": i18nText("ui.audit.sign_in_verification_sent"),
+  "auth.verified": i18nText("ui.audit.two_step_sign_in_confirmed"),
+  "auth.failed": i18nText("ui.audit.sign_in_verification_failed"),
+  "auth.remembered": i18nText("ui.audit.signed_in_with_a_remembered_device"),
+  "auth.resend": i18nText("ui.audit.sign_in_verification_resent"),
+  "auth.devices_removed": i18nText("ui.audit.remembered_devices_cleared"),
+  "privacy.consent": i18nText("ui.audit.consent_saved"),
+  "alert.delivery": i18nText("ui.audit.alert_delivery"),
+  "report.delivery": i18nText("ui.audit.report_delivery"),
+  "recording.start": i18nText("ui.audit.recording_started"),
+  "recording.part": i18nText("ui.audit.recording_part_added"),
+  "recording.close": i18nText("ui.audit.recording_part_closed"),
+  "recording.confirm": i18nText("ui.audit.recording_confirmed"),
+  "recording.part_delete": i18nText("ui.audit.recording_part_removed"),
+  "recording.cancel": i18nText("ui.audit.recording_cancelled"),
+  "invite.create": i18nText("ui.audit.invitation_created"),
+  "invite.resend": i18nText("ui.audit.invitation_resent"),
+  "invite.revoke": i18nText("ui.audit.invitation_cancelled"),
+  "user.role": i18nText("ui.audit.role_changed"),
+  "user.groups": i18nText("ui.audit.groups_changed"),
+  "user.active": i18nText("ui.audit.account_activity_changed"),
+  "user.remove": i18nText("ui.audit.user_removed"),
+  "user.restore": i18nText("ui.audit.user_restored"),
+  "user.delete": i18nText("ui.audit.user_deleted"),
+  "group.save": i18nText("ui.audit.group_saved"),
+  "group.delete": i18nText("ui.audit.group_deleted"),
+  "group.complete": i18nText("ui.audit.group_completed"),
+  "group.restore": i18nText("ui.audit.group_restored"),
+  "group.update": i18nText("ui.audit.dates_and_team_changed"),
+  "group.team": i18nText("ui.audit.team_changed"),
+  "group.expired": i18nText("ui.audit.group_dates_ended"),
+  publication: i18nText("ui.app.publishing"),
+  "job.retry": i18nText("ui.audit.lesson_restarted"),
+};
 async function viewAudit() {
   if (S.role !== "admin") return;
   if (document.querySelector("#audit-view")) return;
   if (!document.querySelector("#audit-css")) {
-    const style=document.createElement("style");style.id="audit-css";
-    style.textContent=`#audit-view{display:grid;gap:20px;min-width:0}#audit-view .audit-filters{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr)) auto;gap:12px;align-items:end}#audit-view .fld{margin:0}#audit-view .audit-table{width:100%;border-collapse:collapse;font-size:13px}#audit-view th,#audit-view td{text-align:left;padding:12px;border-bottom:1px solid var(--border);vertical-align:top}#audit-view th{color:var(--muted);font-size:12px}#audit-view .audit-scroll{overflow-x:auto}#audit-view .audit-target{overflow-wrap:anywhere;max-width:220px}#audit-view .audit-pager{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:16px}#audit-view .audit-error{white-space:pre-wrap}#audit-view .audit-empty{padding:24px;color:var(--muted);text-align:center}#audit-view summary{cursor:pointer;padding:8px 0;min-height:44px}#audit-view pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;max-width:300px}@media(max-width:760px){#audit-view .audit-filters{grid-template-columns:1fr 1fr}#audit-view .audit-filters button{grid-column:1/-1}#audit-view table,#audit-view tbody,#audit-view tr,#audit-view td{display:block;width:100%}#audit-view thead{display:none}#audit-view tr{border:1px solid var(--border);border-radius:12px;margin:12px 0;padding:10px}#audit-view td{border:0;padding:5px 0;max-width:none}#audit-view td::before{content:attr(data-label);display:block;color:var(--muted);font-size:11px}#audit-view pre{max-width:100%}}@media(max-width:360px){#audit-view .audit-filters{grid-template-columns:1fr}}`;
+    const style = document.createElement("style");
+    style.id = "audit-css";
+    style.textContent = `#audit-view{display:grid;gap:20px;min-width:0}#audit-view .audit-filters{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr)) auto;gap:12px;align-items:end}#audit-view .fld{margin:0}#audit-view .audit-table{width:100%;border-collapse:collapse;font-size:13px}#audit-view th,#audit-view td{text-align:left;padding:12px;border-bottom:1px solid var(--border);vertical-align:top}#audit-view th{color:var(--muted);font-size:12px}#audit-view .audit-scroll{overflow-x:auto}#audit-view .audit-target{overflow-wrap:anywhere;max-width:220px}#audit-view .audit-pager{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:16px}#audit-view .audit-error{white-space:pre-wrap}#audit-view .audit-empty{padding:24px;color:var(--muted);text-align:center}#audit-view summary{cursor:pointer;padding:8px 0;min-height:44px}#audit-view pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;max-width:300px}@media(max-width:760px){#audit-view .audit-filters{grid-template-columns:1fr 1fr}#audit-view .audit-filters button{grid-column:1/-1}#audit-view table,#audit-view tbody,#audit-view tr,#audit-view td{display:block;width:100%}#audit-view thead{display:none}#audit-view tr{border:1px solid var(--border);border-radius:12px;margin:12px 0;padding:10px}#audit-view td{border:0;padding:5px 0;max-width:none}#audit-view td::before{content:attr(data-label);display:block;color:var(--muted);font-size:11px}#audit-view pre{max-width:100%}}@media(max-width:360px){#audit-view .audit-filters{grid-template-columns:1fr}}`;
     document.head.append(style);
   }
-  const query=new URLSearchParams(location.hash.split("?")[1]||"");
-  const state={actor:query.get("actor")||"",action:query.get("action")||"",from:query.get("from")||"",to:query.get("to")||"",page:Math.max(1,Number(query.get("page"))||1)};
-  document.querySelector("#main").innerHTML=`<div id="audit-view"><a class="back" href="#/groups">${ic("back")} ${i18nText("ui.audit.back_to_groups")}</a><div class="top"><div><h1>${i18nText("ui.audit.activity_log")}</h1><p>${i18nText("ui.audit.account_group_and_publication_history_administrators_only")}</p></div></div><section class="card"><form id="audit-filters" class="audit-filters"><label class="fld"><span>${i18nText("ui.audit.user")}</span><select class="input" name="actor"><option value="">${i18nText("ui.accounts.all")}</option></select></label><label class="fld"><span>${i18nText("ui.accounts.action")}</span><select class="input" name="action"><option value="">${i18nText("ui.accounts.all")}</option></select></label><label class="fld"><span>${i18nText("ui.audit.from")}</span><input class="input" name="from" type="date" value="${esc(state.from)}"></label><label class="fld"><span>${i18nText("ui.audit.through")}</span><input class="input" name="to" type="date" value="${esc(state.to)}"></label><button class="btn primary" type="submit">${i18nText("ui.audit.filter")}</button></form></section><p id="audit-error" class="alert err audit-error" role="alert" hidden></p><section class="card"><div id="audit-content" aria-live="polite">${i18nText("ui.audit.loading_activity_log")}</div></section></div>`;
-  const view=document.querySelector("#audit-view"),form=view.querySelector("#audit-filters"),error=view.querySelector("#audit-error"),content=view.querySelector("#audit-content");
-  const alive=()=>document.querySelector("#audit-view")===view&&S.role==="admin";
-  const params=()=>{const p=new URLSearchParams();for(const [key,value]of Object.entries(state))if(value)p.set(key,String(value));return p;};
-  const label=action=>AUDIT_ACTIONS[action]||i18nText("ui.audit.other_action");
-  const detailLabels={role:i18nText("ui.accounts.role"),groups:i18nText("ui.accounts.groups"),active:i18nText("ui.accounts.active"),before:i18nText("ui.audit.before"),after:i18nText("ui.audit.after"),field:i18nText("ui.audit.field"),fields:i18nText("ui.audit.fields"),subjects:i18nText("ui.courses.subjects_2"),ta_ids:i18nText("ui.groups.student_assistants"),lecturer_ids:i18nText("ui.accounts.lecturers"),course_start:i18nText("ui.groups.course_start"),course_end:i18nText("ui.groups.course_end"),start:i18nText("ui.audit.start"),end:i18nText("ui.audit.end"),completed:i18nText("ui.courses.completed"),status:i18nText("ui.app.status"),target:i18nText("ui.audit.publication_destination"),group:i18nText("ui.accounts.group"),subject:i18nText("ui.app.subject"),job_id:i18nText("ui.app.lesson"),user_id:i18nText("ui.audit.user"),invite_id:i18nText("ui.audit.invitation_2"),count:i18nText("ui.audit.count"),demo:i18nText("ui.app.demo"),reason:i18nText("ui.audit.reason"),lecturer_id:i18nText("ui.groups.lecturer"),manual:i18nText("ui.audit.manual"),end_date:i18nText("ui.audit.end"),name:i18nText("ui.accounts.name"),schedule:i18nText("ui.audit.dates"),ta:i18nText("ui.audit.assistant"),removed:i18nText("ui.accounts.removed"),deleted:i18nText("ui.audit.deleted")};
-  function friendly(value){if(Array.isArray(value))return value.map(friendly);if(value&&typeof value==="object")return Object.fromEntries(Object.entries(value).map(([k,v])=>[detailLabels[k]||i18nText("ui.audit.data"),friendly(v)]));if(value===true)return i18nText("ui.audit.yes");if(value===false)return i18nText("ui.audit.no");if(value===null)return i18nText("ui.audit.none");return ({admin:i18nText("ui.accounts.administrator"),student:i18nText("ui.accounts.student"),lecturer:i18nText("ui.groups.lecturer"),youtube:"YouTube",slack:"Slack",classroom:"Classroom",library:i18nText("ui.app.library"),playlist:i18nText("ui.groups.playlist"),role:i18nText("ui.accounts.role"),groups:i18nText("ui.accounts.groups"),active:i18nText("ui.accounts.active"),off:i18nText("ui.accounts.disabled"),schedule:i18nText("ui.audit.dates"),team:i18nText("ui.courses.team")})[value]||value;}
-  function targetLabel(target){return String(target).replace(/^user:/,(`${i18nText("ui.audit.user_2")} `)).replace(/^job:/,(`${i18nText("ui.audit.lesson")} `)).replace(/^group:/,(`${i18nText("ui.audit.group")} `)).replace(/^invite:/,(`${i18nText("ui.audit.invitation")} `)).replace(/^invitation$/,i18nText("ui.audit.invitation_2"));}
-  let serial=0;
-  async function load(){
-    const request=++serial;error.hidden=true;content.setAttribute("aria-busy","true");
-    try{
-      const data=await api("/api/admin/audit?"+params());if(!alive()||request!==serial)return;
-      form.elements.actor.innerHTML=(`<option value="">${i18nText("ui.accounts.all")}</option>`)+data.actors.map(actor=>`<option value="${actor.id??0}">${esc(actor.name)}</option>`).join("");form.elements.actor.value=state.actor;
-      form.elements.action.innerHTML=(`<option value="">${i18nText("ui.accounts.all")}</option>`)+data.actions.map(action=>`<option value="${esc(action)}">${esc(label(action))}</option>`).join("");form.elements.action.value=state.action;
-      content.innerHTML=(data.items.length?`<div class="audit-scroll"><table class="audit-table"><thead><tr><th>${i18nText("ui.audit.date")}</th><th>${i18nText("ui.audit.user")}</th><th>${i18nText("ui.accounts.action")}</th><th>${i18nText("ui.audit.target")}</th><th>${i18nText("ui.audit.details")}</th></tr></thead><tbody>${data.items.map(item=>`<tr><td data-label="${i18nText("ui.audit.date")}">${esc(new Date(item.created_at).toLocaleString((I18N.language === "hy" ? "hy-AM" : "en-US")))}</td><td data-label="${i18nText("ui.audit.user")}">${esc(item.actor_name)}</td><td data-label="${i18nText("ui.accounts.action")}">${esc(label(item.action))}${item.demo?(` <span class="pill">${i18nText("ui.app.demo")}</span>`):''}</td><td data-label="${i18nText("ui.audit.target")}" class="audit-target">${esc(targetLabel(item.target))}</td><td data-label="${i18nText("ui.audit.details")}">${Object.keys(item.details||{}).length?`<details><summary>${i18nText("ui.audit.view")}</summary><pre>${esc(JSON.stringify(friendly(item.details),null,2))}</pre></details>`:'—'}</td></tr>`).join("")}</tbody></table></div>`:(`<div class="audit-empty">${i18nText("ui.audit.no_records_match_these_filters")}</div>`))+`<div class="audit-pager"><span class="muted">${i18nText("ui.accounts.total")} ${data.total}</span><button class="btn" type="button" data-page="${state.page-1}"${state.page<=1?' disabled':''}>${i18nText("ui.audit.previous")}</button><span>${state.page} / ${data.pages}</span><button class="btn" type="button" data-page="${state.page+1}"${state.page>=data.pages?' disabled':''}>${i18nText("ui.audit.next")}</button></div>`;
-    }catch(e){if(alive()&&request===serial){error.textContent=e.net?i18nText("ui.audit.could_not_load_the_activity_log_try"):e.message;error.hidden=false;}}
-    finally{if(alive()&&request===serial)content.setAttribute("aria-busy","false");}
+  const query = new URLSearchParams(location.hash.split("?")[1] || "");
+  const state = {
+    actor: query.get("actor") || "",
+    action: query.get("action") || "",
+    from: query.get("from") || "",
+    to: query.get("to") || "",
+    page: Math.max(1, Number(query.get("page")) || 1),
+  };
+  document.querySelector("#main").innerHTML =
+    `<div id="audit-view"><a class="back" href="#/groups">${ic("back")} ${i18nText("ui.audit.back_to_groups")}</a><div class="top"><div><h1>${i18nText("ui.audit.activity_log")}</h1><p>${i18nText("ui.audit.account_group_and_publication_history_administrators_only")}</p></div></div><section class="card"><form id="audit-filters" class="audit-filters"><label class="fld"><span>${i18nText("ui.audit.user")}</span><select class="input" name="actor"><option value="">${i18nText("ui.accounts.all")}</option></select></label><label class="fld"><span>${i18nText("ui.accounts.action")}</span><select class="input" name="action"><option value="">${i18nText("ui.accounts.all")}</option></select></label><label class="fld"><span>${i18nText("ui.audit.from")}</span><input class="input" name="from" type="date" value="${esc(state.from)}"></label><label class="fld"><span>${i18nText("ui.audit.through")}</span><input class="input" name="to" type="date" value="${esc(state.to)}"></label><button class="btn primary" type="submit">${i18nText("ui.audit.filter")}</button></form></section><p id="audit-error" class="alert err audit-error" role="alert" hidden></p><section class="card"><div id="audit-content" aria-live="polite">${i18nText("ui.audit.loading_activity_log")}</div></section></div>`;
+  const view = document.querySelector("#audit-view"),
+    form = view.querySelector("#audit-filters"),
+    error = view.querySelector("#audit-error"),
+    content = view.querySelector("#audit-content");
+  const alive = () => document.querySelector("#audit-view") === view && S.role === "admin";
+  const params = () => {
+    const p = new URLSearchParams();
+    for (const [key, value] of Object.entries(state)) if (value) p.set(key, String(value));
+    return p;
+  };
+  const label = (action) => AUDIT_ACTIONS[action] || i18nText("ui.audit.other_action");
+  const detailLabels = {
+    role: i18nText("ui.accounts.role"),
+    groups: i18nText("ui.accounts.groups"),
+    active: i18nText("ui.accounts.active"),
+    before: i18nText("ui.audit.before"),
+    after: i18nText("ui.audit.after"),
+    field: i18nText("ui.audit.field"),
+    fields: i18nText("ui.audit.fields"),
+    subjects: i18nText("ui.courses.subjects_2"),
+    ta_ids: i18nText("ui.groups.student_assistants"),
+    lecturer_ids: i18nText("ui.accounts.lecturers"),
+    course_start: i18nText("ui.groups.course_start"),
+    course_end: i18nText("ui.groups.course_end"),
+    start: i18nText("ui.audit.start"),
+    end: i18nText("ui.audit.end"),
+    completed: i18nText("ui.courses.completed"),
+    status: i18nText("ui.app.status"),
+    target: i18nText("ui.audit.publication_destination"),
+    group: i18nText("ui.accounts.group"),
+    subject: i18nText("ui.app.subject"),
+    job_id: i18nText("ui.app.lesson"),
+    user_id: i18nText("ui.audit.user"),
+    invite_id: i18nText("ui.audit.invitation_2"),
+    count: i18nText("ui.audit.count"),
+    demo: i18nText("ui.app.demo"),
+    reason: i18nText("ui.audit.reason"),
+    lecturer_id: i18nText("ui.groups.lecturer"),
+    manual: i18nText("ui.audit.manual"),
+    end_date: i18nText("ui.audit.end"),
+    name: i18nText("ui.accounts.name"),
+    schedule: i18nText("ui.audit.dates"),
+    ta: i18nText("ui.audit.assistant"),
+    removed: i18nText("ui.accounts.removed"),
+    deleted: i18nText("ui.audit.deleted"),
+  };
+  function friendly(value) {
+    if (Array.isArray(value)) return value.map(friendly);
+    if (value && typeof value === "object")
+      return Object.fromEntries(
+        Object.entries(value).map(([k, v]) => [
+          detailLabels[k] || i18nText("ui.audit.data"),
+          friendly(v),
+        ]),
+      );
+    if (value === true) return i18nText("ui.audit.yes");
+    if (value === false) return i18nText("ui.audit.no");
+    if (value === null) return i18nText("ui.audit.none");
+    return (
+      {
+        admin: i18nText("ui.accounts.administrator"),
+        student: i18nText("ui.accounts.student"),
+        lecturer: i18nText("ui.groups.lecturer"),
+        youtube: "YouTube",
+        slack: "Slack",
+        classroom: "Classroom",
+        library: i18nText("ui.app.library"),
+        playlist: i18nText("ui.groups.playlist"),
+        role: i18nText("ui.accounts.role"),
+        groups: i18nText("ui.accounts.groups"),
+        active: i18nText("ui.accounts.active"),
+        off: i18nText("ui.accounts.disabled"),
+        schedule: i18nText("ui.audit.dates"),
+        team: i18nText("ui.courses.team"),
+      }[value] || value
+    );
   }
-  form.onsubmit=event=>{event.preventDefault();for(const key of ["actor","action","from","to"])state[key]=form.elements[key].value;state.page=1;history.replaceState(null,"","#/audit?"+params());load();};
-  content.onclick=event=>{const button=event.target.closest("[data-page]");if(button&&!button.disabled){state.page=Number(button.dataset.page);history.replaceState(null,"","#/audit?"+params());load();}};
+  function targetLabel(target) {
+    return String(target)
+      .replace(/^user:/, `${i18nText("ui.audit.user_2")} `)
+      .replace(/^job:/, `${i18nText("ui.audit.lesson")} `)
+      .replace(/^group:/, `${i18nText("ui.audit.group")} `)
+      .replace(/^invite:/, `${i18nText("ui.audit.invitation")} `)
+      .replace(/^invitation$/, i18nText("ui.audit.invitation_2"));
+  }
+  let serial = 0;
+  async function load() {
+    const request = ++serial;
+    error.hidden = true;
+    content.setAttribute("aria-busy", "true");
+    try {
+      const data = await api("/api/admin/audit?" + params());
+      if (!alive() || request !== serial) return;
+      form.elements.actor.innerHTML =
+        `<option value="">${i18nText("ui.accounts.all")}</option>` +
+        data.actors
+          .map((actor) => `<option value="${actor.id ?? 0}">${esc(actor.name)}</option>`)
+          .join("");
+      form.elements.actor.value = state.actor;
+      form.elements.action.innerHTML =
+        `<option value="">${i18nText("ui.accounts.all")}</option>` +
+        data.actions
+          .map((action) => `<option value="${esc(action)}">${esc(label(action))}</option>`)
+          .join("");
+      form.elements.action.value = state.action;
+      content.innerHTML =
+        (data.items.length
+          ? `<div class="audit-scroll"><table class="audit-table"><thead><tr><th>${i18nText("ui.audit.date")}</th><th>${i18nText("ui.audit.user")}</th><th>${i18nText("ui.accounts.action")}</th><th>${i18nText("ui.audit.target")}</th><th>${i18nText("ui.audit.details")}</th></tr></thead><tbody>${data.items.map((item) => `<tr><td data-label="${i18nText("ui.audit.date")}">${esc(new Date(item.created_at).toLocaleString(I18N.language === "hy" ? "hy-AM" : "en-US"))}</td><td data-label="${i18nText("ui.audit.user")}">${esc(item.actor_name)}</td><td data-label="${i18nText("ui.accounts.action")}">${esc(label(item.action))}${item.demo ? ` <span class="pill">${i18nText("ui.app.demo")}</span>` : ""}</td><td data-label="${i18nText("ui.audit.target")}" class="audit-target">${esc(targetLabel(item.target))}</td><td data-label="${i18nText("ui.audit.details")}">${Object.keys(item.details || {}).length ? `<details><summary>${i18nText("ui.audit.view")}</summary><pre>${esc(JSON.stringify(friendly(item.details), null, 2))}</pre></details>` : "—"}</td></tr>`).join("")}</tbody></table></div>`
+          : `<div class="audit-empty">${i18nText("ui.audit.no_records_match_these_filters")}</div>`) +
+        `<div class="audit-pager"><span class="muted">${i18nText("ui.accounts.total")} ${data.total}</span><button class="btn" type="button" data-page="${state.page - 1}"${state.page <= 1 ? " disabled" : ""}>${i18nText("ui.audit.previous")}</button><span>${state.page} / ${data.pages}</span><button class="btn" type="button" data-page="${state.page + 1}"${state.page >= data.pages ? " disabled" : ""}>${i18nText("ui.audit.next")}</button></div>`;
+    } catch (e) {
+      if (alive() && request === serial) {
+        error.textContent = e.net
+          ? i18nText("ui.audit.could_not_load_the_activity_log_try")
+          : e.message;
+        error.hidden = false;
+      }
+    } finally {
+      if (alive() && request === serial) content.setAttribute("aria-busy", "false");
+    }
+  }
+  form.onsubmit = (event) => {
+    event.preventDefault();
+    for (const key of ["actor", "action", "from", "to"]) state[key] = form.elements[key].value;
+    state.page = 1;
+    history.replaceState(null, "", "#/audit?" + params());
+    load();
+  };
+  content.onclick = (event) => {
+    const button = event.target.closest("[data-page]");
+    if (button && !button.disabled) {
+      state.page = Number(button.dataset.page);
+      history.replaceState(null, "", "#/audit?" + params());
+      load();
+    }
+  };
   await load();
 }

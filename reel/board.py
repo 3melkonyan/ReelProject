@@ -8,6 +8,7 @@ frames removes the lecturer standing in front of the board. Whiteboards are not 
 
 CLI: python -m reel.board VIDEO [--frames 20] [--debug out.jpg]
 """
+
 from __future__ import annotations
 
 import argparse
@@ -18,15 +19,15 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-WIDTH = 960            # analysis width; corners are returned normalised to 0..1
-MIN_AREA = 0.15        # the board covers at least 15% of the frame
-EDGE_SPAN = 0.8        # each edge is fitted on its central 80% (corners are often occluded)
-LINE_TOL = 3.0         # px at WIDTH: a point within this distance supports a line
-MIN_SUPPORT = 0.35     # share of edge points behind a line (the header rail splits the top edge)
-AGREE = 0.02           # a frame agrees with the median when every corner is within 2%
-MIN_FOUND = 0.5        # trust the result only if the board was found in half of the frames
-MIN_AGREE = 0.6        # ... and 60% of those frames agree with the median
-MAX_TILT = 15.0        # degrees; a steeper "board" is something else
+WIDTH = 960  # analysis width; corners are returned normalised to 0..1
+MIN_AREA = 0.15  # the board covers at least 15% of the frame
+EDGE_SPAN = 0.8  # each edge is fitted on its central 80% (corners are often occluded)
+LINE_TOL = 3.0  # px at WIDTH: a point within this distance supports a line
+MIN_SUPPORT = 0.35  # share of edge points behind a line (the header rail splits the top edge)
+AGREE = 0.02  # a frame agrees with the median when every corner is within 2%
+MIN_FOUND = 0.5  # trust the result only if the board was found in half of the frames
+MIN_AGREE = 0.6  # ... and 60% of those frames agree with the median
+MAX_TILT = 15.0  # degrees; a steeper "board" is something else
 
 
 def _line(u: np.ndarray, v: np.ndarray) -> tuple[float, float] | None:
@@ -50,10 +51,13 @@ def _line(u: np.ndarray, v: np.ndarray) -> tuple[float, float] | None:
 
 def _mask(gray: np.ndarray) -> np.ndarray | None:
     h, w = gray.shape
-    _, dark = cv2.threshold(cv2.GaussianBlur(gray, (5, 5), 0), 0, 255,
-                            cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
-    k = max(3, w // 60)                     # closes chalk writing and the rails between panels
-    dark = cv2.morphologyEx(dark, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_RECT, (k, k)))
+    _, dark = cv2.threshold(
+        cv2.GaussianBlur(gray, (5, 5), 0), 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU
+    )
+    k = max(3, w // 60)  # closes chalk writing and the rails between panels
+    dark = cv2.morphologyEx(
+        dark, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_RECT, (k, k))
+    )
     n, lab, stats, _ = cv2.connectedComponentsWithStats(dark, connectivity=8)
     if n < 2:
         return None
@@ -85,14 +89,17 @@ def detect_frame(gray: np.ndarray) -> np.ndarray | None:
     if None in (top, bottom, left, right):
         return None
 
-    def meet(hz, vt):                       # y = a x + b  meets  x = c y + d
+    def meet(hz, vt):  # y = a x + b  meets  x = c y + d
         (a, b), (cc, d) = hz, vt
         x = (cc * b + d) / (1 - cc * a)
         return x, a * x + b
 
     quad = np.array([meet(top, left), meet(top, right), meet(bottom, right), meet(bottom, left)])
-    if not np.isfinite(quad).all() or abs(tilt_deg(quad)) > MAX_TILT \
-            or cv2.contourArea(quad.astype(np.float32)) < MIN_AREA * w * h:
+    if (
+        not np.isfinite(quad).all()
+        or abs(tilt_deg(quad)) > MAX_TILT
+        or cv2.contourArea(quad.astype(np.float32)) < MIN_AREA * w * h
+    ):
         return None
     return quad
 
@@ -118,7 +125,9 @@ def combine(quads: list, frames: int, size: tuple[int, int]) -> dict:
         out["agree"] = round(float((np.abs(qs - med).max(axis=(1, 2)) < AGREE).mean()), 3)
         out["corners"] = [[round(float(x), 4), round(float(y), 4)] for x, y in med]
         out["tilt_deg"] = round(tilt_deg(med * size), 2)
-    out["ok"] = bool(frames and out["found"] >= max(3, MIN_FOUND * frames) and out["agree"] >= MIN_AGREE)
+    out["ok"] = bool(
+        frames and out["found"] >= max(3, MIN_FOUND * frames) and out["agree"] >= MIN_AGREE
+    )
     return out
 
 
@@ -126,15 +135,36 @@ def sample(video: str | Path, n: int = 20, width: int = WIDTH):
     """n frames spread over the lesson by fast seeks (~0.4 s each on 4K HEVC; a key-frame
     scan of a 100-min 4K lesson takes minutes)."""
     from reel.stages.transcribe import media_duration
+
     dur = media_duration(video)
     for i in range(n):
         t = dur * (0.03 + 0.94 * i / max(1, n - 1))
-        r = subprocess.run(["ffmpeg", "-nostdin", "-v", "error", "-ss", f"{t:.2f}", "-i", str(video),
-                            "-frames:v", "1", "-vf", f"scale={width}:-2", "-f", "rawvideo", "-pix_fmt", "bgr24", "-"],
-                           capture_output=True, timeout=60)
+        r = subprocess.run(
+            [
+                "ffmpeg",
+                "-nostdin",
+                "-v",
+                "error",
+                "-ss",
+                f"{t:.2f}",
+                "-i",
+                str(video),
+                "-frames:v",
+                "1",
+                "-vf",
+                f"scale={width}:-2",
+                "-f",
+                "rawvideo",
+                "-pix_fmt",
+                "bgr24",
+                "-",
+            ],
+            capture_output=True,
+            timeout=60,
+        )
         h = len(r.stdout) // (width * 3)
         if r.returncode == 0 and h:
-            yield np.frombuffer(r.stdout, np.uint8)[:width * h * 3].reshape(h, width, 3)
+            yield np.frombuffer(r.stdout, np.uint8)[: width * h * 3].reshape(h, width, 3)
 
 
 def detect(video: str | Path, *, n: int = 20, debug: str | Path | None = None) -> dict:
@@ -153,16 +183,25 @@ def detect(video: str | Path, *, n: int = 20, debug: str | Path | None = None) -
     out = combine(quads, frames, size)
     # Preserve the RANSAC result; colour-independent median/contour fallback handles
     # white/green boards, including a lecturer occluding individual frames.
-    if sampled and (not out["ok"] or cv2.contourArea(np.float32(out["corners"])) > .92):
+    if sampled and (not out["ok"] or cv2.contourArea(np.float32(out["corners"])) > 0.92):
         from reel.framing import candidates, overlap
+
         background = np.median(np.stack(sampled), axis=0).astype(np.uint8)
         proposals = candidates(background)
         if proposals:
             best = proposals[0]
-            agreement = sum(any(overlap(best["q"], p["q"]) > .65 for p in candidates(img)) for img in sampled) / len(sampled)
-            if best["score"] >= .66 and agreement >= MIN_AGREE:
-                out = {"frames": frames, "found": round(frames * agreement), "agree": round(agreement, 3),
-                       "corners": best["q"].tolist(), "tilt_deg": round(tilt_deg(best["q"] * size), 2), "ok": True}
+            agreement = sum(
+                any(overlap(best["q"], p["q"]) > 0.65 for p in candidates(img)) for img in sampled
+            ) / len(sampled)
+            if best["score"] >= 0.66 and agreement >= MIN_AGREE:
+                out = {
+                    "frames": frames,
+                    "found": round(frames * agreement),
+                    "agree": round(agreement, 3),
+                    "corners": best["q"].tolist(),
+                    "tilt_deg": round(tilt_deg(best["q"] * size), 2),
+                    "ok": True,
+                }
     if debug and shot is not None:
         pic = shot.copy()
         if out["corners"]:
@@ -172,8 +211,8 @@ def detect(video: str | Path, *, n: int = 20, debug: str | Path | None = None) -
     return out
 
 
-ASPECT = 16 / 9        # output frame (YouTube); the board itself is wider (~2.3:1 in room 1)
-MARGIN = 0.02          # around the board, share of its size
+ASPECT = 16 / 9  # output frame (YouTube); the board itself is wider (~2.3:1 in room 1)
+MARGIN = 0.02  # around the board, share of its size
 
 
 def _rot(points, angle_deg: float, centre) -> np.ndarray:
@@ -184,7 +223,9 @@ def _rot(points, angle_deg: float, centre) -> np.ndarray:
     return np.stack([d[:, 0] * c - d[:, 1] * s, d[:, 0] * s + d[:, 1] * c], 1) + centre
 
 
-def plan(corners, width: int, height: int, *, aspect: float = ASPECT, margin: float = MARGIN) -> dict:
+def plan(
+    corners, width: int, height: int, *, aspect: float = ASPECT, margin: float = MARGIN
+) -> dict:
     """How to frame the board: rotate the whole frame by rotate_deg (clockwise, the ffmpeg
     `rotate` convention), then crop [x, y, w, h] of the same-size levelled frame. The crop has
     the output aspect, holds the board plus margin and never reaches the black rotated corners."""
@@ -205,23 +246,36 @@ def plan(corners, width: int, height: int, *, aspect: float = ASPECT, margin: fl
             break
         w *= 0.99
     h = w / aspect
-    cut = max((max(0, x - x0) + max(0, x1 - x - w)) / (x1 - x0), (max(0, y - y0) + max(0, y1 - y - h)) / (y1 - y0))
+    cut = max(
+        (max(0, x - x0) + max(0, x1 - x - w)) / (x1 - x0),
+        (max(0, y - y0) + max(0, y1 - y - h)) / (y1 - y0),
+    )
+
     def even(v):
         return int(round(v / 2) * 2)
+
     output_h = max(2, int(output_w / aspect) // 2 * 2)
-    return {"size": [width, height], "output_size": [output_w, output_h], "max_upscale": 1.5,
-            "cap_ok": output_w / max(2, even(w)) <= 1.5, "rotate_deg": round(-tilt, 3),
-            "crop": [even(x), even(y), even(w), even(h)], "zoom": round(width / w, 3),
-            "board_cut": round(float(cut), 3)}   # share of the board left out (steep tilt, board fills the frame)
+    return {
+        "size": [width, height],
+        "output_size": [output_w, output_h],
+        "max_upscale": 1.5,
+        "cap_ok": output_w / max(2, even(w)) <= 1.5,
+        "rotate_deg": round(-tilt, 3),
+        "crop": [even(x), even(y), even(w), even(h)],
+        "zoom": round(width / w, 3),
+        "board_cut": round(float(cut), 3),
+    }  # share of the board left out (steep tilt, board fills the frame)
 
 
 def preview(img: np.ndarray, framing: dict, width: int = 640) -> np.ndarray:
     """What the published frame will look like (for the admin page and for checks)."""
     h, w = img.shape[:2]
     k = w / framing["size"][0]
-    m = cv2.getRotationMatrix2D((w / 2, h / 2), -framing["rotate_deg"], 1.0)   # OpenCV: + = counter-clockwise
+    m = cv2.getRotationMatrix2D(
+        (w / 2, h / 2), -framing["rotate_deg"], 1.0
+    )  # OpenCV: + = counter-clockwise
     x, y, cw, ch = (int(round(v * k)) for v in framing["crop"])
-    out = cv2.warpAffine(img, m, (w, h))[y:y + ch, x:x + cw]
+    out = cv2.warpAffine(img, m, (w, h))[y : y + ch, x : x + cw]
     return cv2.resize(out, (width, int(round(width * ch / cw / 2) * 2)))
 
 

@@ -1,8 +1,9 @@
 """Owner, 2026-11-19: the students' Slack link goes out only after YouTube has finished processing
 the video, with the first check immediate and later checks every 15 seconds; a rejected or stuck video stops the job
 and nothing is sent to Slack."""
+
 import time as real_time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -21,14 +22,23 @@ def ctx(tmp_path, uploaded_ago=0):
     jid = db.create_job(str(tmp_path / "x"), "sha", "G", "Python")
     db.add_publication(jid, "youtube", "vid", "https://youtu.be/vid")
     if uploaded_ago:
-        when = (datetime.now(timezone.utc) - timedelta(seconds=uploaded_ago)).isoformat(timespec="seconds")
+        when = (datetime.now(UTC) - timedelta(seconds=uploaded_ago)).isoformat(timespec="seconds")
         db.conn.execute("UPDATE publications SET created_at=? WHERE job_id=?", (when, jid))
     posted = []
-    return SimpleNamespace(db=db, job_id=jid, group="G", config={"groups": {"G": GROUP}}, workdir=tmp_path,
-                           out=lambda n: {"youtube_upload": {"external_id": "vid", "url": "https://youtu.be/vid"},
-                                          "metadata": {"title": "Դաս՝ Closures"}}[n],
-                           publish_once=lambda target, do, find=None: posted.append((target, do())) or {"external_id": "ts"},
-                           posted=posted)
+    return SimpleNamespace(
+        db=db,
+        job_id=jid,
+        group="G",
+        config={"groups": {"G": GROUP}},
+        workdir=tmp_path,
+        out=lambda n: {
+            "youtube_upload": {"external_id": "vid", "url": "https://youtu.be/vid"},
+            "metadata": {"title": "Դաս՝ Closures"},
+        }[n],
+        publish_once=lambda target, do, find=None: posted.append((target, do()))
+        or {"external_id": "ts"},
+        posted=posted,
+    )
 
 
 def run(c, statuses):
@@ -41,10 +51,13 @@ def run(c, statuses):
     yt, slack = MagicMock(), MagicMock()
     yt.processing_status.side_effect = statuses
     slack.post_link.return_value = "ts"
-    with patch.object(st, "DRY_RUN", False), \
-            patch.object(st, "_pub", side_effect=lambda n: {"youtube": yt, "slack": slack}[n]), \
-            patch.object(st.time, "sleep", side_effect=sleep), patch.object(st.time, "time", side_effect=lambda: clock[0]), \
-            patch.object(st.time, "monotonic", side_effect=lambda: clock[0]):
+    with (
+        patch.object(st, "DRY_RUN", False),
+        patch.object(st, "_pub", side_effect=lambda n: {"youtube": yt, "slack": slack}[n]),
+        patch.object(st.time, "sleep", side_effect=sleep),
+        patch.object(st.time, "time", side_effect=lambda: clock[0]),
+        patch.object(st.time, "monotonic", side_effect=lambda: clock[0]),
+    ):
         try:
             result = st.slack_post(c)
         except StopJob as exc:
@@ -87,5 +100,9 @@ def test_already_posted_slack_does_not_wait(tmp_path):
 
 
 def test_stop_reasons_have_armenian_hints():
-    assert "YouTube Studio" in hint("[slack_post] YouTube is still processing the video after 60 min — Slack not sent")
-    assert "YouTube Studio" in hint("[slack_post] YouTube did not accept the video (status 'failed') — Slack not sent")
+    assert "YouTube Studio" in hint(
+        "[slack_post] YouTube is still processing the video after 60 min — Slack not sent"
+    )
+    assert "YouTube Studio" in hint(
+        "[slack_post] YouTube did not accept the video (status 'failed') — Slack not sent"
+    )

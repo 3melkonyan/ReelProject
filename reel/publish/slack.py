@@ -1,15 +1,18 @@
 """Slack bot publishing without internal retries or persistent state."""
-from pathlib import Path
-from http.client import HTTPException
+
 import errno
 import socket
+from http.client import HTTPException
+from pathlib import Path
 from urllib.error import URLError
+
 from dotenv import dotenv_values
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError, SlackRequestError
+
 from reel.config import load_config
+from reel.publish._common import link, text
 from reel.publish.errors import PublishError
-from reel.publish._common import text, link
 
 
 def _client() -> WebClient:
@@ -27,8 +30,14 @@ def _send(channel: str, message: str, mrkdwn: bool = False) -> str:
     if len(message) > 40000:
         raise PublishError("Slack message exceeds 40000 characters", False)
     try:
-        response = _client().chat_postMessage(channel=channel, text=message,
-            mrkdwn=mrkdwn, unfurl_links=False, unfurl_media=False, parse="none")
+        response = _client().chat_postMessage(
+            channel=channel,
+            text=message,
+            mrkdwn=mrkdwn,
+            unfurl_links=False,
+            unfurl_media=False,
+            parse="none",
+        )
         timestamp = response.get("ts")
         if not isinstance(timestamp, str) or not timestamp:
             raise PublishError("Slack response missing timestamp; reconcile before retry", False)
@@ -36,16 +45,34 @@ def _send(channel: str, message: str, mrkdwn: bool = False) -> str:
     except SlackApiError as exc:
         code = exc.response.get("error", "unknown_error")
         status = int(exc.response.status_code)
-        transient = status == 429 or status >= 500 or code in {
-            "ratelimited", "internal_error", "fatal_error", "service_unavailable", "request_timeout"
-        }
+        transient = (
+            status == 429
+            or status >= 500
+            or code
+            in {
+                "ratelimited",
+                "internal_error",
+                "fatal_error",
+                "service_unavailable",
+                "request_timeout",
+            }
+        )
         # Only report the documented error code; never include the token/request.
-        safe_code = code if isinstance(code, str) and code.replace("_", "").isalnum() else "unknown_error"
+        safe_code = (
+            code if isinstance(code, str) and code.replace("_", "").isalnum() else "unknown_error"
+        )
         raise PublishError(f"Slack API: {safe_code} (HTTP {status})", transient) from None
     except (URLError, ConnectionError, TimeoutError, socket.gaierror, HTTPException):
         raise PublishError("Slack network failure", True) from None
     except OSError as exc:
-        network = exc.errno in {errno.ENETDOWN, errno.ENETUNREACH, errno.EHOSTUNREACH, errno.ECONNRESET, errno.ECONNREFUSED, errno.ETIMEDOUT}
+        network = exc.errno in {
+            errno.ENETDOWN,
+            errno.ENETUNREACH,
+            errno.EHOSTUNREACH,
+            errno.ECONNRESET,
+            errno.ECONNREFUSED,
+            errno.ETIMEDOUT,
+        }
         raise PublishError("Slack I/O failure", network) from None
     except SlackRequestError as exc:
         raise PublishError(f"Slack request failure ({type(exc).__name__})", False) from None
@@ -54,6 +81,7 @@ def _send(channel: str, message: str, mrkdwn: bool = False) -> str:
         raise
     except Exception as exc:
         raise PublishError(f"Slack request failure ({type(exc).__name__})", False) from None
+
 
 def _escape(value: str) -> str:
     """Slack's three control characters; this also defuses <!channel>-style mentions in a title."""
@@ -74,25 +102,30 @@ def notify(text: str) -> dict:
         channel = load_config()["operator_slack_channel"]
     except ValueError:
         raise PublishError("Cannot load operator_slack_channel from config.yaml", False) from None
-    return {"channel":channel, "ts":_send(channel, text)}
+    return {"channel": channel, "ts": _send(channel, text)}
 
 
 if __name__ == "__main__":
     import argparse
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--smoke", action="store_true", required=True)
     parser.parse_args()
     from reel.publish._smoke import slack_smoke
+
     slack_smoke()
 
 
 def delete_message(channel: str, timestamp: str) -> None:
     """Delete only the recorded channel/timestamp; missing messages are idempotent."""
-    text(channel, 'channel'); text(timestamp, 'timestamp')
+    text(channel, "channel")
+    text(timestamp, "timestamp")
     try:
         _client().chat_delete(channel=channel, ts=timestamp)
     except SlackApiError as error:
-        if error.response.get('error') != 'message_not_found':
-            raise PublishError('Slack message deletion failed', True) from None
+        if error.response.get("error") != "message_not_found":
+            raise PublishError("Slack message deletion failed", True) from None
     except Exception as error:
-        raise PublishError('Slack message deletion failed (' + type(error).__name__ + ')', True) from None
+        raise PublishError(
+            "Slack message deletion failed (" + type(error).__name__ + ")", True
+        ) from None

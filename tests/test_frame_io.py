@@ -1,4 +1,5 @@
 """Buffer ownership, ordered output and failures across raw-frame IO workers."""
+
 from threading import Event
 
 import pytest
@@ -49,10 +50,10 @@ def test_reader_prefetches_while_caller_holds_previous_frame():
     with FrameIO(read, None, 1, lambda: None) as frames:
         first = next(frames)
         assert second_read.wait(5)
-        assert first == b'\x01'
+        assert first == b"\x01"
         frames.release(first)
         second = next(frames)
-        assert second == b'\x02'
+        assert second == b"\x02"
         frames.release(second)
         with pytest.raises(StopIteration):
             next(frames)
@@ -85,14 +86,14 @@ def test_slow_writer_retains_ownership_until_the_entire_write_finishes():
         assert writing.wait(5)
         # No buffer can return to the reader until the blocked write completes.
         assert read_count <= 3
-        assert first == b'\x01'
+        assert first == b"\x01"
         release_writer.set()
         for buffer in frames:
             frames.release(buffer)
     assert output == [bytes([i]) for i in range(1, 11)]
 
 
-@pytest.mark.parametrize('failure', ['read', 'write', 'short_write'])
+@pytest.mark.parametrize("failure", ["read", "write", "short_write"])
 def test_worker_failure_aborts_and_propagates_before_success(failure):
     aborted = Event()
     count = 0
@@ -100,17 +101,20 @@ def test_worker_failure_aborts_and_propagates_before_success(failure):
     def read(buffer):
         nonlocal count
         count += 1
-        if failure == 'read' and count == 3:
-            raise RuntimeError('truncated frame')
-        buffer[:] = b'x'
+        if failure == "read" and count == 3:
+            raise RuntimeError("truncated frame")
+        buffer[:] = b"x"
         return count <= 10
 
     def write(buffer):
-        if failure == 'write':
-            raise BrokenPipeError('encoder stopped')
-        return 0 if failure == 'short_write' else len(buffer)
+        if failure == "write":
+            raise BrokenPipeError("encoder stopped")
+        return 0 if failure == "short_write" else len(buffer)
 
-    with pytest.raises((RuntimeError, BrokenPipeError)), FrameIO(read, write, 1, aborted.set) as frames:
+    with (
+        pytest.raises((RuntimeError, BrokenPipeError)),
+        FrameIO(read, write, 1, aborted.set) as frames,
+    ):
         for buffer in frames:
             frames.release(buffer)
     assert aborted.is_set()
@@ -125,16 +129,19 @@ def test_processing_failure_unblocks_io_before_joining_workers():
         nonlocal count
         count += 1
         if count == 1:
-            buffer[:] = b'x'
+            buffer[:] = b"x"
             return True
         entered.set()
         assert unblock.wait(5)
         return False
 
-    with pytest.raises(ValueError, match='processing failed'), FrameIO(read, None, 1, unblock.set) as frames:
+    with (
+        pytest.raises(ValueError, match="processing failed"),
+        FrameIO(read, None, 1, unblock.set) as frames,
+    ):
         next(frames)
         assert entered.wait(5)
-        raise ValueError('processing failed')
+        raise ValueError("processing failed")
     assert unblock.is_set()
     assert not frames.reader.is_alive()
 

@@ -2,10 +2,11 @@
 
 Fake MediaRecorder, fetch, IndexedDB-less storage (memory fallback), wake lock and network; no browser.
 """
+
 import re
-from pathlib import Path
 import shutil
 import subprocess
+from pathlib import Path
 
 import pytest
 
@@ -16,7 +17,9 @@ pytestmark = pytest.mark.skipif(not Path(NODE).exists(), reason="node is not ava
 
 
 def run(script, *files):
-    result = subprocess.run([NODE, "-e", script, *map(str, files)], capture_output=True, text=True, timeout=30)
+    result = subprocess.run(
+        [NODE, "-e", script, *map(str, files)], capture_output=True, text=True, timeout=30
+    )
     assert result.returncode == 0, result.stdout + result.stderr
 
 
@@ -83,7 +86,9 @@ const settle=async(n=25)=>{for(let i=0;i<n;i++)await new Promise(r=>setTimeout(r
 
 
 def test_record_parts_stream_survive_offline_interruption_delete_and_confirm():
-    run(FAKE + r"""
+    run(
+        FAKE
+        + r"""
 (async()=>{
   $('#rec-group').value='AI 2.6';$('#rec-subject').value='Python';$('#rec-number').value='5';
   await context.recStartPart();
@@ -112,11 +117,15 @@ def test_record_parts_stream_survive_offline_interruption_delete_and_confirm():
   assert.ok(releases>=1,'wake lock released');
   console.log('record client: ok');
 })().catch(e=>{console.error(e);process.exitCode=1;});
-""", STATIC / "record.js")
+""",
+        STATIC / "record.js",
+    )
 
 
 def test_reload_closes_the_part_that_was_recording_and_sends_the_rest():
-    run(FAKE + r"""
+    run(
+        FAKE
+        + r"""
 (async()=>{
   server.parts=[0];server.received[0]='head|';
   stored.set('reel-record-v1',JSON.stringify({local:'Lx',id:'abcdefabcdefabcdefab',group:'G',subject:'S',lesson_number:2,mime:'video/mp4',
@@ -128,11 +137,15 @@ def test_reload_closes_the_part_that_was_recording_and_sends_the_rest():
   assert.equal(R.s.parts[0].state,'closed');assert.equal(context.recReady(),true);
   console.log('recover: ok');
 })().catch(e=>{console.error(e);process.exitCode=1;});
-""", STATIC / "record.js")
+""",
+        STATIC / "record.js",
+    )
 
 
 def test_insecure_page_explains_https_and_offers_the_public_address():
-    run(FAKE + r"""
+    run(
+        FAKE
+        + r"""
 (async()=>{
   context.window.isSecureContext=false;context.api=async p=>{assert.equal(p,'/api/recordings/info');return {public_url:'https://reel.example.org'};};
   await context.viewRecord();await settle();
@@ -141,11 +154,14 @@ def test_insecure_page_explains_https_and_offers_the_public_address():
   assert.equal($('#rec-https-link').href,'https://reel.example.org/#/record');assert.equal($('#rec-https-link').hidden,false);
   console.log('https: ok');
 })().catch(e=>{console.error(e);process.exitCode=1;});
-""", STATIC / "record.js")
+""",
+        STATIC / "record.js",
+    )
 
 
 def test_upload_orders_parts_by_recording_time_and_sends_the_chosen_order():
-    run(r"""
+    run(
+        r"""
 const fs=require('fs'),vm=require('vm'),assert=require('assert/strict');
 function mp4(created){  // ftyp + moov(mvhd v0) with a creation time in QuickTime seconds
   const ftyp=Buffer.alloc(16);ftyp.writeUInt32BE(16,0);ftyp.write('ftypisom',4);
@@ -174,20 +190,27 @@ vm.createContext(c);require(require('path').resolve('tests/browser_locale.cjs'))
   assert.equal(await c.videoCreated({size:4,slice:()=>({arrayBuffer:async()=>new ArrayBuffer(4)})}),null);
   console.log('upload order: ok');
 })().catch(e=>{console.error(e);process.exitCode=1;});
-""", STATIC / "upload.js")
+""",
+        STATIC / "upload.js",
+    )
 
 
 def test_record_page_is_routed_for_uploaders_and_assets_are_loaded():
     app = (STATIC / "app.js").read_text()
-    assert re.search(r'\[\s*"record",\s*"mic",\s*i18nText\("ui.app.record"\),?\s*\]', app) and "fn = viewRecord" in app
+    assert (
+        re.search(r'\[\s*"record",\s*"mic",\s*i18nText\("ui.app.record"\),?\s*\]', app)
+        and "fn = viewRecord" in app
+    )
     index = (STATIC / "index.html").read_text()
-    assert '<script src="/record.js"></script>' in index and '/recording.css' in index
+    assert '<script src="/record.js"></script>' in index and "/recording.css" in index
     text = (STATIC / "record.js").read_text()
     assert not any(p in text for p in ("Քո ", "քո ", "կարող ես", "Ընտրիր", "Ստուգիր", "Փորձիր"))
 
 
 def test_unavailable_indexeddb_warns_and_bounds_memory_recording():
-    run(FAKE + r"""
+    run(
+        FAKE
+        + r"""
 (async()=>{
   let stopped=0;context.recStop=()=>{stopped++;R.rec=null;};R.rec={};
   await context.recPut({key:'large',local:'demo',data:{byteLength:64*1024*1024}});
@@ -196,4 +219,6 @@ def test_unavailable_indexeddb_warns_and_bounds_memory_recording():
   assert.equal(R.mem.size,1,'the final buffered chunk is retained until upload');
   console.log('bounded memory fallback: ok');
 })().catch(e=>{console.error(e);process.exitCode=1;});
-""", STATIC / "record.js")
+""",
+        STATIC / "record.js",
+    )

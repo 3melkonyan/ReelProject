@@ -6,10 +6,11 @@ of every identity found so a human can confirm who the lecturer is.
 
   python tools/make_refs.py samples/lesson21.mp4 --name lecturer1 [--every 30] [--cluster N]
 """
+
 from __future__ import annotations
 
-import hashlib
 import argparse
+import hashlib
 import sys
 from pathlib import Path
 
@@ -33,15 +34,15 @@ def main() -> None:
 
     fid = FaceID([])
     original_features: dict[int, np.ndarray] = {}
-    clusters: list[dict] = []   # {"feat": mean feature, "items": [(score, t, crop)]}
+    clusters: list[dict] = []  # {"feat": mean feature, "items": [(score, t, crop)]}
     for t, img in _frames(Path(a.video), 1.0 / a.every, 1280):
         for f in fid.faces(img):
             feat = fid.feature(img, f)
             x, y, w, h = (int(v) for v in f[:4])
-            m = int(max(w, h) * 0.8)                       # generous margin: refs must re-detect
-            crop = img[max(y - m, 0):y + h + m, max(x - m, 0):x + w + m].copy()
+            m = int(max(w, h) * 0.8)  # generous margin: refs must re-detect
+            crop = img[max(y - m, 0) : y + h + m, max(x - m, 0) : x + w + m].copy()
             original_features[id(crop)] = feat.copy()
-            quality = float(w * h) * float(f[14])          # size x detector confidence
+            quality = float(w * h) * float(f[14])  # size x detector confidence
             best, best_sim = None, 0.0
             for c in clusters:
                 sim = fid.rec.match(feat, c["feat"], cv2.FaceRecognizerSF_FR_COSINE)
@@ -65,8 +66,15 @@ def main() -> None:
         tiles = [cv2.resize(cr, (160, 160)) for _, _, cr in best]
         tiles += [np.zeros((160, 160, 3), np.uint8)] * (4 - len(tiles))
         row = np.hstack(tiles)
-        cv2.putText(row, f"#{i} n={len(c['items'])}", (5, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.6,
-                    (0, 255, 255), 2)
+        cv2.putText(
+            row,
+            f"#{i} n={len(c['items'])}",
+            (5, 20),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.6,
+            (0, 255, 255),
+            2,
+        )
         rows.append(row)
     preview = ROOT / "out" / f"refs_preview_{a.name}.jpg"
     preview.parent.mkdir(exist_ok=True)
@@ -75,7 +83,11 @@ def main() -> None:
     if a.clusters and a.cluster is not None:
         ap.error("use either --cluster or --clusters")
     try:
-        indices = list(dict.fromkeys(int(i.strip()) for i in a.clusters.split(","))) if a.clusters else [a.cluster if a.cluster is not None else 0]
+        indices = (
+            list(dict.fromkeys(int(i.strip()) for i in a.clusters.split(",")))
+            if a.clusters
+            else [a.cluster if a.cluster is not None else 0]
+        )
     except ValueError:
         ap.error("--clusters must be comma-separated integer indices")
     if a.keep < 1 or any(i < 0 or i >= len(clusters) for i in indices):
@@ -88,7 +100,8 @@ def main() -> None:
         selected, times = [], []
         for _quality, t, cr in best:
             if all(abs(t - u) >= 300 for u in times):
-                selected.append(cr); times.append(t)
+                selected.append(cr)
+                times.append(t)
             if len(selected) >= a.keep:
                 break
         picked.extend(selected)
@@ -103,9 +116,11 @@ def main() -> None:
         image_path = out / f"ref_{k}.jpg"
         # Preserve the original full-frame alignment: profile/back crops may
         # not be detected a second time after cropping/JPEG encoding.
-        np.savez(image_path.with_suffix(".npz"),
-                 feature=original_features[id(cr)],
-                 image_sha256=np.array(hashlib.sha256(image_path.read_bytes()).hexdigest()))
+        np.savez(
+            image_path.with_suffix(".npz"),
+            feature=original_features[id(cr)],
+            image_sha256=np.array(hashlib.sha256(image_path.read_bytes()).hexdigest()),
+        )
     print(f"identities found: {[len(c['items']) for c in clusters[:6]]}")
     print(f"saved {len(picked)} refs of clusters {indices} to {out}")
     print(f"preview: {preview}")

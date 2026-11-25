@@ -1,4 +1,5 @@
 """Overlap raw frame IO with processing using a fixed pool of owned buffers."""
+
 from queue import Empty, Queue
 from threading import Event, Lock, Thread
 
@@ -12,6 +13,7 @@ class FrameIO:
     With no writer, release returns buffers directly to the reader (two buffers).
     ``abort`` must unblock both streams (normally by terminating their children).
     """
+
     def __init__(self, read_frame, write_frame, frame_size, abort):
         self.read_frame, self.write_frame, self.abort = read_frame, write_frame, abort
         self.free, self.decoded, self.pending = Queue(), Queue(), Queue()

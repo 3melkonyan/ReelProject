@@ -1,12 +1,13 @@
 """Reel CLI.
 
-  python -m reel.cli run            # daemon: watch inbox, process queue
-  python -m reel.cli status [ID]
-  python -m reel.cli retry ID
-  python -m reel.cli add FILE --group G   # enqueue without waiting for the watcher
-  python -m reel.cli resolve ID TARGET posted|not-posted   # after a crash mid-post
-  python -m reel.cli cleanup [--dry-run] [--days 7] [--blurred-days 30]   # disk hygiene
+python -m reel.cli run            # daemon: watch inbox, process queue
+python -m reel.cli status [ID]
+python -m reel.cli retry ID
+python -m reel.cli add FILE --group G   # enqueue without waiting for the watcher
+python -m reel.cli resolve ID TARGET posted|not-posted   # after a crash mid-post
+python -m reel.cli cleanup [--dry-run] [--days 7] [--blurred-days 30]   # disk hygiene
 """
+
 from __future__ import annotations
 
 import argparse
@@ -26,6 +27,7 @@ POLL_SEC = 30
 
 def _config() -> dict:
     from reel.config import load_config
+
     return load_config(str(ROOT / "config.yaml"))
 
 
@@ -41,9 +43,12 @@ def _auto_cleanup(db: DB) -> None:
     video after 30 (it is on YouTube). Originals in archive/ are never deleted automatically."""
     try:
         from reel import cleanup
+
         r = cleanup.cleanup(db, ROOT)
         if r["deleted"]:
-            logging.info("cleanup: deleted %d file(s), %.1f GB", len(r["deleted"]), r["bytes"] / 1e9)
+            logging.info(
+                "cleanup: deleted %d file(s), %.1f GB", len(r["deleted"]), r["bytes"] / 1e9
+            )
     except Exception as e:  # noqa: BLE001 - cleanup must never stop the worker
         logging.warning("cleanup skipped: %s", e)
 
@@ -52,6 +57,7 @@ def _single_worker_lock():
     """Exclusive lock: a second worker (e.g. launchd + a manual run) would process the same job
     twice. The OS releases the lock when the process exits, even on a crash."""
     import fcntl
+
     path = ROOT / "out" / "worker.lock"
     path.parent.mkdir(exist_ok=True)
     fh = open(path, "w")  # noqa: SIM115 - The returned handle owns the worker lifetime lock.
@@ -65,6 +71,7 @@ def _single_worker_lock():
 
 def cmd_run(db: DB, args) -> None:
     from reel.stages import STAGES
+
     lock = _single_worker_lock()  # noqa: F841 - held for the life of the process
     cfg = _config()
     for g in cfg["groups"]:
@@ -72,14 +79,22 @@ def cmd_run(db: DB, args) -> None:
     logging.info("watching %s", ROOT / "inbox")
     import json
     import os
+
     hb = ROOT / "out" / "worker.json"
     hb.parent.mkdir(exist_ok=True)
-    hb.write_text(json.dumps({"pid": os.getpid(), "started": time.time(),
-                              "dry_run": os.environ.get("REEL_DRY_RUN") == "1"}))
+    hb.write_text(
+        json.dumps(
+            {
+                "pid": os.getpid(),
+                "started": time.time(),
+                "dry_run": os.environ.get("REEL_DRY_RUN") == "1",
+            }
+        )
+    )
     last_cleanup = 0.0
     cfg_mtime = _config_mtime()
     while True:
-        if (m := _config_mtime()) != cfg_mtime:          # edited (admin settings page): reload
+        if (m := _config_mtime()) != cfg_mtime:  # edited (admin settings page): reload
             cfg_mtime = m
             try:
                 cfg = _config()
@@ -93,7 +108,7 @@ def cmd_run(db: DB, args) -> None:
         if job is None:
             if args.once:
                 return
-            if time.time() - last_cleanup > 86400:      # idle and not run for a day
+            if time.time() - last_cleanup > 86400:  # idle and not run for a day
                 last_cleanup = time.time()
                 _auto_cleanup(db)
             time.sleep(POLL_SEC)
@@ -119,8 +134,10 @@ def cmd_status(db: DB, args) -> None:
     if not rows:
         print("queue is empty")
     for j in rows:
-        print(f"{j['id']:>4}  {j['status']:<8} {j['grp']:<12} {j['current_stage'] or '':<14} "
-              f"{Path(j['source_path']).name}")
+        print(
+            f"{j['id']:>4}  {j['status']:<8} {j['grp']:<12} {j['current_stage'] or '':<14} "
+            f"{Path(j['source_path']).name}"
+        )
 
 
 def cmd_retry(db: DB, args) -> None:
@@ -146,11 +163,11 @@ def cmd_add(db: DB, args) -> None:
         sys.exit(f"input does not exist: {src}")
     if not src.is_dir() and (not src.is_file() or src.suffix.lower() not in pipeline.VIDEO_EXT):
         sys.exit("input must be a supported video file or a folder of video parts")
-    parts = pipeline.parts_of(src) if src.is_dir() else [src]     # a folder = one lesson in parts
+    parts = pipeline.parts_of(src) if src.is_dir() else [src]  # a folder = one lesson in parts
     if not parts:
         sys.exit(f"no video files in {src}")
     digest = pipeline.lesson_digest(parts)
-    if (dup := db.find_job_by_sha(digest)):
+    if dup := db.find_job_by_sha(digest):
         sys.exit(f"already processed as job {dup['id']}")
     job_id = db.create_job(str(src), digest, args.group)
     dest = ROOT / "archive" / str(job_id) / src.name
@@ -167,21 +184,34 @@ def cmd_add(db: DB, args) -> None:
 
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
-    if len(sys.argv) > 1 and sys.argv[1] == "cleanup":      # own argparse in reel/cleanup.py
+    if len(sys.argv) > 1 and sys.argv[1] == "cleanup":  # own argparse in reel/cleanup.py
         from reel import cleanup
+
         sys.exit(cleanup.main(sys.argv[2:]))
     ap = argparse.ArgumentParser(prog="reel")
     sub = ap.add_subparsers(dest="cmd", required=True)
-    p = sub.add_parser("run"); p.add_argument("--once", action="store_true")
-    p = sub.add_parser("status"); p.add_argument("id", type=int, nargs="?")
-    p = sub.add_parser("retry"); p.add_argument("id", type=int)
-    p = sub.add_parser("add"); p.add_argument("file"); p.add_argument("--group", required=True)
-    p = sub.add_parser("resolve"); p.add_argument("id", type=int); p.add_argument("target", choices=["slack", "classroom"])
+    p = sub.add_parser("run")
+    p.add_argument("--once", action="store_true")
+    p = sub.add_parser("status")
+    p.add_argument("id", type=int, nargs="?")
+    p = sub.add_parser("retry")
+    p.add_argument("id", type=int)
+    p = sub.add_parser("add")
+    p.add_argument("file")
+    p.add_argument("--group", required=True)
+    p = sub.add_parser("resolve")
+    p.add_argument("id", type=int)
+    p.add_argument("target", choices=["slack", "classroom"])
     p.add_argument("state", choices=["posted", "not-posted"])
     args = ap.parse_args()
     db = DB(ROOT / "reel.db")
-    {"run": cmd_run, "status": cmd_status, "retry": cmd_retry, "add": cmd_add,
-     "resolve": cmd_resolve}[args.cmd](db, args)
+    {
+        "run": cmd_run,
+        "status": cmd_status,
+        "retry": cmd_retry,
+        "add": cmd_add,
+        "resolve": cmd_resolve,
+    }[args.cmd](db, args)
 
 
 if __name__ == "__main__":

@@ -1,4 +1,5 @@
 """Thumbnail_set: a fresh upload may refuse the thumbnail for a minute; retry, never block publishing."""
+
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -11,8 +12,11 @@ def run(side_effect):
     yt = MagicMock()
     yt.set_thumbnail.side_effect = side_effect
     ctx = SimpleNamespace(job_id=7, out=lambda name: OUTS[name])
-    with patch.object(st, "_pub", return_value=yt), patch.object(st.time, "sleep") as sleep, \
-            patch.object(st, "_notify") as notify:
+    with (
+        patch.object(st, "_pub", return_value=yt),
+        patch.object(st.time, "sleep") as sleep,
+        patch.object(st, "_notify") as notify,
+    ):
         result = st.thumbnail_set(ctx)
     return result, [c.args[0] for c in sleep.call_args_list], notify
 

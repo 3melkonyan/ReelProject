@@ -1,21 +1,26 @@
 """Cleanup checks use fake jobs or SQLite files exclusively under tmp_path."""
+
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
 import sqlite3
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
 
 from reel.cleanup import _ReadOnlyDB, cleanup, main
 from reel.db import DB
 
-NOW = datetime(2026, 11, 18, 12, tzinfo=timezone.utc)
+NOW = datetime(2026, 11, 18, 12, tzinfo=UTC)
 
 
 def job(job_id=1, *, age=40, status="done", source="inbox/G/lesson.mp4"):
-    return {"id": job_id, "status": status, "updated_at": (NOW - timedelta(days=age)).isoformat(),
-            "source_path": source}
+    return {
+        "id": job_id,
+        "status": status,
+        "updated_at": (NOW - timedelta(days=age)).isoformat(),
+        "source_path": source,
+    }
 
 
 class FakeDB:
@@ -59,14 +64,38 @@ def test_only_done_jobs_can_be_cleaned(tmp_path, status):
 
 
 def test_allowlist_and_permanent_preservation(tmp_path):
-    allowed = {"audio16k.wav", "final.mp4", "encode.part.mp4", "nested/chunk.part001",
-               "transcript/audio.wav", "transcript/pieces/voice.mp3", "transcript/voice.FLAC",
-               "thumbnail.jpg.part", "preview.mp4.part", "final_blurred.mp4.part"}
-    preserved = {"final_blurred.mp4", "thumbnail.jpg", "preview.mp4", "unknown.mp4", "unknown.wav",
-                 "nested/final.mp4", "nested/audio16k.wav", "notes.txt", "transcript/transcript.txt",
-                 "transcript/transcript.json", "blur_decisions.json", "metadata.JSON",
-                 "transcript/transcript.json.part", "temp.JSONL.part", "privacy/sample.part.mp4",
-                 "nested/privacy/audio.part.wav", "transcript/preview.mp4", "transcript/metadata.json.wav"}
+    allowed = {
+        "audio16k.wav",
+        "final.mp4",
+        "encode.part.mp4",
+        "nested/chunk.part001",
+        "transcript/audio.wav",
+        "transcript/pieces/voice.mp3",
+        "transcript/voice.FLAC",
+        "thumbnail.jpg.part",
+        "preview.mp4.part",
+        "final_blurred.mp4.part",
+    }
+    preserved = {
+        "final_blurred.mp4",
+        "thumbnail.jpg",
+        "preview.mp4",
+        "unknown.mp4",
+        "unknown.wav",
+        "nested/final.mp4",
+        "nested/audio16k.wav",
+        "notes.txt",
+        "transcript/transcript.txt",
+        "transcript/transcript.json",
+        "blur_decisions.json",
+        "metadata.JSON",
+        "transcript/transcript.json.part",
+        "temp.JSONL.part",
+        "privacy/sample.part.mp4",
+        "nested/privacy/audio.part.wav",
+        "transcript/preview.mp4",
+        "transcript/metadata.json.wav",
+    }
     for name in allowed | preserved:
         put(tmp_path, f"work/1/{name}")
     db = FakeDB(job(age=10))
@@ -85,15 +114,20 @@ def test_independent_retention_and_dry_run(tmp_path):
             put(tmp_path, f"work/{jid}/{name}")
     db = FakeDB(job(1, age=6), job(2, age=8), job(3, age=31))
     report = cleanup(db, tmp_path, dry_run=True, now=NOW)
-    assert names(tmp_path, report) == {"work/2/final.mp4", "work/3/final.mp4", "work/3/final_blurred.mp4"}
+    assert names(tmp_path, report) == {
+        "work/2/final.mp4",
+        "work/3/final.mp4",
+        "work/3/final_blurred.mp4",
+    }
     assert not report["deleted"] and report["bytes"] == 3 * len(b"temporary")
     assert len(list((tmp_path / "work").glob("*/*.mp4"))) == 6
     report = cleanup(db, tmp_path, days=60, blurred_days=30, now=NOW)
     assert names(tmp_path, report, "deleted") == {"work/3/final_blurred.mp4"}
 
 
-@pytest.mark.parametrize("updated", ["invalid", "2020-01-01T00:00:00", None,
-                                     (NOW + timedelta(days=1)).isoformat()])
+@pytest.mark.parametrize(
+    "updated", ["invalid", "2020-01-01T00:00:00", None, (NOW + timedelta(days=1)).isoformat()]
+)
 def test_invalid_naive_or_future_timestamps_are_preserved(tmp_path, updated):
     path = put(tmp_path, "work/1/audio16k.wav")
     row = job()
@@ -118,7 +152,9 @@ def test_archive_requires_opt_in_and_uses_only_exact_id_and_basename(tmp_path):
     assert expected.parent.is_dir()
 
 
-@pytest.mark.parametrize("source", ["../lesson.mp4", "inbox/G/../../lesson.mp4", "/tmp/../lesson.mp4"])
+@pytest.mark.parametrize(
+    "source", ["../lesson.mp4", "inbox/G/../../lesson.mp4", "/tmp/../lesson.mp4"]
+)
 def test_archive_rejects_source_traversal(tmp_path, source):
     archived = put(tmp_path, "archive/1/lesson.mp4")
     assert not cleanup(FakeDB(job(source=source)), tmp_path, archive_days=1, now=NOW)["candidates"]
@@ -178,7 +214,9 @@ def test_job_status_and_timestamp_are_rechecked_for_every_file(tmp_path, change)
 
     def change_on_second_read(db, jid):
         if db.reads == 2:
-            db.rows[jid][change] = "running" if change == "status" else (NOW - timedelta(days=50)).isoformat()
+            db.rows[jid][change] = (
+                "running" if change == "status" else (NOW - timedelta(days=50)).isoformat()
+            )
 
     db = FakeDB(job(), before_read=change_on_second_read)
     report = cleanup(db, tmp_path, now=NOW)
@@ -223,9 +261,13 @@ def test_invalid_job_id_cannot_escape_its_directory(tmp_path):
 
 def make_sqlite(path):
     with sqlite3.connect(path) as conn:
-        conn.execute("CREATE TABLE jobs (id INTEGER PRIMARY KEY, status TEXT, updated_at TEXT, source_path TEXT)")
-        conn.execute("INSERT INTO jobs VALUES (?, ?, ?, ?)",
-                     (1, "done", (NOW - timedelta(days=40)).isoformat(), "inbox/G/lesson.mp4"))
+        conn.execute(
+            "CREATE TABLE jobs (id INTEGER PRIMARY KEY, status TEXT, updated_at TEXT, source_path TEXT)"
+        )
+        conn.execute(
+            "INSERT INTO jobs VALUES (?, ?, ?, ?)",
+            (1, "done", (NOW - timedelta(days=40)).isoformat(), "inbox/G/lesson.mp4"),
+        )
 
 
 def test_readonly_db_uses_db_reads_without_initialization_or_writes(tmp_path, monkeypatch):
@@ -270,8 +312,16 @@ def test_cli_dry_run_reads_only_temporary_database(tmp_path, capsys):
     assert candidate.exists() and path.read_bytes() == before
 
 
-@pytest.mark.parametrize("kwargs", [{"days": 0}, {"days": -1}, {"blurred_days": float("nan")},
-                                    {"archive_days": float("inf")}, {"days": True}])
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"days": 0},
+        {"days": -1},
+        {"blurred_days": float("nan")},
+        {"archive_days": float("inf")},
+        {"days": True},
+    ],
+)
 def test_invalid_retention_is_rejected_before_cleanup(tmp_path, kwargs):
     path = put(tmp_path, "work/1/final.mp4")
     with pytest.raises(ValueError):

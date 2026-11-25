@@ -4,6 +4,7 @@ Coarse windows and silence/static signals propose candidates; neither can cut
 on its own. Intro/closing/Q&A boundaries use sentence IDs. Unknown stays intact.
 full-lesson fallbacks and public interval/timeline contracts are preserved.
 """
+
 from __future__ import annotations
 
 import json
@@ -18,16 +19,27 @@ from reel import llm, timeline
 from reel.pipeline import StopJob
 
 DEFAULTS = {
-    "min_silence_sec": 120, "max_cut_ratio": 0.4, "window_sec": 60,
-    "edge_context_sec": 900, "break_min_sec": 180, "edge_min_sec": 20, "pad_sec": 1.5, "keep_in_silence_sec": 2.0,
-    "silence_db": -35, "static_diff": 2.0, "max_unclear_ratio": 0.3,
+    "min_silence_sec": 120,
+    "max_cut_ratio": 0.4,
+    "window_sec": 60,
+    "edge_context_sec": 900,
+    "break_min_sec": 180,
+    "edge_min_sec": 20,
+    "pad_sec": 1.5,
+    "keep_in_silence_sec": 2.0,
+    "silence_db": -35,
+    "static_diff": 2.0,
+    "max_unclear_ratio": 0.3,
 }
 
 
 # --- signal 1: LLM window labels ---------------------------------------------------
 
+
 def windows(segments: list[dict], total: float, size: float) -> list[dict]:
-    if isinstance(size, bool) or not (isinstance(size, (int, float)) and size == size and 0 < size < float("inf")):
+    if isinstance(size, bool) or not (
+        isinstance(size, (int, float)) and size == size and 0 < size < float("inf")
+    ):
         raise StopJob(f"cut.window_sec must be a positive number, got {size!r} — fix config.yaml")
     out, t = [], 0.0
     while t < total:
@@ -50,10 +62,12 @@ SYSTEM = (
     'Return JSON: {"labels":[{"i":0,"label":"lesson|offtopic|unclear"}]}'
 )
 
-QUIET_LABEL_SEC = 20     # silences this long, measured on the audio, override transcript text
+QUIET_LABEL_SEC = 20  # silences this long, measured on the audio, override transcript text
 
 
-def blank_silent_windows(wins: list[dict], quiet: list[tuple[float, float]], cover: float = 0.8) -> int:
+def blank_silent_windows(
+    wins: list[dict], quiet: list[tuple[float, float]], cover: float = 0.8
+) -> int:
     """Whisper can repeat invented text during silence (observed across every silent
     minute), which the LLM then labels 'unclear' — enough minutes of it would stop a lesson for
     'too many unclear windows'. A window that is >= `cover` measured silence gets empty text, so it
@@ -70,32 +84,52 @@ def blank_silent_windows(wins: list[dict], quiet: list[tuple[float, float]], cov
 
 def label_windows(wins: list[dict], batch: int = 12, model: str = llm.DEFAULT_MODEL) -> list[str]:
     labels: list[str] = ["silence" if not w["text"].strip() else "" for w in wins]
-    todo = [k for k, label in enumerate(labels) if not label]          # empty windows never go to the LLM
+    todo = [k for k, label in enumerate(labels) if not label]  # empty windows never go to the LLM
     sub = [wins[k] for k in todo]
     got_all: list[str] = []
     for b in range(0, len(sub), batch):
-        chunk = sub[b:b + batch]
+        chunk = sub[b : b + batch]
         user = "\n\n".join(
             f"[{b + k}] {fmt(w['start'])}-{fmt(w['end'])}: {w['text'][:1200] or '(silence)'}"
-            for k, w in enumerate(chunk))
+            for k, w in enumerate(chunk)
+        )
         got = {}
         expected = set(range(b, b + len(chunk)))
-        schema = {"type": "object", "properties": {"labels": {
-            "type": "array", "minItems": len(chunk), "maxItems": len(chunk),
-            "items": {"type": "object", "properties": {
-                "i": {"type": "integer", "enum": sorted(expected)},
-                "label": {"type": "string", "enum": ["lesson", "offtopic", "unclear"]}},
-                "required": ["i", "label"], "additionalProperties": False}}},
-            "required": ["labels"], "additionalProperties": False}
+        schema = {
+            "type": "object",
+            "properties": {
+                "labels": {
+                    "type": "array",
+                    "minItems": len(chunk),
+                    "maxItems": len(chunk),
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "i": {"type": "integer", "enum": sorted(expected)},
+                            "label": {"type": "string", "enum": ["lesson", "offtopic", "unclear"]},
+                        },
+                        "required": ["i", "label"],
+                        "additionalProperties": False,
+                    },
+                }
+            },
+            "required": ["labels"],
+            "additionalProperties": False,
+        }
         for attempt in range(2):
             try:
-                res = llm.chat_json(SYSTEM, user, model=model, **({"schema": schema} if attempt else {}))
+                res = llm.chat_json(
+                    SYSTEM, user, model=model, **({"schema": schema} if attempt else {})
+                )
                 if not isinstance(res, dict) or not isinstance(res.get("labels"), list):
                     continue
                 values = res["labels"]
-                if (len(values) != len(chunk) or any(
-                        not isinstance(x, dict) or type(x.get("i")) is not int
-                        or x.get("label") not in ("lesson", "offtopic", "unclear") for x in values)):
+                if len(values) != len(chunk) or any(
+                    not isinstance(x, dict)
+                    or type(x.get("i")) is not int
+                    or x.get("label") not in ("lesson", "offtopic", "unclear")
+                    for x in values
+                ):
                     continue
                 if {x["i"] for x in values} != expected:
                     continue  # never guess how a model's partial/local IDs map to our windows
@@ -124,7 +158,7 @@ def _bridge(labels: list[str]) -> list[str]:
         while j + 1 < len(out) and out[j + 1] == "silence":
             j += 1
         if i > 0 and j + 1 < len(out) and out[i - 1] == out[j + 1] == "offtopic":
-            out[i:j + 1] = ["offtopic"] * (j - i + 1)
+            out[i : j + 1] = ["offtopic"] * (j - i + 1)
         i = j + 1
     return out
 
@@ -150,11 +184,28 @@ def offtopic_cuts(wins: list[dict], labels: list[str], cfg: dict) -> list[tuple[
 
 # --- signal 2: silence + static picture --------------------------------------------
 
-def detect_silences(media: str | Path, noise_db: float, min_sec: float) -> list[tuple[float, float]]:
+
+def detect_silences(
+    media: str | Path, noise_db: float, min_sec: float
+) -> list[tuple[float, float]]:
     r = subprocess.run(
-        ["ffmpeg", "-hide_banner", "-nostats", "-i", str(media), "-vn",
-         "-af", f"silencedetect=noise={noise_db}dB:d={min_sec}", "-f", "null", "-"],
-        capture_output=True, text=True, check=True)
+        [
+            "ffmpeg",
+            "-hide_banner",
+            "-nostats",
+            "-i",
+            str(media),
+            "-vn",
+            "-af",
+            f"silencedetect=noise={noise_db}dB:d={min_sec}",
+            "-f",
+            "null",
+            "-",
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
     starts = [float(x) for x in re.findall(r"silence_start: ([\d.]+)", r.stderr)]
     ends = [float(x) for x in re.findall(r"silence_end: ([\d.]+)", r.stderr)]
     return list(zip(starts, ends, strict=False))
@@ -164,9 +215,26 @@ def visual_activity(video: str | Path, start: float, end: float) -> float:
     """Mean abs difference between consecutive 1 fps 64x36 gray frames (0..255)."""
     w, h = 64, 36
     raw = subprocess.run(
-        ["ffmpeg", "-hide_banner", "-loglevel", "error", "-ss", str(start), "-to", str(end),
-         "-i", str(video), "-vf", f"fps=1,scale={w}:{h},format=gray", "-f", "rawvideo", "-"],
-        capture_output=True, check=True).stdout
+        [
+            "ffmpeg",
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-ss",
+            str(start),
+            "-to",
+            str(end),
+            "-i",
+            str(video),
+            "-vf",
+            f"fps=1,scale={w}:{h},format=gray",
+            "-f",
+            "rawvideo",
+            "-",
+        ],
+        capture_output=True,
+        check=True,
+    ).stdout
     frames = np.frombuffer(raw, np.uint8).reshape(-1, h, w).astype(np.float32)
     if len(frames) < 2:
         return 0.0
@@ -231,15 +299,22 @@ _KEEP_CUE = re.compile(
     r"տնային|քննութ|քննություն|կազմակերպչական|ֆունկ|վունք|ունքթ|ունկց|փոփոխական|"
     r"կոնտեքստ|օբեկտ|օբյեկտ|ոբեկտ|արգումենտ|պարամետ|դիկշ|հեշ|"
     r"\b(?:function|return|class|object|context|homework|exam|assignment|hash|"
-    r"javascript|python|sql|code|callback|async|await|variable|parameter)\b", re.I)
+    r"javascript|python|sql|code|callback|async|await|variable|parameter)\b",
+    re.I,
+)
 _CLOSE_CUE = re.compile(
     r"(?:այսօր|էսօր|այսօրվա|էսօրվա).{0,65}(?:այսքան|էսքան)|"
     r"(?:հանդիպ|անդիպ).{0,45}(?:հաջոր|աջոր).{0,20}դաս|"
     r"(?:մինչ|ցտեսություն).{0,35}(?:հաջոր|աջոր).{0,20}դաս|"
     r"(?:that's all|that is all|done).{0,20}(?:today|class)|"
-    r"see you.{0,25}next (?:class|lesson)|на сегодня.{0,20}вс|до следующ", re.I)
-_BREAK_CUE = re.compile(r"ընդմիջ|նդմիջ|перерыв|coffee break|take (?:a |an? )?break|"
-                        r"(?:\d+|հինգ|տաս|քսան).{0,20}րոպե.{0,25}(?:հանգստ|սուրճ|դադար)", re.I)
+    r"see you.{0,25}next (?:class|lesson)|на сегодня.{0,20}вс|до следующ",
+    re.I,
+)
+_BREAK_CUE = re.compile(
+    r"ընդմիջ|նդմիջ|перерыв|coffee break|take (?:a |an? )?break|"
+    r"(?:\d+|հինգ|տաս|քսան).{0,20}րոպե.{0,25}(?:հանգստ|սուրճ|դադար)",
+    re.I,
+)
 
 
 def _sentences(raw: list[dict], total: float, dropped: list | None = None) -> list[dict]:
@@ -293,8 +368,11 @@ def _edges(rows: list[dict], total: float, cfg: dict) -> tuple[float, float, dic
     audit = {}
     span, pad = cfg["edge_context_sec"], cfg["pad_sec"]
     for task in ("start", "end"):
-        context = [s for s in rows if s["start"] < span] if task == "start" else [
-            s for s in rows if s["end"] > total - span]
+        context = (
+            [s for s in rows if s["start"] < span]
+            if task == "start"
+            else [s for s in rows if s["end"] > total - span]
+        )
         got = _review(EDGE_SYSTEM, task, context)
         visible = {s["id"] for s in context}
         outside = _ids(got, "outside_ids", visible)
@@ -314,7 +392,7 @@ def _edges(rows: list[dict], total: float, cfg: dict) -> tuple[float, float, dic
                 continue
             chosen = next(s for s in rows if s["id"] == ident)
             earlier = [s for s in context if s["start"] < chosen["start"] and s["id"] in protected]
-            if earlier:                 # correct towards keeping MORE, never less
+            if earlier:  # correct towards keeping MORE, never less
                 chosen = earlier[0]
             prefix = [s for s in rows if s["start"] < chosen["start"]]
             if any(s["id"] not in outside or s["end"] > chosen["start"] for s in prefix):
@@ -326,14 +404,19 @@ def _edges(rows: list[dict], total: float, cfg: dict) -> tuple[float, float, dic
                 record.update(confirmed=True, sentence_id=chosen["id"], time=start)
         else:
             closing, last = got.get("closing_id"), got.get("last_lesson_id")
-            if type(closing) is not int or type(last) is not int or closing not in visible or last not in protected:
+            if (
+                type(closing) is not int
+                or type(last) is not int
+                or closing not in visible
+                or last not in protected
+            ):
                 continue
             close_row = next(s for s in rows if s["id"] == closing)
             chosen = next(s for s in rows if s["id"] == last)
             if not _CLOSE_CUE.search(close_row["text"]) or chosen["start"] < close_row["start"]:
                 continue
             later = [s for s in context if s["start"] > chosen["start"] and s["id"] in protected]
-            if later:                   # subsequent Q&A/announcements extend the lesson
+            if later:  # subsequent Q&A/announcements extend the lesson
                 chosen = later[-1]
             suffix = [s for s in rows if s["start"] > chosen["start"]]
             if any(s["id"] not in outside or s["start"] < chosen["end"] for s in suffix):
@@ -342,20 +425,28 @@ def _edges(rows: list[dict], total: float, cfg: dict) -> tuple[float, float, dic
             candidate = min(next_start, chosen["end"] + pad, total)
             if _safe_boundary(candidate, rows):
                 end = candidate
-                record.update(confirmed=True, sentence_id=chosen["id"], closing_id=closing, time=end)
+                record.update(
+                    confirmed=True, sentence_id=chosen["id"], closing_id=closing, time=end
+                )
     if start >= end:
         return 0.0, total, {**audit, "rejected": "crossed sentence boundaries — kept"}
     return start, end, audit
 
 
-def _middle_cuts(rows: list[dict], proposals: list[tuple], start: float, end: float,
-                 cfg: dict) -> tuple[list[tuple], list[dict]]:
+def _middle_cuts(
+    rows: list[dict], proposals: list[tuple], start: float, end: float, cfg: dict
+) -> tuple[list[tuple], list[dict]]:
     cuts, audit = [], []
     by_id = {s["id"]: s for s in rows}
     positions = {s["id"]: i for i, s in enumerate(rows)}
     # De-duplicate overlapping coarse proposals to avoid repeated heavy calls.
-    merged = timeline.merge([(max(start, s), min(end, e)) for s, e, _ in proposals
-                             if s > start and e < end and e - s >= cfg["break_min_sec"]])
+    merged = timeline.merge(
+        [
+            (max(start, s), min(end, e))
+            for s, e, _ in proposals
+            if s > start and e < end and e - s >= cfg["break_min_sec"]
+        ]
+    )
     for s, e in merged:
         context = [r for r in rows if r["end"] >= s - 120 and r["start"] <= e + 120]
         got = _review(MIDDLE_SYSTEM, f"middle proposal={s:.3f}-{e:.3f}", context)
@@ -373,19 +464,29 @@ def _middle_cuts(rows: list[dict], proposals: list[tuple], start: float, end: fl
             if not isinstance(cut, dict) or cut.get("confidence") != "high":
                 continue
             after, before, kind = cut.get("after_id"), cut.get("before_id"), cut.get("kind")
-            if type(after) is not int or type(before) is not int or after not in protected or before not in protected:
+            if (
+                type(after) is not int
+                or type(before) is not int
+                or after not in protected
+                or before not in protected
+            ):
                 continue
             if positions[after] >= positions[before] or kind not in ("break", "offtopic"):
                 continue
             left, right = by_id[after], by_id[before]
-            inside = rows[positions[after] + 1:positions[before]]
+            inside = rows[positions[after] + 1 : positions[before]]
             if any(r["id"] not in outside or r["id"] in protected for r in inside):
                 continue
             anchor = cut.get("break_anchor_id")
-            anchored = (type(anchor) is int and anchor in visible
-                        and bool(_BREAK_CUE.search(by_id[anchor]["text"]))
-                        and by_id[anchor]["end"] <= right["start"])
-            silence_proposal = any(w.startswith("silence") and a < e and b > s for a, b, w in proposals)
+            anchored = (
+                type(anchor) is int
+                and anchor in visible
+                and bool(_BREAK_CUE.search(by_id[anchor]["text"]))
+                and by_id[anchor]["end"] <= right["start"]
+            )
+            silence_proposal = any(
+                w.startswith("silence") and a < e and b > s for a, b, w in proposals
+            )
             if (not inside or kind == "break" or silence_proposal) and not anchored:
                 continue
             if not inside and anchor != after:
@@ -394,17 +495,27 @@ def _middle_cuts(rows: list[dict], proposals: list[tuple], start: float, end: fl
             first = inside[0]["start"] if inside else right["start"]
             last = max((r["end"] for r in inside), default=left["end"])
             if kind == "break" or (silence_proposal and anchored):
-                pad = max(cfg["pad_sec"], cfg["keep_in_silence_sec"] / 2) if silence_proposal else cfg["pad_sec"]
+                pad = (
+                    max(cfg["pad_sec"], cfg["keep_in_silence_sec"] / 2)
+                    if silence_proposal
+                    else cfg["pad_sec"]
+                )
                 a = min(first, left["end"] + pad)
                 b = max(last, right["start"] - pad)
             else:
                 # Quiet before/after unrelated speech may be legitimate thinking
                 # or board work. Only a break announcement can justify removing it.
                 a, b = first, last
-            if (a < start or b > end or a < s - 120 or b > e + 120
-                    or b - a < cfg["break_min_sec"]
-                    or not _safe_boundary(a, rows) or not _safe_boundary(b, rows)
-                    or any(r["start"] < b and r["end"] > a and r["id"] not in outside for r in rows)):
+            if (
+                a < start
+                or b > end
+                or a < s - 120
+                or b > e + 120
+                or b - a < cfg["break_min_sec"]
+                or not _safe_boundary(a, rows)
+                or not _safe_boundary(b, rows)
+                or any(r["start"] < b and r["end"] > a and r["id"] not in outside for r in rows)
+            ):
                 # Overlapping ASR spans can enclose an entire protected sentence
                 # even when both endpoints themselves are outside speech.
                 continue
@@ -414,21 +525,41 @@ def _middle_cuts(rows: list[dict], proposals: list[tuple], start: float, end: fl
 
 # --- plan ---------------------------------------------------------------------------
 
-def plan(video: str | Path, audio: str | Path, transcript_json: str | Path,
-         total: float, cfg_in: dict | None, out_dir: Path) -> dict:
+
+def plan(
+    video: str | Path,
+    audio: str | Path,
+    transcript_json: str | Path,
+    total: float,
+    cfg_in: dict | None,
+    out_dir: Path,
+) -> dict:
     cfg = {**DEFAULTS, **(cfg_in or {})}
-    cfg.pop("min_final_sec", None)  # Legacy configuration is accepted but no longer limits lesson length.
+    cfg.pop(
+        "min_final_sec", None
+    )  # Legacy configuration is accepted but no longer limits lesson length.
     # Configuration errors remain actionable; uncertain plans keep the full input.
     if not math.isfinite(total) or total <= 0:
         raise StopJob("Input duration must be finite and positive")
     windows([], 0, cfg["window_sec"])
-    for key in ("pad_sec", "break_min_sec", "edge_context_sec", "min_silence_sec",
-                "keep_in_silence_sec", "max_cut_ratio", "max_unclear_ratio"):
+    for key in (
+        "pad_sec",
+        "break_min_sec",
+        "edge_context_sec",
+        "min_silence_sec",
+        "keep_in_silence_sec",
+        "max_cut_ratio",
+        "max_unclear_ratio",
+    ):
         value = cfg[key]
-        if (isinstance(value, bool) or not isinstance(value, (int, float))
-                or not math.isfinite(value) or value < 0
-                or (key in ("break_min_sec", "edge_context_sec") and value == 0)
-                or (key in ("max_cut_ratio", "max_unclear_ratio") and value > 1)):
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not math.isfinite(value)
+            or value < 0
+            or (key in ("break_min_sec", "edge_context_sec") and value == 0)
+            or (key in ("max_cut_ratio", "max_unclear_ratio") and value > 1)
+        ):
             raise StopJob(f"cut.{key} is invalid — fix config.yaml")
     raw = json.loads(Path(transcript_json).read_text())["segments"]
     dropped: list[int] = []
@@ -439,14 +570,25 @@ def plan(video: str | Path, audio: str | Path, transcript_json: str | Path,
     labels = label_windows(wins)
     unclear = labels.count("unclear") / max(len(labels) - labels.count("silence"), 1)
     start, end, edges = _edges(rows, total, cfg)
-    proposals = offtopic_cuts(wins, labels, cfg) + silence_cuts(video, audio, {**cfg, "_quiet": quiet})
+    proposals = offtopic_cuts(wins, labels, cfg) + silence_cuts(
+        video, audio, {**cfg, "_quiet": quiet}
+    )
     middle, reviews = _middle_cuts(rows, proposals, start, end, cfg)
-    reasons = ([] if start <= 0 else [(0.0, start, "before_class")]) + middle + (
-        [] if end >= total else [(end, total, "after_class")])
+    reasons = (
+        ([] if start <= 0 else [(0.0, start, "before_class")])
+        + middle
+        + ([] if end >= total else [(end, total, "after_class")])
+    )
     # Store the APPLIED intervals, not pre-padding proposals: UI and renderer agree.
     merged = timeline.merge([(s, e) for s, e, _ in reasons])
-    cuts = [{"start": s, "end": e, "why": "+".join(dict.fromkeys(
-        why for a, b, why in reasons if a < e and b > s))} for s, e in merged]
+    cuts = [
+        {
+            "start": s,
+            "end": e,
+            "why": "+".join(dict.fromkeys(why for a, b, why in reasons if a < e and b > s)),
+        }
+        for s, e in merged
+    ]
     keep = timeline.subtract((0.0, total), merged)
     final = timeline.duration(keep)
     middle_sec = timeline.duration(timeline.merge([(a, b) for a, b, _ in middle]))
@@ -454,12 +596,20 @@ def plan(video: str | Path, audio: str | Path, transcript_json: str | Path,
     interior_ratio = middle_sec / max(end - start, 1e-9)
     planned_ratio = 1 - final / total
     result = {
-        "keep": [[s, e] for s, e in keep], "cuts": cuts,
-        "labels": [{"start": w["start"], "end": w["end"], "label": label} for w, label in zip(wins, labels, strict=False)],
-        "original_sec": round(total, 1), "final_sec": round(final, 1),
-        "cut_ratio": round(1 - final / total, 3), "unclear_ratio": round(unclear, 3),
+        "keep": [[s, e] for s, e in keep],
+        "cuts": cuts,
+        "labels": [
+            {"start": w["start"], "end": w["end"], "label": label}
+            for w, label in zip(wins, labels, strict=False)
+        ],
+        "original_sec": round(total, 1),
+        "final_sec": round(final, 1),
+        "cut_ratio": round(1 - final / total, 3),
+        "unclear_ratio": round(unclear, 3),
         "interior_cut_ratio": round(interior_ratio, 3),
-        "silent_windows_blanked": blanked, "edges": edges, "sentence_reviews": reviews,
+        "silent_windows_blanked": blanked,
+        "edges": edges,
+        "sentence_reviews": reviews,
         "no_cut_code": "none_found" if not cuts else None,
     }
     auto_note = None
@@ -467,16 +617,29 @@ def plan(video: str | Path, audio: str | Path, transcript_json: str | Path,
         result["no_cut_code"] = "broken_timestamps"
         auto_note = f"{len(dropped)} transcript segments have broken timestamps — nothing cut"
     elif unclear > cfg["max_unclear_ratio"]:
-        result.update(no_cut_code="unclear", no_cut_details={"percent": unclear * 100,
-                                                           "limit": cfg["max_unclear_ratio"] * 100})
-        auto_note = f"unclear windows {unclear:.1%} (> {cfg['max_unclear_ratio']:.1%}) — nothing cut"
+        result.update(
+            no_cut_code="unclear",
+            no_cut_details={"percent": unclear * 100, "limit": cfg["max_unclear_ratio"] * 100},
+        )
+        auto_note = (
+            f"unclear windows {unclear:.1%} (> {cfg['max_unclear_ratio']:.1%}) — nothing cut"
+        )
     elif planned_ratio > cfg["max_cut_ratio"]:
-        result.update(no_cut_code="over_max_ratio", no_cut_details={"percent": planned_ratio * 100,
-                                                                  "limit": cfg["max_cut_ratio"] * 100})
+        result.update(
+            no_cut_code="over_max_ratio",
+            no_cut_details={"percent": planned_ratio * 100, "limit": cfg["max_cut_ratio"] * 100},
+        )
         auto_note = f"plan cut {planned_ratio:.2%} (> {cfg['max_cut_ratio']:.2%}) — nothing cut"
     if auto_note:
-        result.update(keep=[[0.0, total]], cuts=[], original_sec=total, final_sec=total,
-                      cut_ratio=0.0, interior_cut_ratio=0.0, auto_note=auto_note)
+        result.update(
+            keep=[[0.0, total]],
+            cuts=[],
+            original_sec=total,
+            final_sec=total,
+            cut_ratio=0.0,
+            interior_cut_ratio=0.0,
+            auto_note=auto_note,
+        )
     result["edges"]["applied"] = not bool(auto_note)
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "segments.json").write_text(json.dumps(result, ensure_ascii=False, indent=1))
@@ -485,4 +648,6 @@ def plan(video: str | Path, audio: str | Path, transcript_json: str | Path,
 
 def fmt(t: float) -> str:
     t = int(t)
-    return f"{t // 3600}:{t % 3600 // 60:02d}:{t % 60:02d}" if t >= 3600 else f"{t // 60}:{t % 60:02d}"
+    return (
+        f"{t // 3600}:{t % 3600 // 60:02d}:{t % 60:02d}" if t >= 3600 else f"{t // 60}:{t % 60:02d}"
+    )

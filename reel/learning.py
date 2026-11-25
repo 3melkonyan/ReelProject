@@ -3,12 +3,13 @@
 Tables are created lazily so existing installations can add learning features without
 a separate migration. Every function takes an open reel.db.DB.
 """
+
 from __future__ import annotations
 
-from collections import Counter
-from datetime import datetime, timezone
 import json
 import math
+from collections import Counter
+from datetime import UTC, datetime
 from pathlib import Path
 
 from reel import captions
@@ -30,7 +31,7 @@ _SCHEMA = (
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return datetime.now(UTC).isoformat(timespec="seconds")
 
 
 def ensure_schema(conn) -> None:
@@ -40,7 +41,12 @@ def ensure_schema(conn) -> None:
 
 
 def _table_exists(conn, name: str) -> bool:
-    return conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (name,)).fetchone() is not None
+    return (
+        conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (name,)
+        ).fetchone()
+        is not None
+    )
 
 
 # --- 1. library filter: every permitted group and subject, with lesson counts ------------------
@@ -56,7 +62,9 @@ def _subject_names(group_cfg: dict | None) -> list[str]:
 def _metadata_subjects(db, group: str) -> list[str]:
     """Optional compatibility: subject periods stored in group_metadata.subjects_json."""
     try:
-        row = db.conn.execute("SELECT subjects_json FROM group_metadata WHERE name=?", (group,)).fetchone()
+        row = db.conn.execute(
+            "SELECT subjects_json FROM group_metadata WHERE name=?", (group,)
+        ).fetchone()
         items = json.loads(row[0]) if row and row[0] else []
     except Exception:  # noqa: BLE001 - older databases may lack optional subject metadata
         return []
@@ -86,8 +94,14 @@ def library_facets(records: list[dict], config_groups: dict, completed, scope, d
         if db is not None:
             subjects += [s for s in _metadata_subjects(db, name) if s not in subjects]
         subjects += sorted({s for (g, s) in per_subject if g == name and s and s not in subjects})
-        groups.append({"name": name, "lessons": lessons[name], "archived": archived,
-                       "subjects": [{"name": s, "lessons": per_subject[(name, s)]} for s in subjects]})
+        groups.append(
+            {
+                "name": name,
+                "lessons": lessons[name],
+                "archived": archived,
+                "subjects": [{"name": s, "lessons": per_subject[(name, s)]} for s in subjects],
+            }
+        )
     groups.sort(key=lambda g: (g["archived"], g["name"].casefold()))
     return {"groups": groups, "total": len(records)}
 
@@ -97,7 +111,7 @@ def transcript_cues(db, job_id: int, work: Path) -> tuple[list[dict], str]:
     """Cues for one lesson from its work folder: (cues, source). Missing files -> ([], 'missing')."""
     plan = db.stage_output(job_id, "segments") or {}
     folder = Path(work) / str(job_id)
-    final = folder / "transcript_final.json"           # smart pauses: already on the final timeline
+    final = folder / "transcript_final.json"  # smart pauses: already on the final timeline
     try:
         if plan.get("time_map"):
             if not final.is_file():
@@ -119,12 +133,19 @@ def save_cues(db, job_id: int, cues: list[dict], source: str) -> None:
     db.conn.execute("SAVEPOINT reel_cues")
     try:
         db.conn.execute("DELETE FROM lesson_cues WHERE job_id=?", (job_id,))
-        db.conn.executemany("INSERT INTO lesson_cues(job_id,idx,t_start,t_end,text,norm) VALUES(?,?,?,?,?,?)",
-                            [(job_id, i, c["start"], c["end"], c["text"], captions.norm(c["text"]))
-                             for i, c in enumerate(cues)])
-        db.conn.execute("INSERT INTO lesson_cue_jobs(job_id,cues,source,created_at) VALUES(?,?,?,?) "
-                        "ON CONFLICT(job_id) DO UPDATE SET cues=excluded.cues, source=excluded.source, "
-                        "created_at=excluded.created_at", (job_id, len(cues), source, _now()))
+        db.conn.executemany(
+            "INSERT INTO lesson_cues(job_id,idx,t_start,t_end,text,norm) VALUES(?,?,?,?,?,?)",
+            [
+                (job_id, i, c["start"], c["end"], c["text"], captions.norm(c["text"]))
+                for i, c in enumerate(cues)
+            ],
+        )
+        db.conn.execute(
+            "INSERT INTO lesson_cue_jobs(job_id,cues,source,created_at) VALUES(?,?,?,?) "
+            "ON CONFLICT(job_id) DO UPDATE SET cues=excluded.cues, source=excluded.source, "
+            "created_at=excluded.created_at",
+            (job_id, len(cues), source, _now()),
+        )
         db.conn.execute("RELEASE reel_cues")
     except BaseException:
         db.conn.execute("ROLLBACK TO reel_cues")
@@ -136,9 +157,14 @@ def ensure_cues(db, job_ids, work: Path) -> None:
     """Index previously published lessons once; transcript.json survives cleanup."""
     ensure_schema(db.conn)
     ids = [int(i) for i in job_ids]
-    done = {row[0] for row in db.conn.execute(
-        f"SELECT job_id FROM lesson_cue_jobs WHERE job_id IN ({','.join('?' * len(ids)) or 'NULL'}) "
-        "AND source NOT IN ('missing','missing_final_timeline')", ids)}
+    done = {
+        row[0]
+        for row in db.conn.execute(
+            f"SELECT job_id FROM lesson_cue_jobs WHERE job_id IN ({','.join('?' * len(ids)) or 'NULL'}) "
+            "AND source NOT IN ('missing','missing_final_timeline')",
+            ids,
+        )
+    }
     for job_id in ids:
         if job_id not in done:
             save_cues(db, job_id, *transcript_cues(db, job_id, work))
@@ -146,8 +172,12 @@ def ensure_cues(db, job_ids, work: Path) -> None:
 
 def lesson_cues(db, job_id: int) -> list[dict]:
     ensure_schema(db.conn)
-    return [{"start": r[0], "end": r[1], "text": r[2]} for r in db.conn.execute(
-        "SELECT t_start,t_end,text FROM lesson_cues WHERE job_id=? ORDER BY idx", (job_id,))]
+    return [
+        {"start": r[0], "end": r[1], "text": r[2]}
+        for r in db.conn.execute(
+            "SELECT t_start,t_end,text FROM lesson_cues WHERE job_id=? ORDER BY idx", (job_id,)
+        )
+    ]
 
 
 def _like(term: str) -> str:
@@ -169,18 +199,30 @@ def search(db, query: str, job_ids, *, per_lesson: int = 5, lessons: int = 30) -
     hits: dict[int, list[dict]] = {}
     rows = db.conn.execute(
         f"SELECT job_id,t_start,t_end,text FROM lesson_cues WHERE job_id IN ({marks}) AND "
-        + " AND ".join("norm LIKE ? ESCAPE '\\'" for _ in terms) + " ORDER BY job_id, t_start LIMIT 5000",
-        (*ids, *map(_like, terms)))
+        + " AND ".join("norm LIKE ? ESCAPE '\\'" for _ in terms)
+        + " ORDER BY job_id, t_start LIMIT 5000",
+        (*ids, *map(_like, terms)),
+    )
     for job_id, start, end, text in rows:
-        hits.setdefault(job_id, []).append({"t": start, "end": end, "text": text, "source": "speech"})
+        hits.setdefault(job_id, []).append(
+            {"t": start, "end": end, "text": text, "source": "speech"}
+        )
     if _table_exists(db.conn, "ocr_segments"):
         for job_id, start, end, source, text in db.conn.execute(
-                f"SELECT job_id,t_start,t_end,source,text FROM ocr_segments WHERE job_id IN ({marks}) "
-                "ORDER BY job_id, t_start LIMIT 20000", ids):
+            f"SELECT job_id,t_start,t_end,source,text FROM ocr_segments WHERE job_id IN ({marks}) "
+            "ORDER BY job_id, t_start LIMIT 20000",
+            ids,
+        ):
             flat = captions.norm(text)
             if all(term in flat for term in terms):
-                hits.setdefault(job_id, []).append({"t": start, "end": end, "text": " ".join(str(text).split()),
-                                                    "source": "board" if source == "board" else "slide"})
+                hits.setdefault(job_id, []).append(
+                    {
+                        "t": start,
+                        "end": end,
+                        "text": " ".join(str(text).split()),
+                        "source": "board" if source == "board" else "slide",
+                    }
+                )
     results = []
     for job_id, found in hits.items():
         found.sort(key=lambda h: h["t"])
@@ -201,12 +243,21 @@ def public_summary(output: dict | None) -> dict | None:
     if not isinstance(output, dict) or output.get("skipped"):
         return None
     summary, terms, questions = output.get("summary"), output.get("terms"), output.get("questions")
-    if not (isinstance(summary, list) and isinstance(terms, list) and isinstance(questions, list)) or not summary:
+    if (
+        not (isinstance(summary, list) and isinstance(terms, list) and isinstance(questions, list))
+        or not summary
+    ):
         return None
-    return {"summary": [str(x) for x in summary], "questions": [str(x) for x in questions],
-            "terms": [{"term": str(t.get("term", "")), "meaning": str(t.get("meaning", ""))}
-                      for t in terms if isinstance(t, dict)],
-            "generated_at": output.get("generated_at")}
+    return {
+        "summary": [str(x) for x in summary],
+        "questions": [str(x) for x in questions],
+        "terms": [
+            {"term": str(t.get("term", "")), "meaning": str(t.get("meaning", ""))}
+            for t in terms
+            if isinstance(t, dict)
+        ],
+        "generated_at": output.get("generated_at"),
+    }
 
 
 # --- 4. watch progress (resume + accurate watched share) ------------------------------------------------
@@ -235,8 +286,16 @@ def _seconds(value, limit: float) -> float | None:
     return number if math.isfinite(number) and 0 <= number <= limit else None
 
 
-def record_progress(db, user_id: int, job_id: int, position, duration, intervals, *,
-                    known_duration: float | None = None) -> dict:
+def record_progress(
+    db,
+    user_id: int,
+    job_id: int,
+    position,
+    duration,
+    intervals,
+    *,
+    known_duration: float | None = None,
+) -> dict:
     """Merge newly watched [start, end] seconds into the stored union. Seeks never count as watched.
 
     known_duration (the edited video length from the pipeline) wins over the browser-reported one."""
@@ -264,8 +323,10 @@ def record_progress(db, user_id: int, job_id: int, position, duration, intervals
     now = _now()
     db.conn.execute("SAVEPOINT reel_progress")
     try:
-        row = db.conn.execute("SELECT intervals, first_at FROM watch_progress WHERE user_id=? AND job_id=?",
-                              (user_id, job_id)).fetchone()
+        row = db.conn.execute(
+            "SELECT intervals, first_at FROM watch_progress WHERE user_id=? AND job_id=?",
+            (user_id, job_id),
+        ).fetchone()
         merged = _merge((json.loads(row[0]) if row else []) + clean)
         watched = round(sum(b - a for a, b in merged), 1)
         share = min(1.0, watched / length) if length else 0.0
@@ -276,24 +337,47 @@ def record_progress(db, user_id: int, job_id: int, position, duration, intervals
             "position=excluded.position, duration=excluded.duration, watched_sec=excluded.watched_sec, "
             "intervals=excluded.intervals, completed=max(completed, excluded.completed), "
             "updated_at=excluded.updated_at",
-            (user_id, job_id, round(spot, 1), length, watched, json.dumps(merged), done, row[1] if row else now, now))
+            (
+                user_id,
+                job_id,
+                round(spot, 1),
+                length,
+                watched,
+                json.dumps(merged),
+                done,
+                row[1] if row else now,
+                now,
+            ),
+        )
         db.conn.execute("RELEASE reel_progress")
     except BaseException:
         db.conn.execute("ROLLBACK TO reel_progress")
         db.conn.execute("RELEASE reel_progress")
         raise
-    return {"position": round(spot, 1), "watched_sec": watched, "percent": round(share * 100, 1),
-            "completed": bool(done)}
+    return {
+        "position": round(spot, 1),
+        "watched_sec": watched,
+        "percent": round(share * 100, 1),
+        "completed": bool(done),
+    }
 
 
 def progress_for(db, user_id: int, job_ids=None) -> dict[int, dict]:
     ensure_schema(db.conn)
     out = {}
     for job_id, position, duration, watched, completed, updated in db.conn.execute(
-            "SELECT job_id, position, duration, watched_sec, completed, updated_at FROM watch_progress "
-            "WHERE user_id=?", (user_id,)):
+        "SELECT job_id, position, duration, watched_sec, completed, updated_at FROM watch_progress "
+        "WHERE user_id=?",
+        (user_id,),
+    ):
         if job_ids is None or job_id in job_ids:
-            out[job_id] = {"job_id": job_id, "position": position, "duration": duration, "watched_sec": watched,
-                           "percent": round(min(1.0, watched / duration) * 100, 1) if duration else 0.0,
-                           "completed": bool(completed), "updated_at": updated}
+            out[job_id] = {
+                "job_id": job_id,
+                "position": position,
+                "duration": duration,
+                "watched_sec": watched,
+                "percent": round(min(1.0, watched / duration) * 100, 1) if duration else 0.0,
+                "completed": bool(completed),
+                "updated_at": updated,
+            }
     return out

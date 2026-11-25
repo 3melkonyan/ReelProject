@@ -1,4 +1,5 @@
 """Reject invalid local inputs before creating jobs or archive directories."""
+
 from argparse import Namespace
 from unittest.mock import Mock
 

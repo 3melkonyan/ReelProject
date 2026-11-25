@@ -5,33 +5,37 @@ privacy scan must still run: sampled detection and held boxes are not proof
 that every face was found. Input video is normalized to a constant frame rate
 before piping because rawvideo cannot carry variable frame timestamps.
 """
-from __future__ import annotations
-from contextlib import suppress
 
-from collections import deque
-from bisect import bisect_left, bisect_right
-from fractions import Fraction
+from __future__ import annotations
+
 import json
 import math
-from pathlib import Path
 import subprocess
 import tempfile
 import time
+from bisect import bisect_left, bisect_right
+from collections import deque
+from contextlib import suppress
+from fractions import Fraction
+from pathlib import Path
 from typing import BinaryIO
 
 import cv2
 import numpy as np
 
-from reel.stages.privacy import FaceID, COSINE_MATCH
 from reel.encoding import h264_encoder
 from reel.frame_io import FrameIO
+from reel.stages.privacy import COSINE_MATCH, FaceID
 
 
 def _probe(path: Path) -> dict:
     try:
         result = subprocess.run(
             ["ffprobe", "-v", "error", "-show_streams", "-of", "json", str(path)],
-            capture_output=True, text=True, check=True, timeout=30,
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=30,
         )
         return json.loads(result.stdout)
     except (OSError, ValueError, subprocess.SubprocessError) as exc:
@@ -128,13 +132,17 @@ def _quality(face) -> dict:
         return result
     yaw = abs(float((nose - (eye_a + eye_b) / 2) @ axis)) / distance2
     score = float(face[14])
-    result.update(yaw=yaw, score=score,
-                  clear=bool(yaw <= CLEAR_MAX_YAW and face[3] >= CLEAR_MIN_HEIGHT
-                             and score >= CLEAR_MIN_SCORE))
+    result.update(
+        yaw=yaw,
+        score=score,
+        clear=bool(
+            yaw <= CLEAR_MAX_YAW and face[3] >= CLEAR_MIN_HEIGHT and score >= CLEAR_MIN_SCORE
+        ),
+    )
     return result
 
 
-SMALL_FACE_PX = 24      # below this (detector px) no identity feature is computed
+SMALL_FACE_PX = 24  # below this (detector px) no identity feature is computed
 
 
 def _small(item: dict) -> bool:
@@ -153,9 +161,14 @@ def _classify_analysis(records: list[dict], *, fallback: bool = False) -> None:
     # A supplied analysis may have stale flags. Raw positive evidence
     # still disables the global no-lecturer fallback before any track is resolved.
     fallback = fallback and not any(
-        a.get("lecturer") or (isinstance(a.get("sim"), (int, float))
-                              and math.isfinite(a["sim"]) and a["sim"] >= COSINE_MATCH)
-        for a in records)
+        a.get("lecturer")
+        or (
+            isinstance(a.get("sim"), (int, float))
+            and math.isfinite(a["sim"])
+            and a["sim"] >= COSINE_MATCH
+        )
+        for a in records
+    )
     groups: dict[object, list] = {}
     for i, item in enumerate(records):
         groups.setdefault(item.get("track", ("legacy", i)), []).append(item)
@@ -167,13 +180,19 @@ def _classify_analysis(records: list[dict], *, fallback: bool = False) -> None:
         sims = [a.get("sim") for a in evidence]
         finite = [isinstance(v, (int, float)) and math.isfinite(v) for v in sims]
         known = any(a.get("lecturer") for a in items) or any(
-            ok and sim >= COSINE_MATCH for ok, sim in zip(finite, sims, strict=False))
+            ok and sim >= COSINE_MATCH for ok, sim in zip(finite, sims, strict=False)
+        )
         clear = [a for a in evidence if a.get("clear")]
-        student = (all(finite) and len(clear) >= MIN_CLEAR_SAMPLES
-                   and all(a["sim"] < STUDENT_MAX for a in clear)
-                   and not any(STUDENT_MAX <= v < COSINE_MATCH for v in sims))
+        student = (
+            all(finite)
+            and len(clear) >= MIN_CLEAR_SAMPLES
+            and all(a["sim"] < STUDENT_MAX for a in clear)
+            and not any(STUDENT_MAX <= v < COSINE_MATCH for v in sims)
+        )
         small_only = not evidence
-        state = "lecturer" if known else "student" if fallback or student or small_only else "unsure"
+        state = (
+            "lecturer" if known else "student" if fallback or student or small_only else "unsure"
+        )
         for item in items:
             item["lecturer"] = known
             item["state"] = state
@@ -181,6 +200,7 @@ def _classify_analysis(records: list[dict], *, fallback: bool = False) -> None:
 
 class _Tracker:
     """One-to-one overlap/centre/size association with a two-second grace gap."""
+
     def __init__(self, max_gap: float = 2.0):
         self.max_gap = max_gap
         self.tracks: list[dict] = []
@@ -193,10 +213,16 @@ class _Tracker:
             for j, track in enumerate(self.tracks):
                 previous = track["box"]
                 overlap = _iou(box, previous)
-                size_ratio = max(box[2] / previous[2], previous[2] / box[2],
-                                 box[3] / previous[3], previous[3] / box[3])
-                distance = math.hypot(box[0] + box[2] / 2 - previous[0] - previous[2] / 2,
-                                      box[1] + box[3] / 2 - previous[1] - previous[3] / 2)
+                size_ratio = max(
+                    box[2] / previous[2],
+                    previous[2] / box[2],
+                    box[3] / previous[3],
+                    previous[3] / box[3],
+                )
+                distance = math.hypot(
+                    box[0] + box[2] / 2 - previous[0] - previous[2] / 2,
+                    box[1] + box[3] / 2 - previous[1] - previous[3] / 2,
+                )
                 scale = max(math.hypot(box[2], box[3]), math.hypot(previous[2], previous[3]))
                 if overlap > 0.3 or (size_ratio <= 2.0 and distance <= scale * 0.8):
                     candidates.append((overlap + 0.25 * (1 - distance / scale), i, j))
@@ -220,7 +246,9 @@ class _Tracker:
         return result
 
 
-def _identify(fid: FaceID, image: np.ndarray, tracker: _Tracker, t: float, keep: bool = False) -> list[dict]:
+def _identify(
+    fid: FaceID, image: np.ndarray, tracker: _Tracker, t: float, keep: bool = False
+) -> list[dict]:
     boxes, similarities, recognized, features, qualities = [], [], [], [], []
     for face in fid.faces(image):
         box = tuple(float(value) for value in face[:4])
@@ -239,9 +267,19 @@ def _identify(fid: FaceID, image: np.ndarray, tracker: _Tracker, t: float, keep:
         recognized.append(math.isfinite(similarity) and similarity >= COSINE_MATCH)
         features.append(feature)
     identities = tracker.update(boxes, recognized, t)
-    items = [{"box": list(box), "lecturer": known, "sim": sim, "small": min(box[2:]) < SMALL_FACE_PX, **quality}
-             for box, known, sim, quality in zip(boxes, identities, similarities, qualities, strict=False)]
-    if keep:     # identity features for reel.lecturer.track_refs
+    items = [
+        {
+            "box": list(box),
+            "lecturer": known,
+            "sim": sim,
+            "small": min(box[2:]) < SMALL_FACE_PX,
+            **quality,
+        }
+        for box, known, sim, quality in zip(
+            boxes, identities, similarities, qualities, strict=False
+        )
+    ]
+    if keep:  # identity features for reel.lecturer.track_refs
         for item, feature in zip(items, features, strict=False):
             item["feat"] = feature
     return items
@@ -249,9 +287,13 @@ def _identify(fid: FaceID, image: np.ndarray, tracker: _Tracker, t: float, keep:
 
 class _LecturerBoxes:
     """Time-indexed lecturer xywh boxes from the complete first analysis pass."""
+
     def __init__(self, records: list[dict], state: str = "lecturer"):
-        ordered = sorted((float(item["t"]), tuple(item["box"]))
-                         for item in records if ("lecturer" if item["lecturer"] else item.get("state", "unsure")) == state)
+        ordered = sorted(
+            (float(item["t"]), tuple(item["box"]))
+            for item in records
+            if ("lecturer" if item["lecturer"] else item.get("state", "unsure")) == state
+        )
         self.times = [t for t, _ in ordered]
         self.boxes = [box for _, box in ordered]
 
@@ -270,7 +312,7 @@ class _BlurPolicy(_LecturerBoxes):
         self.students = _LecturerBoxes(records, "student")
         self.unsure = _LecturerBoxes(records, "unsure")
         self.observed_unsure: list[dict] = []
-        self._logged: set[tuple] = set()      # one entry per face per 0.2 s, not per output frame
+        self._logged: set[tuple] = set()  # one entry per face per 0.2 s, not per output frame
 
     def state(self, box: tuple, t: float) -> str:
         if self.matches(box, t):
@@ -284,15 +326,20 @@ class _BlurPolicy(_LecturerBoxes):
             key = (round(t * 5), round(box[0] / 16), round(box[1] / 16))
             if self.log_unsure and key not in self._logged:
                 self._logged.add(key)
-                self.observed_unsure.append({"t": t, "box": list(box),
-                                             "lecturer": False, "state": "unsure"})
+                self.observed_unsure.append(
+                    {"t": t, "box": list(box), "lecturer": False, "state": "unsure"}
+                )
             return "unsure"
         return "student"
 
 
-def _detections(fid: FaceID, frame: np.ndarray, tracker: _Tracker | None = None,
-                t: float = 0.0, lecturer_boxes: _LecturerBoxes | None = None
-                ) -> tuple[list[tuple[int, int, int, int]], int, int]:
+def _detections(
+    fid: FaceID,
+    frame: np.ndarray,
+    tracker: _Tracker | None = None,
+    t: float = 0.0,
+    lecturer_boxes: _LecturerBoxes | None = None,
+) -> tuple[list[tuple[int, int, int, int]], int, int]:
     height, width = frame.shape[:2]
     small_width = min(1920, width)
     small_height = max(1, round(height * small_width / width))
@@ -311,8 +358,13 @@ def _detections(fid: FaceID, frame: np.ndarray, tracker: _Tracker | None = None,
                 raise RuntimeError("Face detector returned an invalid bounding box")
             x, y, w, h = box
             full_box = (x * sx, y * sy, w * sx, h * sy)
-            state = (lecturer_boxes.state(full_box, t) if isinstance(lecturer_boxes, _BlurPolicy)
-                     else "lecturer" if lecturer_boxes.matches(full_box, t) else "unsure")
+            state = (
+                lecturer_boxes.state(full_box, t)
+                if isinstance(lecturer_boxes, _BlurPolicy)
+                else "lecturer"
+                if lecturer_boxes.matches(full_box, t)
+                else "unsure"
+            )
             if state != "student" and isinstance(lecturer_boxes, _BlurPolicy):
                 lecturer_boxes.protected.append(full_box)
             items.append({"box": list(box), "lecturer": state == "lecturer", "state": state})
@@ -334,7 +386,9 @@ def _detections(fid: FaceID, frame: np.ndarray, tracker: _Tracker | None = None,
     return boxes, lecturer, uncertain
 
 
-def analyze(video: str, refs_dirs: list[str], fps: float = 5.0, keep_features: bool = False) -> list[dict]:
+def analyze(
+    video: str, refs_dirs: list[str], fps: float = 5.0, keep_features: bool = False
+) -> list[dict]:
     """Sample visible faces without encoding; boxes are full-resolution xywh.
 
     keep_features adds "track" (an id shared by one tracked face) and
@@ -345,7 +399,12 @@ def analyze(video: str, refs_dirs: list[str], fps: float = 5.0, keep_features: b
     No refs_dirs at all ("none": nobody is the lecturer) labels every face a
     non-lecturer; refs_dirs given but without a usable face is still an error.
     """
-    if isinstance(fps, bool) or not isinstance(fps, (int, float)) or not math.isfinite(fps) or fps <= 0:
+    if (
+        isinstance(fps, bool)
+        or not isinstance(fps, (int, float))
+        or not math.isfinite(fps)
+        or fps <= 0
+    ):
         raise RuntimeError("Analysis fps must be finite and positive")
     source = Path(video).expanduser().resolve()
     if not source.is_file():
@@ -354,6 +413,7 @@ def analyze(video: str, refs_dirs: list[str], fps: float = 5.0, keep_features: b
     try:
         observation_probe = _probe(source)
         from reel.progress import media_seconds
+
         observation_duration = media_seconds(observation_probe)
         width, height, _ = _geometry(observation_probe)
         small_width = min(1920, width)
@@ -365,24 +425,57 @@ def analyze(video: str, refs_dirs: list[str], fps: float = 5.0, keep_features: b
         tracker, result, index = _Tracker(max_gap=max(2.0, 1.0 / fps)), [], 0
         with tempfile.TemporaryFile() as stderr:
             try:
-                process = subprocess.Popen([
-                    "ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error", "-xerror",
-                    "-i", str(source), "-map", "0:v:0", "-an", "-sn", "-dn",
-                    "-vf", f"fps=fps={fps}:start_time=0,scale={small_width}:{small_height}",
-                    "-pix_fmt", "bgr24", "-f", "rawvideo", "pipe:1",
-                ], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=stderr)
-                with FrameIO(lambda buffer: _read_frame(process.stdout, buffer), None,
-                             small_width * small_height * 3, lambda: _stop(process)) as frames_io:
+                process = subprocess.Popen(
+                    [
+                        "ffmpeg",
+                        "-nostdin",
+                        "-hide_banner",
+                        "-loglevel",
+                        "error",
+                        "-xerror",
+                        "-i",
+                        str(source),
+                        "-map",
+                        "0:v:0",
+                        "-an",
+                        "-sn",
+                        "-dn",
+                        "-vf",
+                        f"fps=fps={fps}:start_time=0,scale={small_width}:{small_height}",
+                        "-pix_fmt",
+                        "bgr24",
+                        "-f",
+                        "rawvideo",
+                        "pipe:1",
+                    ],
+                    stdin=subprocess.DEVNULL,
+                    stdout=subprocess.PIPE,
+                    stderr=stderr,
+                )
+                with FrameIO(
+                    lambda buffer: _read_frame(process.stdout, buffer),
+                    None,
+                    small_width * small_height * 3,
+                    lambda: _stop(process),
+                ) as frames_io:
                     for buffer in frames_io:
-                        image = np.frombuffer(buffer, dtype=np.uint8).reshape(small_height, small_width, 3)
+                        image = np.frombuffer(buffer, dtype=np.uint8).reshape(
+                            small_height, small_width, 3
+                        )
                         t = index / fps
                         items = _identify(fid, image, tracker, t, keep_features)
                         for item, track in zip(items, tracker.current, strict=False):
                             x, y, w, h = item["box"]
-                            item["box"] = [round(x * sx), round(y * sy), round(w * sx), round(h * sy)]
+                            item["box"] = [
+                                round(x * sx),
+                                round(y * sy),
+                                round(w * sx),
+                                round(h * sy),
+                            ]
                             result.append({"t": round(t, 6), **item, "_track": track})
                         index += 1
                         from reel.progress import report
+
                         report(index / fps, observation_duration, kind="faces")
                         frames_io.release(buffer)
                 process.stdout.close()
@@ -395,7 +488,7 @@ def analyze(video: str, refs_dirs: list[str], fps: float = 5.0, keep_features: b
                 if process is not None and process.stdout is not None:
                     process.stdout.close()
         ids: dict[int, int] = {}
-        for item in result:          # every track object is still alive here: ids are unique
+        for item in result:  # every track object is still alive here: ids are unique
             ids.setdefault(id(item["_track"]), len(ids))
         for item in result:
             track = item.pop("_track")
@@ -417,8 +510,11 @@ def _pixelate(frame: np.ndarray, box: tuple[int, int, int, int]) -> None:
         roi[:] = 0
         return
     # At most 6x6 cells, with each cell at least 12 source pixels wide/tall.
-    tiny = cv2.resize(roi, (min(6, max(1, roi.shape[1] // 12)),
-                           min(6, max(1, roi.shape[0] // 12))), interpolation=cv2.INTER_AREA)
+    tiny = cv2.resize(
+        roi,
+        (min(6, max(1, roi.shape[1] // 12)), min(6, max(1, roi.shape[0] // 12))),
+        interpolation=cv2.INTER_AREA,
+    )
     roi[:] = cv2.resize(tiny, (roi.shape[1], roi.shape[0]), interpolation=cv2.INTER_NEAREST)
 
 
@@ -451,21 +547,33 @@ def _log(stream: BinaryIO) -> str:
 def _write_decisions(path: Path, fps: float, analysis: list[dict], pixelated: list) -> None:
     """Blur decisions for the privacy guard: pass-1 lecturer boxes [t,x,y,w,h]
     and unsure boxes, plus every pixelated region actually applied."""
-    data = {"fps": fps,
-            "lecturer": [[round(float(a["t"]), 3), *a["box"]] for a in analysis if a["lecturer"]],
-            "unsure": [[round(float(a["t"]), 3), *a["box"]] for a in analysis
-                       if not a["lecturer"] and a.get("state") == "unsure"],
-            "policy": "confident_students" if any(a["lecturer"] for a in analysis) else "fallback",
-            "pixelated": pixelated}
+    data = {
+        "fps": fps,
+        "lecturer": [[round(float(a["t"]), 3), *a["box"]] for a in analysis if a["lecturer"]],
+        "unsure": [
+            [round(float(a["t"]), 3), *a["box"]]
+            for a in analysis
+            if not a["lecturer"] and a.get("state") == "unsure"
+        ],
+        "policy": "confident_students" if any(a["lecturer"] for a in analysis) else "fallback",
+        "pixelated": pixelated,
+    }
     path.parent.mkdir(parents=True, exist_ok=True)
     part = path.with_name(path.name + ".part")
     part.write_text(json.dumps(data, separators=(",", ":")))
     part.replace(path)
 
 
-def blur_faces(video_in: str, video_out: str, refs_dirs: list[str], *,
-               detect_every: int = 3, hold_sec: float = 0.7,
-               analysis: list[dict] | None = None, decisions_path: str | None = None) -> dict:
+def blur_faces(
+    video_in: str,
+    video_out: str,
+    refs_dirs: list[str],
+    *,
+    detect_every: int = 3,
+    hold_sec: float = 0.7,
+    analysis: list[dict] | None = None,
+    decisions_path: str | None = None,
+) -> dict:
     """Write a full-size, atomically published MP4 with unchanged audio packets.
 
     blurred_boxes counts region applications across all output frames;
@@ -482,7 +590,12 @@ def blur_faces(video_in: str, video_out: str, refs_dirs: list[str], *,
     started = time.perf_counter()
     if isinstance(detect_every, bool) or not isinstance(detect_every, int) or detect_every < 1:
         raise RuntimeError("detect_every must be a positive integer")
-    if isinstance(hold_sec, bool) or not isinstance(hold_sec, (int, float)) or not math.isfinite(hold_sec) or hold_sec < 0:
+    if (
+        isinstance(hold_sec, bool)
+        or not isinstance(hold_sec, (int, float))
+        or not math.isfinite(hold_sec)
+        or hold_sec < 0
+    ):
         raise RuntimeError("hold_sec must be a finite, non-negative number")
     if not isinstance(refs_dirs, list) or any(not isinstance(d, (str, Path)) for d in refs_dirs):
         raise RuntimeError("refs_dirs must be a list of reference directories")
@@ -497,7 +610,7 @@ def blur_faces(video_in: str, video_out: str, refs_dirs: list[str], *,
     temporary = None
     try:
         # Offline first pass resolves complete tracks, including future matches.
-        if analysis is None:   # callers may pass a precomputed analyze(fps=5) result
+        if analysis is None:  # callers may pass a precomputed analyze(fps=5) result
             analysis = analyze(str(source), refs_dirs, fps=5.0) if refs_dirs else []
         # Lecturer selection may have changed flags after analyze(). Re-resolve
         # here without changing lecturer selection or its feature descriptors.
@@ -509,7 +622,9 @@ def blur_faces(video_in: str, video_out: str, refs_dirs: list[str], *,
         fid = FaceID([Path(directory).expanduser().resolve() for directory in refs_dirs])
         output.parent.mkdir(parents=True, exist_ok=True)
         # Unique sibling keeps concurrent/crashed attempts away from final output.
-        with tempfile.NamedTemporaryFile(prefix=f".{output.stem}-", suffix=".part.mp4", dir=output.parent, delete=False) as handle:
+        with tempfile.NamedTemporaryFile(
+            prefix=f".{output.stem}-", suffix=".part.mp4", dir=output.parent, delete=False
+        ) as handle:
             temporary = Path(handle.name)
         rate_arg = f"{rate.numerator}/{rate.denominator}"
         # Pass two detects every frame; hold only supplies temporal coverage.
@@ -518,47 +633,118 @@ def blur_faces(video_in: str, video_out: str, refs_dirs: list[str], *,
         frames = blurred = lecturers = uncertain = 0
         pix_log: list | None = [] if decisions_path else None
         from reel.progress import EncoderChannel, media_seconds
-        with EncoderChannel(media_seconds(source_probe)) as observation, tempfile.TemporaryFile() as decode_log, tempfile.TemporaryFile() as encode_log:
+
+        with (
+            EncoderChannel(media_seconds(source_probe)) as observation,
+            tempfile.TemporaryFile() as decode_log,
+            tempfile.TemporaryFile() as encode_log,
+        ):
             try:
-                decoder = subprocess.Popen([
-                    "ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error", "-xerror",
-                    "-i", str(source), "-map", "0:v:0", "-an", "-sn", "-dn",
-                    "-vf", f"fps=fps={rate_arg}:start_time=0", "-pix_fmt", "bgr24",
-                    "-f", "rawvideo", "pipe:1",
-                ], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=decode_log)
-                encoder = subprocess.Popen([
-                    "ffmpeg", *observation.args, "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
-                    "-f", "rawvideo", "-pix_fmt", "bgr24", "-video_size", f"{width}x{height}",
-                    "-framerate", rate_arg, "-i", "pipe:0", "-i", str(source),
-                    "-map", "0:v:0", "-map", "1:a?", "-map_metadata", "-1",
-                    # RGB -> YUV with BT.709 and bt709 tags (ffmpeg's default is BT.601, untagged)
-                    "-vf", f"setsar={aspect.numerator}/{aspect.denominator},setparams=color_primaries=bt709"
-                           ":color_trc=bt709,scale=out_color_matrix=bt709:out_range=tv,format=yuv420p",
-                    "-c:v", h264_encoder(), "-b:v", "6M", "-pix_fmt", "yuv420p",
-                    "-c:a", "copy", "-movflags", "+faststart", str(temporary),
-                ], stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=encode_log)
+                decoder = subprocess.Popen(
+                    [
+                        "ffmpeg",
+                        "-nostdin",
+                        "-hide_banner",
+                        "-loglevel",
+                        "error",
+                        "-xerror",
+                        "-i",
+                        str(source),
+                        "-map",
+                        "0:v:0",
+                        "-an",
+                        "-sn",
+                        "-dn",
+                        "-vf",
+                        f"fps=fps={rate_arg}:start_time=0",
+                        "-pix_fmt",
+                        "bgr24",
+                        "-f",
+                        "rawvideo",
+                        "pipe:1",
+                    ],
+                    stdin=subprocess.DEVNULL,
+                    stdout=subprocess.PIPE,
+                    stderr=decode_log,
+                )
+                encoder = subprocess.Popen(
+                    [
+                        "ffmpeg",
+                        *observation.args,
+                        "-nostdin",
+                        "-hide_banner",
+                        "-loglevel",
+                        "error",
+                        "-y",
+                        "-f",
+                        "rawvideo",
+                        "-pix_fmt",
+                        "bgr24",
+                        "-video_size",
+                        f"{width}x{height}",
+                        "-framerate",
+                        rate_arg,
+                        "-i",
+                        "pipe:0",
+                        "-i",
+                        str(source),
+                        "-map",
+                        "0:v:0",
+                        "-map",
+                        "1:a?",
+                        "-map_metadata",
+                        "-1",
+                        # RGB -> YUV with BT.709 and bt709 tags (ffmpeg's default is BT.601, untagged)
+                        "-vf",
+                        f"setsar={aspect.numerator}/{aspect.denominator},setparams=color_primaries=bt709"
+                        ":color_trc=bt709,scale=out_color_matrix=bt709:out_range=tv,format=yuv420p",
+                        "-c:v",
+                        h264_encoder(),
+                        "-b:v",
+                        "6M",
+                        "-pix_fmt",
+                        "yuv420p",
+                        "-c:a",
+                        "copy",
+                        "-movflags",
+                        "+faststart",
+                        str(temporary),
+                    ],
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.DEVNULL,
+                    stderr=encode_log,
+                )
+
                 def abort_io():
                     _stop(decoder)
                     _stop(encoder)
 
-                with FrameIO(lambda buffer: _read_frame(decoder.stdout, buffer),
-                             encoder.stdin.write, width * height * 3, abort_io) as frames_io:
+                with FrameIO(
+                    lambda buffer: _read_frame(decoder.stdout, buffer),
+                    encoder.stdin.write,
+                    width * height * 3,
+                    abort_io,
+                ) as frames_io:
                     for buffer in frames_io:
                         frame = np.frombuffer(buffer, dtype=np.uint8).reshape(height, width, 3)
-                        boxes, known, unknown = _detections(fid, frame, None, frames / float(rate), lecturer_boxes)
+                        boxes, known, unknown = _detections(
+                            fid, frame, None, frames / float(rate), lecturer_boxes
+                        )
                         lecturers += known
                         uncertain += unknown
                         for box in _retained(history, frames, boxes, hold_frames):
                             # A held/margined student region must not cover a face
                             # explicitly kept on this frame after it moved into it.
                             left, top, right, bottom = box
-                            if any(min(right, x + w) > max(left, x)
-                                   and min(bottom, y + h) > max(top, y)
-                                   for x, y, w, h in lecturer_boxes.protected):
+                            if any(
+                                min(right, x + w) > max(left, x)
+                                and min(bottom, y + h) > max(top, y)
+                                for x, y, w, h in lecturer_boxes.protected
+                            ):
                                 continue
                             _pixelate(frame, box)
                             blurred += 1
-                            if pix_log is not None:   # logged where applied, so the log = pixels
+                            if pix_log is not None:  # logged where applied, so the log = pixels
                                 pix_log.append([frames, *box])
                         frames_io.release(buffer)
                         frames += 1
@@ -578,7 +764,9 @@ def blur_faces(video_in: str, video_out: str, refs_dirs: list[str], *,
                 _stop(decoder)
                 _stop(encoder)
                 if isinstance(exc, (BrokenPipeError, subprocess.TimeoutExpired)):
-                    raise RuntimeError(f"ffmpeg face blur pipe failed: {_log(decode_log)} {_log(encode_log)}") from exc
+                    raise RuntimeError(
+                        f"ffmpeg face blur pipe failed: {_log(decode_log)} {_log(encode_log)}"
+                    ) from exc
                 raise
             finally:
                 _stop(decoder)
@@ -591,13 +779,26 @@ def blur_faces(video_in: str, video_out: str, refs_dirs: list[str], *,
         if not temporary.stat().st_size:
             raise RuntimeError("ffmpeg produced an empty blurred video")
         if decisions_path:
-            _write_decisions(Path(decisions_path).expanduser().resolve(), float(rate),
-                             analysis + lecturer_boxes.observed_unsure, pix_log)
+            _write_decisions(
+                Path(decisions_path).expanduser().resolve(),
+                float(rate),
+                analysis + lecturer_boxes.observed_unsure,
+                pix_log,
+            )
         temporary.replace(output)
-        return {"frames": frames, "fps_processed": round(frames / (time.perf_counter() - started), 3),
-                "blurred_boxes": blurred, "lecturer_boxes": lecturers, "uncertain_boxes": uncertain,
-                "student_tracks": len({a.get("track", i) for i, a in enumerate(analysis) if a["state"] == "student"}),
-                "unsure_tracks": len({a.get("track", i) for i, a in enumerate(analysis) if a["state"] == "unsure"})}
+        return {
+            "frames": frames,
+            "fps_processed": round(frames / (time.perf_counter() - started), 3),
+            "blurred_boxes": blurred,
+            "lecturer_boxes": lecturers,
+            "uncertain_boxes": uncertain,
+            "student_tracks": len(
+                {a.get("track", i) for i, a in enumerate(analysis) if a["state"] == "student"}
+            ),
+            "unsure_tracks": len(
+                {a.get("track", i) for i, a in enumerate(analysis) if a["state"] == "unsure"}
+            ),
+        }
     except RuntimeError:
         raise
     except Exception as exc:
@@ -616,7 +817,10 @@ def _unit_smoke() -> None:
 
         def faces(self, image):
             self.image = image
-            return np.array([[0, 0, 30, 30], [70, 40, 30, 30], [120, 40, 30, 30], [160, 40, 30, 30]], dtype=np.float32)
+            return np.array(
+                [[0, 0, 30, 30], [70, 40, 30, 30], [120, 40, 30, 30], [160, 40, 30, 30]],
+                dtype=np.float32,
+            )
 
         def feature(self, image, face):
             assert image is self.image
@@ -647,9 +851,15 @@ def _unit_smoke() -> None:
     assert tracker.update([(2, 0, 20, 20), (100, 0, 20, 20)], [False, False], 0.2) == [True, False]
     assert tracker.update([(100, 0, 20, 20)], [False], 1.1) == [False]
     assert tracker.update([(100, 0, 20, 20)], [True], 1.2) == [True]
-    assert tracker.update([(100, 0, 20, 20), (102, 0, 20, 20)], [False, False], 1.3).count(True) == 1
-    anchors = _LecturerBoxes([{"t": 1.0, "box": [0, 0, 20, 20], "lecturer": True},
-                             {"t": 1.0, "box": [100, 0, 20, 20], "lecturer": False}])
+    assert (
+        tracker.update([(100, 0, 20, 20), (102, 0, 20, 20)], [False, False], 1.3).count(True) == 1
+    )
+    anchors = _LecturerBoxes(
+        [
+            {"t": 1.0, "box": [0, 0, 20, 20], "lecturer": True},
+            {"t": 1.0, "box": [100, 0, 20, 20], "lecturer": False},
+        ]
+    )
     assert anchors.matches((0, 0, 20, 20), 0.7)
     assert anchors.matches((0, 0, 20, 20), 1.3)
     assert not anchors.matches((0, 0, 20, 20), 0.69)
@@ -662,14 +872,32 @@ def _unit_smoke() -> None:
     with suppress(RuntimeError):
         _read_frame(io.BytesIO(b"short"), bytearray(10))
         raise AssertionError("Truncated frame was accepted")
-    print("OK: lecturer exemption, uncertain/NaN/failed recognition kept, missing refs fallback, margin/clipping, hold/expiry, truncated frame")
+    print(
+        "OK: lecturer exemption, uncertain/NaN/failed recognition kept, missing refs fallback, margin/clipping, hold/expiry, truncated frame"
+    )
 
 
 def _audio_hashes(path: Path) -> list[str]:
-    result = subprocess.run([
-        "ffprobe", "-v", "error", "-select_streams", "a", "-show_packets",
-        "-show_data_hash", "sha256", "-show_entries", "packet=data_hash", "-of", "json", str(path),
-    ], capture_output=True, text=True, check=True)
+    result = subprocess.run(
+        [
+            "ffprobe",
+            "-v",
+            "error",
+            "-select_streams",
+            "a",
+            "-show_packets",
+            "-show_data_hash",
+            "sha256",
+            "-show_entries",
+            "packet=data_hash",
+            "-of",
+            "json",
+            str(path),
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
     return [packet["data_hash"] for packet in json.loads(result.stdout).get("packets", [])]
 
 
@@ -681,13 +909,51 @@ def _smoke() -> None:
     with tempfile.TemporaryDirectory(prefix="reel-blur-smoke-") as directory:
         source, output = Path(directory) / "source.mp4", Path(directory) / "blurred.mp4"
         if real:
-            command = ["ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
-                       "-i", str(lesson), "-t", "30", "-map", "0:v:0", "-map", "0:a?", "-c", "copy", str(source)]
+            command = [
+                "ffmpeg",
+                "-nostdin",
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-y",
+                "-i",
+                str(lesson),
+                "-t",
+                "30",
+                "-map",
+                "0:v:0",
+                "-map",
+                "0:a?",
+                "-c",
+                "copy",
+                str(source),
+            ]
         else:
-            command = ["ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
-                       "-f", "lavfi", "-i", "testsrc=size=1920x1080:rate=30:duration=3",
-                       "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000:duration=3",
-                       "-c:v", h264_encoder(), "-b:v", "6M", "-pix_fmt", "yuv420p", "-c:a", "aac", str(source)]
+            command = [
+                "ffmpeg",
+                "-nostdin",
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-y",
+                "-f",
+                "lavfi",
+                "-i",
+                "testsrc=size=1920x1080:rate=30:duration=3",
+                "-f",
+                "lavfi",
+                "-i",
+                "sine=frequency=440:sample_rate=48000:duration=3",
+                "-c:v",
+                h264_encoder(),
+                "-b:v",
+                "6M",
+                "-pix_fmt",
+                "yuv420p",
+                "-c:a",
+                "aac",
+                str(source),
+            ]
         subprocess.run(command, capture_output=True, text=True, check=True, timeout=120)
         report = blur_faces(str(source), str(output), [str(refs)] if real else [])
         probe = _probe(output)
@@ -695,15 +961,32 @@ def _smoke() -> None:
         assert report["frames"] > 0 and report["fps_processed"] > 0
         assert (width, height) == _geometry(_probe(source))[:2]
         assert _audio_hashes(source) == _audio_hashes(output), "Audio packets changed"
-        subprocess.run(["ffmpeg", "-nostdin", "-v", "error", "-xerror", "-i", str(output), "-f", "null", "-"],
-                       capture_output=True, text=True, check=True, timeout=120)
+        subprocess.run(
+            ["ffmpeg", "-nostdin", "-v", "error", "-xerror", "-i", str(output), "-f", "null", "-"],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=120,
+        )
         assert not list(Path(directory).glob("*.part.mp4"))
         if not real:
             assert report["frames"] == 90 and report["blurred_boxes"] == 0
             assert report["lecturer_boxes"] == report["uncertain_boxes"] == 0
-        print(json.dumps({"mode": "lesson_first_30s" if real else "testsrc_no_faces", "width": width,
-                          "height": height, "fps": float(rate), **report}, ensure_ascii=False))
-        print("OK: full-size H.264 output decodes, audio packet hashes unchanged, atomic output; temporary smoke files removed on exit")
+        print(
+            json.dumps(
+                {
+                    "mode": "lesson_first_30s" if real else "testsrc_no_faces",
+                    "width": width,
+                    "height": height,
+                    "fps": float(rate),
+                    **report,
+                },
+                ensure_ascii=False,
+            )
+        )
+        print(
+            "OK: full-size H.264 output decodes, audio packet hashes unchanged, atomic output; temporary smoke files removed on exit"
+        )
 
 
 if __name__ == "__main__":

@@ -1,22 +1,27 @@
 """Mail helpers: fake DNS/SMTP only; never read account environment files."""
+
 from __future__ import annotations
 
 from email import policy
 from email.parser import BytesParser
-
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
+import pytest
 from fastapi import HTTPException
 from PIL import Image
-import pytest
 
 from reel.web import account_mail as mail
 from reel.web import accounts
 
 BASE = "https://reel.example.test"
-CONFIG = {"SMTP_HOST": "smtp.example.test", "SMTP_PORT": "587", "SMTP_USER": "fixture-user",
-          "SMTP_PASSWORD": "fixture-secret", "SMTP_FROM": "Reel <mail@example.test>"}
+CONFIG = {
+    "SMTP_HOST": "smtp.example.test",
+    "SMTP_PORT": "587",
+    "SMTP_USER": "fixture-user",
+    "SMTP_PASSWORD": "fixture-secret",
+    "SMTP_FROM": "Reel <mail@example.test>",
+}
 
 
 class DNSError(Exception):
@@ -46,7 +51,9 @@ def offline(monkeypatch):
 def dns(monkeypatch):
     resolver = MagicMock()
     resolver.resolve.return_value = [SimpleNamespace(exchange="mx.example.test.")]
-    module = SimpleNamespace(Resolver=MagicMock(return_value=resolver), NoAnswer=NoAnswer, NXDOMAIN=NXDOMAIN)
+    module = SimpleNamespace(
+        Resolver=MagicMock(return_value=resolver), NoAnswer=NoAnswer, NXDOMAIN=NXDOMAIN
+    )
     monkeypatch.setattr(mail, "_dns", lambda: (module, DNSError))
     return SimpleNamespace(module=module, resolver=resolver)
 
@@ -55,9 +62,17 @@ def link(kind):
     return BASE + "/#/" + kind + "/" + "a" * 43
 
 
-@pytest.mark.parametrize("domain, suggested", [("gamil.com", "gmail.com"), ("gmial.com", "gmail.com"),
-                                               ("gmail.con", "gmail.com"), ("yahoo.co", "yahoo.com"),
-                                               ("hotmail.co", "hotmail.com"), ("outlook.co", "outlook.com")])
+@pytest.mark.parametrize(
+    "domain, suggested",
+    [
+        ("gamil.com", "gmail.com"),
+        ("gmial.com", "gmail.com"),
+        ("gmail.con", "gmail.com"),
+        ("yahoo.co", "yahoo.com"),
+        ("hotmail.co", "hotmail.com"),
+        ("outlook.co", "outlook.com"),
+    ],
+)
 def test_common_domain_typos_are_400_with_armenian_suggestion(domain, suggested):
     with pytest.raises(HTTPException) as error:
         mail.validate_email("name@" + domain)
@@ -65,10 +80,24 @@ def test_common_domain_typos_are_400_with_armenian_suggestion(domain, suggested)
     assert "Միգուցե՝ name@" + suggested in error.value.detail
 
 
-@pytest.mark.parametrize("email", [None, "", "not-an-email", "a@@example.com", ".a@example.com",
-                                   "a..b@example.com", "a@example..com", "a@-example.com", "a@example.com\n",
-                                   "a@example.com\r\nBcc:other@example.com", "a@localhost", "a@x.123",
-                                   "a" * 65 + "@example.com"])
+@pytest.mark.parametrize(
+    "email",
+    [
+        None,
+        "",
+        "not-an-email",
+        "a@@example.com",
+        ".a@example.com",
+        "a..b@example.com",
+        "a@example..com",
+        "a@-example.com",
+        "a@example.com\n",
+        "a@example.com\r\nBcc:other@example.com",
+        "a@localhost",
+        "a@x.123",
+        "a" * 65 + "@example.com",
+    ],
+)
 def test_invalid_email_never_reaches_dns(email):
     with pytest.raises(HTTPException) as error:
         mail.validate_email(email)
@@ -121,11 +150,15 @@ def test_missing_optional_dns_module_returns_warning(monkeypatch):
     assert mail.validate_email("user@example.com") == [mail.DNS_WARNING]
 
 
-@pytest.mark.parametrize("kind, duration, cta", [("invite", "72 ժամ", "Ընդունել հրավերը"),
-                                                 ("reset", "60 րոպե", "Վերականգնել գաղտնաբառը")])
+@pytest.mark.parametrize(
+    "kind, duration, cta",
+    [("invite", "72 ժամ", "Ընդունել հրավերը"), ("reset", "60 րոպե", "Վերականգնել գաղտնաբառը")],
+)
 @pytest.mark.parametrize("theme", ["auto", "light", "dark"])
 def test_multipart_message_has_plain_html_cid_and_bounded_wire_size(kind, duration, cta, theme):
-    message = mail.build_message(kind, "recipient@example.test", link(kind), "Անի Սարգսյան", theme=theme)
+    message = mail.build_message(
+        kind, "recipient@example.test", link(kind), "Անի Սարգսյան", theme=theme
+    )
     assert message.get_content_type() == "multipart/alternative"
     plain = message.get_body(preferencelist=("plain",)).get_content()
     html = message.get_body(preferencelist=("html",)).get_content()
@@ -148,14 +181,26 @@ def test_multipart_message_has_plain_html_cid_and_bounded_wire_size(kind, durati
 
 def test_name_and_url_html_are_escaped_without_config_or_dns_access():
     url = BASE + '/#/invite/"onclick="unsafe'
-    html = mail.build_message("invite", "recipient@example.test", url, '<img src=x onerror="unsafe">').get_body(preferencelist=("html",)).get_content()
-    assert '<img src=x' not in html and '&lt;img src=x' in html
+    html = (
+        mail.build_message("invite", "recipient@example.test", url, '<img src=x onerror="unsafe">')
+        .get_body(preferencelist=("html",))
+        .get_content()
+    )
+    assert "<img src=x" not in html and "&lt;img src=x" in html
     assert 'href="' + url + '"' not in html
-    assert '&quot;onclick=&quot;unsafe' in html
+    assert "&quot;onclick=&quot;unsafe" in html
 
 
-@pytest.mark.parametrize("url", ["/#/invite/token", "javascript:alert(1)", "http://attacker.example/#/invite/token",
-                                 "https://user:password@example.test/#/invite/token", BASE + "/\nattack"])
+@pytest.mark.parametrize(
+    "url",
+    [
+        "/#/invite/token",
+        "javascript:alert(1)",
+        "http://attacker.example/#/invite/token",
+        "https://user:password@example.test/#/invite/token",
+        BASE + "/\nattack",
+    ],
+)
 def test_unsafe_email_links_are_rejected(url):
     with pytest.raises(ValueError):
         mail.build_message("invite", "recipient@example.test", url)
@@ -208,15 +253,32 @@ def test_smtp_sends_multipart_over_starttls_after_trusted_base_check(smtp, tmp_p
     sender = mail.send_invitation if kind == "invite" else mail.send_reset
     assert sender(tmp_path, "recipient@example.test", link(kind), "Անի") is True
     assert smtp.events[0] == ("connect", "smtp.example.test", 587, 10)
-    assert [event[0] for event in smtp.events] == ["connect", "ehlo", "starttls", "ehlo", "login", "send", "close"]
+    assert [event[0] for event in smtp.events] == [
+        "connect",
+        "ehlo",
+        "starttls",
+        "ehlo",
+        "login",
+        "send",
+        "close",
+    ]
     assert len(smtp.messages) == 1 and smtp.messages[0].is_multipart()
     assert smtp.messages[0]["From"].addresses[0].addr_spec == "mail@example.test"
 
 
-@pytest.mark.parametrize("base, url", [(None, link("invite")), ("", link("invite")),
-                                      (BASE, "https://attacker.example/#/invite/token"),
-                                      (BASE, link("reset")), (BASE, "/#/invite/token")])
-def test_missing_or_inconsistent_public_base_never_contacts_smtp(smtp, monkeypatch, tmp_path, base, url):
+@pytest.mark.parametrize(
+    "base, url",
+    [
+        (None, link("invite")),
+        ("", link("invite")),
+        (BASE, "https://attacker.example/#/invite/token"),
+        (BASE, link("reset")),
+        (BASE, "/#/invite/token"),
+    ],
+)
+def test_missing_or_inconsistent_public_base_never_contacts_smtp(
+    smtp, monkeypatch, tmp_path, base, url
+):
     monkeypatch.setattr(accounts, "public_base", lambda root: base)
     assert mail.send_invitation(tmp_path, "recipient@example.test", url) is False
     assert smtp.events == []
@@ -230,7 +292,9 @@ def test_incomplete_smtp_configuration_does_not_send(smtp, monkeypatch, tmp_path
     assert smtp.events == []
 
 
-def test_smtp_failure_returns_false_without_logging_credentials_or_link(smtp, monkeypatch, tmp_path, caplog, capsys):
+def test_smtp_failure_returns_false_without_logging_credentials_or_link(
+    smtp, monkeypatch, tmp_path, caplog, capsys
+):
     def fail(self, message):
         raise RuntimeError(CONFIG["SMTP_PASSWORD"] + link("invite"))
 
@@ -246,7 +310,6 @@ def test_header_injection_in_config_is_rejected_before_smtp(smtp, monkeypatch, t
     monkeypatch.setattr(accounts, "settings", lambda root: config)
     assert mail.send_reset(tmp_path, "recipient@example.test", link("reset")) is False
     assert smtp.events == []
-
 
 
 def test_long_names_and_links_still_fit_under_mail_wire_limit():

@@ -3,6 +3,7 @@
 Pure functions only. Transcript times are on the original (joined) recording; `keep` maps them to the
 edited video exactly like the chapters do (reel.timeline.to_final).
 """
+
 from __future__ import annotations
 
 import math
@@ -10,17 +11,18 @@ import re
 
 from reel import timeline
 
-MAX_CHARS = 84          # two caption lines of ~42 characters
+MAX_CHARS = 84  # two caption lines of ~42 characters
 LINE_CHARS = 42
 MAX_SEC = 7.0
-MIN_KEPT = 0.5          # a sentence that is mostly inside a cut is dropped, not squeezed in
+MIN_KEPT = 0.5  # a sentence that is mostly inside a cut is dropped, not squeezed in
 
 # Armenian emphasis/exclamation/question/abbreviation marks sit INSIDE words (including question marks): drop them for search.
 _MARKS = dict.fromkeys(map(ord, "՛՜՞՟"), None)
 # Phrases Whisper invents on silence or music (not said in a lesson).
 _HALLUCINATIONS = re.compile(
     r"^(?:շնորհակալություն դիտելու համար|субтитры.*|продолжение следует.*|thank(?:s| you) for watching.*|"
-    r"[\s.։,…♪-]*)$")
+    r"[\s.։,…♪-]*)$"
+)
 
 
 def norm(text: object) -> str:
@@ -48,13 +50,16 @@ def final_cues(segments: list[dict], keep=None) -> list[dict]:
         if not text or not math.isfinite(a) or not math.isfinite(b) or b <= a:
             continue
         if _HALLUCINATIONS.match(norm(text)) or (cues and norm(cues[-1]["text"]) == norm(text)):
-            continue                                   # silence phrase or a repetition loop
+            continue  # silence phrase or a repetition loop
         if intervals is not None:
             parts = [(max(a, x), min(b, y)) for x, y in intervals if min(b, y) > max(a, x)]
             if sum(y - x for x, y in parts) < MIN_KEPT * (b - a):
                 continue
-            a, b = timeline.to_final(parts[0][0], intervals), timeline.to_final(parts[-1][1], intervals)
-        if cues and a < cues[-1]["end"]:              # Whisper overlaps: never show two cues at once
+            a, b = (
+                timeline.to_final(parts[0][0], intervals),
+                timeline.to_final(parts[-1][1], intervals),
+            )
+        if cues and a < cues[-1]["end"]:  # Whisper overlaps: never show two cues at once
             if a - cues[-1]["start"] >= 0.3:
                 cues[-1]["end"] = round(a, 2)
             else:
@@ -64,7 +69,9 @@ def final_cues(segments: list[dict], keep=None) -> list[dict]:
     return cues
 
 
-def split_cues(cues: list[dict], max_chars: int = MAX_CHARS, max_sec: float = MAX_SEC) -> list[dict]:
+def split_cues(
+    cues: list[dict], max_chars: int = MAX_CHARS, max_sec: float = MAX_SEC
+) -> list[dict]:
     """Long Whisper segments -> readable caption cues; time is shared in proportion to text length."""
     out = []
     for cue in cues:
@@ -78,7 +85,9 @@ def split_cues(cues: list[dict], max_chars: int = MAX_CHARS, max_sec: float = MA
         target, chunks, current = len(cue["text"]) / count, [], []
         for word in words:
             size = len(" ".join(current))
-            if current and (size + 1 + len(word) > max_chars or (size >= target and len(chunks) < count - 1)):
+            if current and (
+                size + 1 + len(word) > max_chars or (size >= target and len(chunks) < count - 1)
+            ):
                 chunks.append(" ".join(current))
                 current = []
             current.append(word)
@@ -97,7 +106,7 @@ def wrap(text: str, width: int = LINE_CHARS) -> list[str]:
         return [text]
     middle = len(text) / 2
     cut = min((i for i, c in enumerate(text) if c == " "), key=lambda i: abs(i - middle))
-    return [text[:cut], text[cut + 1:]]
+    return [text[:cut], text[cut + 1 :]]
 
 
 def _stamp(seconds: float, separator: str) -> str:
@@ -112,13 +121,20 @@ def to_srt(cues: list[dict]) -> str:
     blocks = []
     for index, cue in enumerate(cues, 1):
         lines = wrap(_clean(cue["text"]).replace("<", "‹").replace(">", "›"))
-        blocks.append(f"{index}\n{_stamp(cue['start'], ',')} --> {_stamp(cue['end'], ',')}\n" + "\n".join(lines))
+        blocks.append(
+            f"{index}\n{_stamp(cue['start'], ',')} --> {_stamp(cue['end'], ',')}\n"
+            + "\n".join(lines)
+        )
     return "\n\n".join(blocks) + "\n" if blocks else ""
 
 
 def to_vtt(cues: list[dict]) -> str:
     def escape(text):
         return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-    blocks = [f"{_stamp(c['start'], '.')} --> {_stamp(c['end'], '.')}\n" + "\n".join(wrap(escape(_clean(c["text"]))))
-              for c in cues]
+
+    blocks = [
+        f"{_stamp(c['start'], '.')} --> {_stamp(c['end'], '.')}\n"
+        + "\n".join(wrap(escape(_clean(c["text"]))))
+        for c in cues
+    ]
     return "WEBVTT\n\n" + "\n\n".join(blocks) + ("\n" if blocks else "")

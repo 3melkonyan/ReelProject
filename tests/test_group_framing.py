@@ -1,10 +1,11 @@
 """The group's 'framing' setting is validated and survives a Settings save (not on the form yet)."""
+
 import json
 
 import pytest
+from test_admin_api import group_body, group_url, saved  # noqa: F401  (web is a fixture)
 
 from reel import config as config_module
-from test_admin_api import group_body, group_url, saved  # noqa: F401  (web is a fixture)
 
 
 def _set_framing(admin_web, value):
@@ -15,7 +16,9 @@ def _set_framing(admin_web, value):
 
 def test_settings_save_keeps_the_framing_setting(admin_web):
     _set_framing(admin_web, "board")
-    code, response = admin_web.client("admin").call("PUT", group_url("Group-A"), group_body(slack_channel="Cnew"))
+    code, response = admin_web.client("admin").call(
+        "PUT", group_url("Group-A"), group_body(slack_channel="Cnew")
+    )
     assert code == 200, response
     g = saved(admin_web)["groups"]["Group-A"]
     assert g["framing"] == "board" and g["slack_channel"] == "Cnew"

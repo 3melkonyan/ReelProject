@@ -1,12 +1,14 @@
 """Upload-page follow-up fixes (the bottom bar never breaks a word is CSS only)."""
+
 import json
 import shutil
 import subprocess
 import threading
 from pathlib import Path
 
+from test_web_upload import send  # noqa: F401 - fixtures
+
 from reel import thumbnail as th
-from test_web_upload import send          # noqa: F401 - fixtures
 
 ROOT = Path(__file__).resolve().parents[1]
 NODE = shutil.which("node") or "node"
@@ -17,8 +19,12 @@ def test_reselected_phone_files_resume_after_reload(isolated):
     the upload must still continue from the bytes the server already has."""
     web, _ = isolated
     c = web.client("uploader")
-    body = {"group": "Group-B", "subject": "Python", "lesson_number": 8,
-            "files": [{"name": "IMG_0359.MOV", "size": 12, "last_modified": 1}]}
+    body = {
+        "group": "Group-B",
+        "subject": "Python",
+        "lesson_number": 8,
+        "files": [{"name": "IMG_0359.MOV", "size": 12, "last_modified": 1}],
+    }
     code, first = c.call("POST", "/api/uploads", body=body)
     assert code == 200
     send(c, first["id"], 0, b"abcd")
@@ -58,8 +64,12 @@ assert.deepEqual(target.querySelectorAll('[data-up="part"]').map(e=>e.textConten
 c.S.up.state='paused';c.S.up.message='Կապն ընդհատվել է';c.renderUpProgress();
 assert.equal(renders,2);assert.equal(typeof target.querySelector('#up-resume').onclick,'function');
 """
-    result = subprocess.run([NODE, "-e", script, str(ROOT / "reel/web/static/upload.js")],
-                            capture_output=True, text=True, timeout=15)
+    result = subprocess.run(
+        [NODE, "-e", script, str(ROOT / "reel/web/static/upload.js")],
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
     assert result.returncode == 0, result.stdout + result.stderr
 
 
@@ -84,8 +94,11 @@ def test_admin_style_save_waits_for_the_worker(isolated):
     path = web.root / "thumbnail_styles.json"
     admin = web.client("admin")
     result = {}
-    save = threading.Thread(target=lambda: result.update(
-        code=admin.call("PUT", "/api/admin/thumbnail-styles/Group-A", body={"style": 3})[0]))
+    save = threading.Thread(
+        target=lambda: result.update(
+            code=admin.call("PUT", "/api/admin/thumbnail-styles/Group-A", body={"style": 3})[0]
+        )
+    )
     with th.styles_lock(path):
         save.start()
         save.join(0.3)

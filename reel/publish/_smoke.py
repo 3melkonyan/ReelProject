@@ -1,17 +1,23 @@
 """Offline adapter checks. No credentials, browser, or live publications."""
+
+import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import MagicMock, patch
-import json
+
 from googleapiclient.errors import HttpError
 from httplib2 import Response
+
 from reel.publish.errors import PublishError
 
 
 def youtube_smoke() -> None:
     from reel.publish import youtube as y
+
     service = MagicMock()
-    service.channels().list().execute.return_value = {"items": [{"contentDetails": {"relatedPlaylists": {"uploads": "uploads"}}}]}
+    service.channels().list().execute.return_value = {
+        "items": [{"contentDetails": {"relatedPlaylists": {"uploads": "uploads"}}}]
+    }
     service.playlistItems().list().execute.side_effect = [
         {"items": [{"contentDetails": {"videoId": "old"}}], "nextPageToken": "page2"},
         {"items": [{"contentDetails": {"videoId": "match"}}]},
@@ -42,18 +48,29 @@ def youtube_smoke() -> None:
             assert call["media_body"].resumable()
             assert call["media_body"].stream().closed
             y.set_thumbnail("v", str(path))
-        for status, reason, retryable in [(403, "quotaExceeded", True), (403, "forbidden", False), (429, "rateLimitExceeded", True), (503, "backendError", True)]:
-            service.playlistItems().list().execute.side_effect = HttpError(Response({"status": str(status)}), json.dumps({"error": {"errors": [{"reason": reason}]}}).encode())
+        for status, reason, retryable in [
+            (403, "quotaExceeded", True),
+            (403, "forbidden", False),
+            (429, "rateLimitExceeded", True),
+            (503, "backendError", True),
+        ]:
+            service.playlistItems().list().execute.side_effect = HttpError(
+                Response({"status": str(status)}),
+                json.dumps({"error": {"errors": [{"reason": reason}]}}).encode(),
+            )
             try:
                 y.is_in_playlist("v", "p")
                 raise AssertionError("Expected PublishError")
             except PublishError as error:
                 assert error.retryable is retryable
-    print("OK: YouTube offline pagination, exact tag, resumable upload, playlist, thumbnail, error classification")
+    print(
+        "OK: YouTube offline pagination, exact tag, resumable upload, playlist, thumbnail, error classification"
+    )
 
 
 def classroom_smoke() -> None:
     from reel.publish import classroom as c
+
     service = MagicMock()
     request = service.courses().announcements().create
     request().execute.return_value = {"id": "announcement"}
@@ -63,7 +80,9 @@ def classroom_smoke() -> None:
         assert body["state"] == "PUBLISHED"
         assert body["materials"][0]["link"]["url"] == "https://example.com/video"
         assert body["text"] == "Title\nhttps://example.com/video"
-        request().execute.side_effect = HttpError(Response({"status": "403"}), b'{"error":{"errors":[{"reason":"forbidden"}]}}')
+        request().execute.side_effect = HttpError(
+            Response({"status": "403"}), b'{"error":{"errors":[{"reason":"forbidden"}]}}'
+        )
         try:
             c.announce("123", "Title", "https://example.com/video")
             raise AssertionError("Expected PublishError")
@@ -74,7 +93,14 @@ def classroom_smoke() -> None:
 
 def library_smoke() -> None:
     from reel.publish import library as lib
-    entry = dict(job_id="job-1", group="Խումբ", title="Դաս\nմեկ", url="https://example.com/video", published_at="2026-11-17T00:00:00Z")
+
+    entry = dict(
+        job_id="job-1",
+        group="Խումբ",
+        title="Դաս\nմեկ",
+        url="https://example.com/video",
+        published_at="2026-11-17T00:00:00Z",
+    )
     # Resolve the real project path while cwd is mocked to an unrelated directory.
     with patch.object(Path, "cwd", return_value=Path("/tmp")):
         assert lib._path() == Path(lib.__file__).resolve().parents[2] / "library.jsonl"
@@ -103,11 +129,17 @@ def library_smoke() -> None:
 
 def oauth_smoke() -> None:
     from reel import google_auth as auth
+
     with TemporaryDirectory() as directory:
         root = Path(directory).resolve()
         secrets = root / "secrets"
         secrets.mkdir()
-        with patch.object(auth, "__file__", str(root / "reel" / "google_auth.py")), patch.object(auth, "InstalledAppFlow") as flow, patch.object(auth, "Credentials") as credentials, patch.object(auth, "Request"):
+        with (
+            patch.object(auth, "__file__", str(root / "reel" / "google_auth.py")),
+            patch.object(auth, "InstalledAppFlow") as flow,
+            patch.object(auth, "Credentials") as credentials,
+            patch.object(auth, "Request"),
+        ):
             try:
                 auth.get_credentials(["scope"])
                 raise AssertionError("Expected noninteractive authorization error")
@@ -119,7 +151,9 @@ def oauth_smoke() -> None:
             token.has_scopes.return_value = True
             token.valid = True
             assert auth.get_credentials(["scope"]) is token
-            assert credentials.from_authorized_user_file.call_args.args[0] == str(secrets / "token.json")
+            assert credentials.from_authorized_user_file.call_args.args[0] == str(
+                secrets / "token.json"
+            )
             token.valid = False
             token.refresh_token = "offline-fixture"
             token.to_json.return_value = "{}"
@@ -139,4 +173,6 @@ def oauth_smoke() -> None:
             interactive.to_json.return_value = "{}"
             assert auth._get(["scope"], interactive=True) is interactive
             flow.from_client_secrets_file.return_value.run_local_server.assert_called_once()
-    print("OK: OAuth offline project root, no automatic browser, refresh, scopes, explicit authorization")
+    print(
+        "OK: OAuth offline project root, no automatic browser, refresh, scopes, explicit authorization"
+    )

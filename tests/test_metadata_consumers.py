@@ -1,4 +1,5 @@
 """Chapterless metadata must still reach every publication consumer safely."""
+
 from __future__ import annotations
 
 import copy
@@ -18,7 +19,9 @@ from reel.pipeline import Ctx
 from reel.stages import metadata as md
 
 
-def test_default_metadata_reaches_all_consumers_and_publication_is_idempotent(tmp_path, monkeypatch):
+def test_default_metadata_reaches_all_consumers_and_publication_is_idempotent(
+    tmp_path, monkeypatch
+):
     """A failed chapter plan is an annotation, not a publication failure."""
     monkeypatch.setattr(st, "ROOT", tmp_path)
     monkeypatch.chdir(tmp_path)
@@ -29,10 +32,16 @@ def test_default_metadata_reaches_all_consumers_and_publication_is_idempotent(tm
     monkeypatch.setattr(st, "_notify", forbidden)
     monkeypatch.setattr(subprocess, "run", forbidden)
     source = tmp_path / "uploads" / "Python_lesson_26.mp4"
-    config = {"version": 2, "groups": {"fixture-group": {
-        "subjects": [{"name": "Python", "playlist": "PL-fixture"}],
-        "slack_channel": "C-FIXTURE", "lecturers": [],
-    }}}
+    config = {
+        "version": 2,
+        "groups": {
+            "fixture-group": {
+                "subjects": [{"name": "Python", "playlist": "PL-fixture"}],
+                "slack_channel": "C-FIXTURE",
+                "lecturers": [],
+            }
+        },
+    }
     db = DB(tmp_path / "reel.db")
     try:
         job_id = db.create_job(str(source), "metadata-consumers-fixture", "fixture-group")
@@ -41,9 +50,17 @@ def test_default_metadata_reaches_all_consumers_and_publication_is_idempotent(tm
         workdir = tmp_path / "work" / str(job_id)
         transcript = workdir / "transcript" / "transcript.json"
         transcript.parent.mkdir(parents=True)
-        transcript.write_text(json.dumps({"segments": [
-            {"start": 0.0, "end": 3000.0, "text": "Python-ի generator-ների աշխատանքը։"},
-        ]}, ensure_ascii=False), encoding="utf-8")
+        transcript.write_text(
+            json.dumps(
+                {
+                    "segments": [
+                        {"start": 0.0, "end": 3000.0, "text": "Python-ի generator-ների աշխատանքը։"},
+                    ]
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
         final = str(workdir / "final_blurred.mp4")
         events = []
         maps = []
@@ -52,8 +69,11 @@ def test_default_metadata_reaches_all_consumers_and_publication_is_idempotent(tm
         def fake_chat(system, user, **kwargs):
             assert system == md.MAP_SYS, "planning failure must not invoke REDUCE"
             maps.append((user, kwargs))
-            return {"topic": "Python Generators", "summary": "Generator execution and iterators.",
-                    "topic_changes": [{"t": 0.0, "topic": "Python Generators"}]}
+            return {
+                "topic": "Python Generators",
+                "summary": "Generator execution and iterators.",
+                "topic_changes": [{"t": 0.0, "topic": "Python Generators"}],
+            }
 
         def failed_plan(summaries, keep):
             plans.append((copy.deepcopy(summaries), copy.deepcopy(keep)))
@@ -72,7 +92,10 @@ def test_default_metadata_reaches_all_consumers_and_publication_is_idempotent(tm
 
         def upload(video, title, description, tags, *, privacy):
             events.append(("youtube.upload", video, title, description, tags, privacy))
-            return {"video_id": "fixture-video", "url": "https://www.youtube.com/watch?v=fixture-video"}
+            return {
+                "video_id": "fixture-video",
+                "url": "https://www.youtube.com/watch?v=fixture-video",
+            }
 
         def post_link(channel, line, url):
             events.append(("slack.post_link", channel, line, url))
@@ -82,14 +105,17 @@ def test_default_metadata_reaches_all_consumers_and_publication_is_idempotent(tm
             events.append(("library.add", copy.deepcopy(entry)))
 
         publishers = {
-            "youtube": SimpleNamespace(find_by_tag=find_by_tag, upload=upload,
-                                       processing_status=lambda video_id: "processed"),
+            "youtube": SimpleNamespace(
+                find_by_tag=find_by_tag,
+                upload=upload,
+                processing_status=lambda video_id: "processed",
+            ),
             "slack": SimpleNamespace(post_link=post_link),
             "library": SimpleNamespace(add=library_add),
         }
         monkeypatch.setattr(thumbnail_module, "make_thumbnail", make_thumbnail)
         monkeypatch.setattr(st, "_pub", lambda name: publishers[name])
-        monkeypatch.setattr(st, "YT_MIN_WAIT", 0)                      # no real 5-minute wait in tests
+        monkeypatch.setattr(st, "YT_MIN_WAIT", 0)  # no real 5-minute wait in tests
 
         def context():
             # Fresh caches exercise the persisted outputs used on resume.
@@ -132,21 +158,44 @@ def test_default_metadata_reaches_all_consumers_and_publication_is_idempotent(tm
         library = run_stage("library_add", st.library_add)
         url = "https://www.youtube.com/watch?v=fixture-video"
         assert thumbnail == {"path": str(workdir / "thumbnail.jpg")}
-        assert youtube == {"external_id": "fixture-video", "url": url, "reused": False, "lesson_no": 1}
+        assert youtube == {
+            "external_id": "fixture-video",
+            "url": url,
+            "reused": False,
+            "lesson_no": 1,
+        }
         assert slack == {"external_id": "12345.6789", "url": None, "reused": False}
         assert library == {"external_id": None, "url": None, "reused": False}
         assert [event[0] for event in events] == [
-            "thumbnail", "youtube.find", "youtube.upload", "slack.post_link", "library.add",
+            "thumbnail",
+            "youtube.find",
+            "youtube.upload",
+            "slack.post_link",
+            "library.add",
         ]
         assert events[0] == ("thumbnail", final, title, str(workdir / "thumbnail.jpg"))
         assert events[1] == ("youtube.find", f"reel-{job_id}")
-        assert events[2] == ("youtube.upload", final, st._youtube_title("Python", 1, title), description,
-                             [f"reel-{job_id}", "fixture-group"], "unlisted")
-        assert events[3] == ("slack.post_link", "C-FIXTURE",
-                             "Python դասընթացի 1-ին դասի տեսանյութը տեղադրված է YouTube-ում", url)
+        assert events[2] == (
+            "youtube.upload",
+            final,
+            st._youtube_title("Python", 1, title),
+            description,
+            [f"reel-{job_id}", "fixture-group"],
+            "unlisted",
+        )
+        assert events[3] == (
+            "slack.post_link",
+            "C-FIXTURE",
+            "Python դասընթացի 1-ին դասի տեսանյութը տեղադրված է YouTube-ում",
+            url,
+        )
         entry = events[4][1]
         assert {key: entry[key] for key in ("job_id", "group", "subject", "title", "url")} == {
-            "job_id": str(job_id), "group": "fixture-group", "subject": "Python", "title": title, "url": url,
+            "job_id": str(job_id),
+            "group": "fixture-group",
+            "subject": "Python",
+            "title": title,
+            "url": url,
         }
         assert datetime.fromisoformat(entry["published_at"]).utcoffset() is not None
         assert not source.exists() and not Path(final).exists()
@@ -154,8 +203,11 @@ def test_default_metadata_reaches_all_consumers_and_publication_is_idempotent(tm
 
         # Real publish_once records make resumed consumers skip all external effects.
         published_events = copy.deepcopy(events)
-        for target, function in (("youtube", st.youtube_upload), ("slack", st.slack_post),
-                                 ("library", st.library_add)):
+        for target, function in (
+            ("youtube", st.youtube_upload),
+            ("slack", st.slack_post),
+            ("library", st.library_add),
+        ):
             assert db.publication(job_id, target) is not None
             assert function(context())["reused"] is True
         assert events == published_events

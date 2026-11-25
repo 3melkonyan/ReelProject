@@ -1,22 +1,20 @@
 """Admin-only lecturer inspection and atomic per-job choices."""
+
 from __future__ import annotations
 
-from reel.i18n import t as _t
-
-from contextlib import closing
 import json
 import math
-
 import re
-
 import threading
-from datetime import datetime, timezone
+from contextlib import closing
+from datetime import UTC, datetime
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from starlette.concurrency import run_in_threadpool
 
 from reel.db import DB
+from reel.i18n import t as _t
 from reel.web.admin import require_admin
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -40,14 +38,14 @@ def _workdir(job_id: int) -> Path:
     base = ROOT / "work"
     directory = base / str(job_id)
     if base.is_symlink() or directory.is_symlink():
-        raise HTTPException(409, _t('lecturer_api.the_lesson_work_path_is_not_a'))
+        raise HTTPException(409, _t("lecturer_api.the_lesson_work_path_is_not_a"))
     return directory
 
 
 def _auto_dir(directory: Path) -> Path:
     auto = directory / "auto_refs"
     if auto.is_symlink():
-        raise HTTPException(409, _t('lecturer_api.the_lecturer_images_path_is_not_a'))
+        raise HTTPException(409, _t("lecturer_api.the_lecturer_images_path_is_not_a"))
     return auto
 
 
@@ -77,9 +75,14 @@ def _number(value: object) -> int | float | None:
 def _reference_images(auto: Path) -> list[str]:
     # The producer replaces auto_refs while blur runs; a missing snapshot is normal.
     try:
-        return sorted((p.name for p in auto.iterdir()
-                       if re.fullmatch(r"ref_\d{1,2}\.jpg", p.name, re.ASCII) and _regular(p)),
-                      key=lambda n: int(n[4:-4]))
+        return sorted(
+            (
+                p.name
+                for p in auto.iterdir()
+                if re.fullmatch(r"ref_\d{1,2}\.jpg", p.name, re.ASCII) and _regular(p)
+            ),
+            key=lambda n: int(n[4:-4]),
+        )
     except OSError:
         return []
 
@@ -100,13 +103,15 @@ def _job(database: DB, job_id: int):
     try:
         return database.job(job_id)
     except KeyError:
-        raise HTTPException(404, _t('app.lesson_not_found')) from None
+        raise HTTPException(404, _t("app.lesson_not_found")) from None
 
 
 def _can_choose(database: DB, job_id: int, job, stage) -> bool:
-    return (job["status"] in ("queued", "stopped")
-            and (stage is None or stage["status"] != "done")
-            and database.publication(job_id, "youtube") is None)
+    return (
+        job["status"] in ("queued", "stopped")
+        and (stage is None or stage["status"] != "done")
+        and database.publication(job_id, "youtube") is None
+    )
 
 
 def _snapshot(job_id: int) -> dict:
@@ -132,7 +137,9 @@ def _snapshot(job_id: int) -> dict:
         summary = output.get("lecturer")
         if not isinstance(summary, dict):
             summary = {}
-        reason = report.get("reason") or summary.get("reason") or (stage["error"] if stage else None)
+        reason = (
+            report.get("reason") or summary.get("reason") or (stage["error"] if stage else None)
+        )
         raw_identities = report.get("identities")
         if not isinstance(raw_identities, list):
             raw_identities = []
@@ -140,20 +147,39 @@ def _snapshot(job_id: int) -> dict:
         for rank, raw in enumerate(raw_identities[:6], 1):
             raw = raw if isinstance(raw, dict) else {}
             image = f"identity_{rank}.jpg"
-            identities.append({"rank": rank,
-                               **{k: _number(raw.get(k)) for k in ("presence", "share", "face_px", "first_t", "last_t")},
-                               "image": image if _regular(auto / image) else None})
+            identities.append(
+                {
+                    "rank": rank,
+                    **{
+                        k: _number(raw.get(k))
+                        for k in ("presence", "share", "face_px", "first_t", "last_t")
+                    },
+                    "image": image if _regular(auto / image) else None,
+                }
+            )
         refs = _reference_images(auto)
         lecturers = output.get("lecturers")
-        lecturers = [n for n in lecturers if isinstance(n, str)] if isinstance(lecturers, list) else []
+        lecturers = (
+            [n for n in lecturers if isinstance(n, str)] if isinstance(lecturers, list) else []
+        )
         rank = report.get("lecturer_rank", summary.get("lecturer_rank"))
-        blur_status = stage["status"] if stage and stage["status"] in ("running", "done", "failed") else "pending"
-        return {"job_status": job["status"], "blur_status": blur_status, "mode": mode,
-                "reason": reason if isinstance(reason, str) else None, "identities": identities,
-                "lecturer_rank": rank if type(rank) is int and rank >= 1 else None,
-                "refs": refs, "lecturers": lecturers,
-                "choice": _choice(_read_json(directory / "lecturer_choice.json")),
-                "can_choose": can_choose}
+        blur_status = (
+            stage["status"]
+            if stage and stage["status"] in ("running", "done", "failed")
+            else "pending"
+        )
+        return {
+            "job_status": job["status"],
+            "blur_status": blur_status,
+            "mode": mode,
+            "reason": reason if isinstance(reason, str) else None,
+            "identities": identities,
+            "lecturer_rank": rank if type(rank) is int and rank >= 1 else None,
+            "refs": refs,
+            "lecturers": lecturers,
+            "choice": _choice(_read_json(directory / "lecturer_choice.json")),
+            "can_choose": can_choose,
+        }
     finally:
         database.conn.close()
 
@@ -167,7 +193,7 @@ def lecturer(job_id: int, response: Response, _: str = Depends(require_admin)) -
 @router.get("/api/jobs/{job_id}/lecturer/{name:path}")
 def image(job_id: int, name: str, _: str = Depends(_image_admin)) -> Response:
     if not _IMAGE.fullmatch(name):
-        raise HTTPException(400, _t('lecturer_api.invalid_image_name'))
+        raise HTTPException(400, _t("lecturer_api.invalid_image_name"))
     database = DB(ROOT / "reel.db")
     try:
         _job(database, job_id)
@@ -175,45 +201,55 @@ def image(job_id: int, name: str, _: str = Depends(_image_admin)) -> Response:
         database.conn.close()
     path = _auto_dir(_workdir(job_id)) / name
     if not _regular(path):
-        raise HTTPException(404, _t('lecturer_api.image_not_found'))
+        raise HTTPException(404, _t("lecturer_api.image_not_found"))
     try:
         content = path.read_bytes()
     except OSError:
-        raise HTTPException(404, _t('lecturer_api.image_not_found')) from None
+        raise HTTPException(404, _t("lecturer_api.image_not_found")) from None
     return Response(content, media_type="image/jpeg", headers={"Cache-Control": "no-store"})
 
 
 def _centre(report: dict, rank: int) -> list[float]:
     centres = report.get("centres")
     if not isinstance(centres, list) or rank > len(centres):
-        raise HTTPException(409, _t('lecturer_api.recognition_data_for_the_selected_person_is'))
+        raise HTTPException(409, _t("lecturer_api.recognition_data_for_the_selected_person_is"))
     vector = centres[rank - 1]
-    if not isinstance(vector, list) or len(vector) != 128 or any(_number(v) is None for v in vector):
-        raise HTTPException(409, _t('lecturer_api.recognition_data_for_the_selected_person_is_2'))
+    if (
+        not isinstance(vector, list)
+        or len(vector) != 128
+        or any(_number(v) is None for v in vector)
+    ):
+        raise HTTPException(409, _t("lecturer_api.recognition_data_for_the_selected_person_is_2"))
     return [float(v) for v in vector]
 
 
 def _write_choice(directory: Path, value: dict) -> None:
     from reel.lecturer_review import write_choice
+
     write_choice(directory, value)
 
 
 def _save_choice(job_id: int, body: dict) -> dict:
     from reel import lecturer_review
-    with closing(DB(ROOT / 'reel.db').conn) as conn:
+
+    with closing(DB(ROOT / "reel.db").conn) as conn:
         from types import SimpleNamespace
+
         database = SimpleNamespace(conn=conn)
-        if lecturer_review.row(database,job_id):
+        if lecturer_review.row(database, job_id):
             from reel.web.accounts import PRINCIPAL
-            return lecturer_review.answer(database,ROOT,job_id,body,(PRINCIPAL.get() or {}).get('id'),'admin')
+
+            return lecturer_review.answer(
+                database, ROOT, job_id, body, (PRINCIPAL.get() or {}).get("id"), "admin"
+            )
     if len(body) != 1 or next(iter(body)) not in ("identity", "none", "clear"):
-        raise HTTPException(400, _t('lecturer_api.choose_one_action_identity_none_or_clear'))
+        raise HTTPException(400, _t("lecturer_api.choose_one_action_identity_none_or_clear"))
     action = next(iter(body))
     if action == "identity":
         if type(body[action]) is not int or not 1 <= body[action] <= 6:
-            raise HTTPException(400, _t('lecturer_api.the_person_number_must_be_an_integer'))
+            raise HTTPException(400, _t("lecturer_api.the_person_number_must_be_an_integer"))
     elif body[action] is not True:
-        raise HTTPException(400, _t('lecturer_api.the_value_for_none_or_clear_must'))
+        raise HTTPException(400, _t("lecturer_api.the_value_for_none_or_clear_must"))
     with _CHOICE_LOCK:
         database = DB(ROOT / "reel.db")
         try:
@@ -223,25 +259,29 @@ def _save_choice(job_id: int, body: dict) -> dict:
             job = _job(database, job_id)
             stage = database.stage(job_id, "blur")
             if not _can_choose(database, job_id, job, stage):
-                raise HTTPException(409, _t('lecturer_api.you_cannot_change_the_selection_now_the'))
+                raise HTTPException(409, _t("lecturer_api.you_cannot_change_the_selection_now_the"))
             directory = _workdir(job_id)
             if action == "clear":
                 (directory / "lecturer_choice.json").unlink(missing_ok=True)
                 return {"ok": True, "choice": None}
-            value = {"by": "admin", "at": datetime.now(timezone.utc).isoformat()}
+            value = {"by": "admin", "at": datetime.now(UTC).isoformat()}
             if action == "identity":
                 report = _read_json(_auto_dir(directory) / "auto.json") or {}
                 identities = report.get("identities")
                 rank = body["identity"]
                 if not isinstance(identities, list) or rank > min(6, len(identities)):
-                    raise HTTPException(400, _t('lecturer_api.no_person_with_this_number_exists_refresh'))
+                    raise HTTPException(
+                        400, _t("lecturer_api.no_person_with_this_number_exists_refresh")
+                    )
                 value.update(identity=rank, centre=_centre(report, rank))
             else:
                 value["none"] = True
             _write_choice(directory, value)
             return {"ok": True, "choice": _choice(value)}
         except OSError as exc:
-            raise HTTPException(500, _t('lecturer_api.the_selection_could_not_be_saved_try')) from exc
+            raise HTTPException(
+                500, _t("lecturer_api.the_selection_could_not_be_saved_try")
+            ) from exc
         finally:
             database.conn.rollback()  # No DB records changed; release the short writer reservation.
             database.conn.close()
@@ -252,7 +292,7 @@ async def choose_lecturer(job_id: int, request: Request, _: str = Depends(requir
     try:
         body = await request.json()
     except ValueError:
-        raise HTTPException(400, _t('admin.expected_a_json_object')) from None
+        raise HTTPException(400, _t("admin.expected_a_json_object")) from None
     if not isinstance(body, dict):
-        raise HTTPException(400, _t('admin.expected_a_json_object'))
+        raise HTTPException(400, _t("admin.expected_a_json_object"))
     return await run_in_threadpool(_save_choice, job_id, body)

@@ -8,6 +8,7 @@ touched, never the worker.
 
   nohup .venv/bin/python tools/tunnel_watch.py >> logs/tunnel_watch.log 2>&1 &
 """
+
 from __future__ import annotations
 
 import logging
@@ -17,9 +18,9 @@ import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-CHECK_SEC = 30          # normal check interval
-WAKE_GAP_SEC = 90       # a longer gap between checks means the Mac was asleep
-GRACE_SEC = 20          # let cloudflared reconnect by itself after a wake-up
+CHECK_SEC = 30  # normal check interval
+WAKE_GAP_SEC = 90  # a longer gap between checks means the Mac was asleep
+GRACE_SEC = 20  # let cloudflared reconnect by itself after a wake-up
 FAILS_BEFORE_RESTART = 3
 
 log = logging.getLogger("tunnel_watch")
@@ -51,8 +52,14 @@ def online() -> bool:
 
 def restart() -> str | None:
     try:
-        subprocess.run(["bash", "tools/share.sh"], cwd=ROOT, timeout=180, check=True,
-                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run(
+            ["bash", "tools/share.sh"],
+            cwd=ROOT,
+            timeout=180,
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
     except Exception as exc:  # noqa: BLE001
         log.warning("share.sh failed: %s", type(exc).__name__)
         return None
@@ -78,11 +85,11 @@ def main() -> None:
         time.sleep(CHECK_SEC)
         now_wall = time.time()
         gap = now_wall - last_wall
-        woke = gap > WAKE_GAP_SEC                      # the wall clock keeps running while asleep
+        woke = gap > WAKE_GAP_SEC  # the wall clock keeps running while asleep
         last_wall = now_wall
         if woke:
             log.info("wake-up detected (gap %.0f s)", gap)
-            for _ in range(30):                       # wait up to ~5 min for the network
+            for _ in range(30):  # wait up to ~5 min for the network
                 if online():
                     break
                 time.sleep(10)

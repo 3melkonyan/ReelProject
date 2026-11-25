@@ -3,6 +3,7 @@
 No detector, model, database, original lesson, worker or service is started here.
 The shared 2-second fixtures keep the complete hardware-assisted matrix small.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -35,8 +36,11 @@ def run(args, *, timeout=30):
 
 
 def probe(path):
-    return json.loads(run(["ffprobe", "-v", "error", "-show_streams", "-show_format",
-                           "-of", "json", str(path)]).stdout)
+    return json.loads(
+        run(
+            ["ffprobe", "-v", "error", "-show_streams", "-show_format", "-of", "json", str(path)]
+        ).stdout
+    )
 
 
 def video_stream(info):
@@ -56,9 +60,26 @@ def digest(path):
 
 
 def _fixture_args(size, fps=30):
-    return ["ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
-            "-filter_threads", "2", "-f", "lavfi", "-i", f"testsrc2=size={size}:rate={fps}:duration=2",
-            "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000:duration=2", "-t", "2"]
+    return [
+        "ffmpeg",
+        "-nostdin",
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-y",
+        "-filter_threads",
+        "2",
+        "-f",
+        "lavfi",
+        "-i",
+        f"testsrc2=size={size}:rate={fps}:duration=2",
+        "-f",
+        "lavfi",
+        "-i",
+        "sine=frequency=440:sample_rate=48000:duration=2",
+        "-t",
+        "2",
+    ]
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -112,8 +133,21 @@ def media(tmp_path_factory, media_runtime_budget):
                 return path
             except subprocess.CalledProcessError:
                 path.unlink(missing_ok=True)
-        run(common + ["-c:v", "libx264", "-preset", "ultrafast", "-threads", "2", "-crf", "24",
-                      *audio, str(path)])
+        run(
+            common
+            + [
+                "-c:v",
+                "libx264",
+                "-preset",
+                "ultrafast",
+                "-threads",
+                "2",
+                "-crf",
+                "24",
+                *audio,
+                str(path),
+            ]
+        )
         return path
 
     def get(name):
@@ -127,28 +161,81 @@ def media(tmp_path_factory, media_runtime_budget):
                 pytest.skip(hevc_unavailable[0])
             path = root / "a_hevc_hlg_4k.mov"
             try:
-                run(_fixture_args("3840x2160") + [
-                    "-vf", "format=p010le,setparams=color_primaries=bt2020:color_trc=arib-std-b67:colorspace=bt2020nc",
-                    "-c:v", "hevc_videotoolbox", "-profile:v", "main10", "-pix_fmt", "p010le", "-b:v", "8M",
-                    "-tag:v", "hvc1", "-color_primaries", "bt2020", "-color_trc", "arib-std-b67",
-                    "-colorspace", "bt2020nc", "-c:a", "aac", "-b:a", "128k", "-ac", "2", "-ar", "48000",
-                    "-movflags", "+write_colr", str(path)])
+                run(
+                    _fixture_args("3840x2160")
+                    + [
+                        "-vf",
+                        "format=p010le,setparams=color_primaries=bt2020:color_trc=arib-std-b67:colorspace=bt2020nc",
+                        "-c:v",
+                        "hevc_videotoolbox",
+                        "-profile:v",
+                        "main10",
+                        "-pix_fmt",
+                        "p010le",
+                        "-b:v",
+                        "8M",
+                        "-tag:v",
+                        "hvc1",
+                        "-color_primaries",
+                        "bt2020",
+                        "-color_trc",
+                        "arib-std-b67",
+                        "-colorspace",
+                        "bt2020nc",
+                        "-c:a",
+                        "aac",
+                        "-b:a",
+                        "128k",
+                        "-ac",
+                        "2",
+                        "-ar",
+                        "48000",
+                        "-movflags",
+                        "+write_colr",
+                        str(path),
+                    ]
+                )
             except subprocess.CalledProcessError as exc:
-                hevc_unavailable.append("HEVC VideoToolbox fixture encoding unavailable: " + exc.stderr[-350:])
+                hevc_unavailable.append(
+                    "HEVC VideoToolbox fixture encoding unavailable: " + exc.stderr[-350:]
+                )
                 pytest.skip(hevc_unavailable[0])
             info = probe(path)
             video = video_stream(info)
             assert (video["codec_name"], video["width"], video["height"]) == ("hevc", 3840, 2160)
             assert video["pix_fmt"] in ("yuv420p10le", "p010le")
             assert (video["color_primaries"], video["color_transfer"], video["color_space"]) == (
-                "bt2020", "arib-std-b67", "bt2020nc")
+                "bt2020",
+                "arib-std-b67",
+                "bt2020nc",
+            )
             assert audio_stream(info)["channels"] == 2
         elif name == "b_rotated_hevc":
             source = get("a_hevc_hlg_4k")
             path = root / "b_rotated_hevc.mov"
-            run(["ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
-                 "-display_rotation:v:0", "90", "-i", str(source), "-map", "0:v:0", "-map", "0:a:0",
-                 "-c", "copy", "-movflags", "+write_colr", str(path)])
+            run(
+                [
+                    "ffmpeg",
+                    "-nostdin",
+                    "-hide_banner",
+                    "-loglevel",
+                    "error",
+                    "-y",
+                    "-display_rotation:v:0",
+                    "90",
+                    "-i",
+                    str(source),
+                    "-map",
+                    "0:v:0",
+                    "-map",
+                    "0:a:0",
+                    "-c",
+                    "copy",
+                    "-movflags",
+                    "+write_colr",
+                    str(path),
+                ]
+            )
             video = video_stream(probe(path))
             assert (video["width"], video["height"]) == (3840, 2160)
             assert abs(blur._rotation(video)) == 90  # Physically landscape, displayed portrait.
@@ -163,9 +250,29 @@ def media(tmp_path_factory, media_runtime_budget):
             path = root / "f_h264_timecode.mov"
             source = get("c_h264_1080")
             try:
-                run(["ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error", "-y",
-                     "-i", str(source), "-map", "0:v:0", "-map", "0:a:0", "-c", "copy",
-                     "-timecode", "01:02:03:00", "-write_tmcd", "1", str(path)])
+                run(
+                    [
+                        "ffmpeg",
+                        "-nostdin",
+                        "-hide_banner",
+                        "-loglevel",
+                        "error",
+                        "-y",
+                        "-i",
+                        str(source),
+                        "-map",
+                        "0:v:0",
+                        "-map",
+                        "0:a:0",
+                        "-c",
+                        "copy",
+                        "-timecode",
+                        "01:02:03:00",
+                        "-write_tmcd",
+                        "1",
+                        str(path),
+                    ]
+                )
             except subprocess.CalledProcessError as exc:
                 pytest.skip("optional MOV timecode data mux unsupported: " + exc.stderr[-350:])
             assert any(stream["codec_type"] == "data" for stream in probe(path)["streams"])
@@ -210,11 +317,23 @@ def assert_output_contract(source, output, expected_size, expected_duration, mod
     width, height = video["width"], video["height"]
     actual_duration = float(info["format"]["duration"])
     sar, dar = video.get("sample_aspect_ratio", "1:1"), video.get("display_aspect_ratio")
-    details = json.dumps({"source": source.name, "mode": mode, "codec": video["codec_name"],
-               "pix_fmt": video["pix_fmt"], "dimensions": (width, height), "rotation": blur._rotation(video),
-               "sar": sar, "dar": dar,
-               "audio": (audio["codec_name"], audio["sample_rate"]), "duration": actual_duration,
-               "expected_dimensions": expected_size, "expected_duration": expected_duration}, separators=(",", ":"))
+    details = json.dumps(
+        {
+            "source": source.name,
+            "mode": mode,
+            "codec": video["codec_name"],
+            "pix_fmt": video["pix_fmt"],
+            "dimensions": (width, height),
+            "rotation": blur._rotation(video),
+            "sar": sar,
+            "dar": dar,
+            "audio": (audio["codec_name"], audio["sample_rate"]),
+            "duration": actual_duration,
+            "expected_dimensions": expected_size,
+            "expected_duration": expected_duration,
+        },
+        separators=(",", ":"),
+    )
     assert (width, height) == expected_size, details
     assert width % 2 == height % 2 == 0 and min(width, height) <= 1080, details
     assert video["codec_name"] == "h264" and video["pix_fmt"] == "yuv420p", details
@@ -255,7 +374,9 @@ def render_case(source, output, *, cut, expected_size, compatible):
         pytest.fail(f"render failed for {source.name}, cuts={cut}: {error}")
     assert result["final"] == str(output)
     assert digest(source) == before
-    details = assert_output_contract(source, output, expected_size, sum(end - start for start, end in keep), result["mode"])
+    details = assert_output_contract(
+        source, output, expected_size, sum(end - start for start, end in keep), result["mode"]
+    )
     if compatible and not cut:
         assert result["mode"] == "copy", details
     else:
@@ -264,12 +385,26 @@ def render_case(source, output, *, cut, expected_size, compatible):
 
 @pytest.mark.parametrize("name,expected_size,compatible", CASES)
 @pytest.mark.parametrize("cut", [False, True], ids=["full", "cuts"])
-def test_render_normalizes_media_format_matrix(media, tmp_path, name, expected_size, compatible, cut):
+def test_render_normalizes_media_format_matrix(
+    media, tmp_path, name, expected_size, compatible, cut
+):
     source = media.get(name)
-    render_case(source, tmp_path / "normalized.mp4", cut=cut, expected_size=expected_size, compatible=compatible)
+    render_case(
+        source,
+        tmp_path / "normalized.mp4",
+        cut=cut,
+        expected_size=expected_size,
+        compatible=compatible,
+    )
 
 
 @pytest.mark.parametrize("cut", [False, True], ids=["full", "cuts"])
 def test_stream_copied_hevc_parts_are_normalized_after_join(media, tmp_path, cut):
     source = media.joined_hevc()
-    render_case(source, tmp_path / "joined_normalized.mp4", cut=cut, expected_size=(1920, 1080), compatible=False)
+    render_case(
+        source,
+        tmp_path / "joined_normalized.mp4",
+        cut=cut,
+        expected_size=(1920, 1080),
+        compatible=False,
+    )

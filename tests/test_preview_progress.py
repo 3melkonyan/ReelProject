@@ -1,4 +1,5 @@
 """Low-priority preview encoding retains worker progress observation."""
+
 from types import SimpleNamespace
 from unittest.mock import Mock
 

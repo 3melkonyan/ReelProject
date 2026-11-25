@@ -1,7 +1,6 @@
 """Local ffmpeg thumbnail generation; retry and publication belong to pipeline."""
-from __future__ import annotations
 
-from reel.i18n import t as _t
+from __future__ import annotations
 
 import argparse
 import fcntl
@@ -14,6 +13,7 @@ import tempfile
 from contextlib import closing, contextmanager
 from pathlib import Path
 
+from reel.i18n import t as _t
 from reel.publish.errors import PublishError
 
 
@@ -33,19 +33,26 @@ def _font(title: str, size: int):
     # Prefer a single face covering BOTH scripts even for a single-script title.
     # Script-only macOS fonts must not silently become the primary family.
     for require_both in (True, False):
-        probe = title + (" ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz ԱԲԳԴԵԶԷԸԹԺԻԼԽԾԿՀՁՂՃՄՅՆՇՈՉՊՋՌՍՎՏՐՑՒՓՔՕՖ աբգդեզէըթժիլխծկհձղճմյնշոչպջռսվտրցւփքօֆ" if require_both else "")
+        probe = title + (
+            " ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz ԱԲԳԴԵԶԷԸԹԺԻԼԽԾԿՀՁՂՃՄՅՆՇՈՉՊՋՌՍՎՏՐՑՒՓՔՕՖ աբգդեզէըթժիլխծկհձղճմյնշոչպջռսվտրցւփքօֆ"
+            if require_both
+            else ""
+        )
         for path, index in candidates:
             try:
                 font = ImageFont.truetype(str(path), size, index=index)
                 missing = font.getmask("\U0010ffff")
                 signature = (missing.size, bytes(missing))
-                if all((mask.size, bytes(mask)) != signature and mask.getbbox()
-                       for char in set(probe) if not char.isspace()
-                       for mask in [font.getmask(char)]):
+                if all(
+                    (mask.size, bytes(mask)) != signature and mask.getbbox()
+                    for char in set(probe)
+                    if not char.isspace()
+                    for mask in [font.getmask(char)]
+                ):
                     return font  # The same font and point size draw the entire title.
             except OSError:
                 continue
-    raise PublishError(_t('thumbnail.font_missing'), False)
+    raise PublishError(_t("thumbnail.font_missing"), False)
 
 
 def _lines(draw, title: str, font, width: int) -> list[str] | None:
@@ -65,14 +72,27 @@ def _lines(draw, title: str, font, width: int) -> list[str] | None:
 # frame and name.
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = Path(__file__).resolve().parent / "assets"
-BRAND_FONT = ASSETS / "NotoSansArmenian.ttf"      # OFL variable font: Latin + Armenian, Thin..Black
+BRAND_FONT = ASSETS / "NotoSansArmenian.ttf"  # OFL variable font: Latin + Armenian, Thin..Black
 LOGO = ROOT / "reel" / "web" / "static" / "brand" / "reel-email.png"
-STYLES_FILE = ROOT / "thumbnail_styles.json"       # group -> style index, kept once assigned
+STYLES_FILE = ROOT / "thumbnail_styles.json"  # group -> style index, kept once assigned
 W, H, M = 1280, 720, 64
 WHITE, INK = (255, 255, 255), (17, 17, 17)
-MAGENTA, MINT, PINK, AMBER, DARK = (213, 1, 200), (113, 255, 234), (255, 61, 243), (252, 211, 77), (23, 23, 23)
-PALETTES = [(MAGENTA, MINT), (MINT, MAGENTA), (PINK, AMBER), (AMBER, MAGENTA), (DARK, MINT), (DARK, PINK)]
-STYLES = [(i % 6, (i + i // 6) % 3) for i in range(18)]    # (palette, motif): 18 distinct looks
+MAGENTA, MINT, PINK, AMBER, DARK = (
+    (213, 1, 200),
+    (113, 255, 234),
+    (255, 61, 243),
+    (252, 211, 77),
+    (23, 23, 23),
+)
+PALETTES = [
+    (MAGENTA, MINT),
+    (MINT, MAGENTA),
+    (PINK, AMBER),
+    (AMBER, MAGENTA),
+    (DARK, MINT),
+    (DARK, PINK),
+]
+STYLES = [(i % 6, (i + i // 6) % 3) for i in range(18)]  # (palette, motif): 18 distinct looks
 
 
 @contextmanager
@@ -95,7 +115,7 @@ def group_style(group: str) -> int:
     try:
         with styles_lock():
             return _group_style(group)
-    except OSError:                                # no lock file possible: still a valid style
+    except OSError:  # no lock file possible: still a valid style
         return _group_style(group)
 
 
@@ -106,7 +126,9 @@ def _default_style() -> int | None:
         return None
     try:
         with closing(sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True)) as conn:
-            row = conn.execute("SELECT value FROM account_settings WHERE key='default_thumbnail_style'").fetchone()
+            row = conn.execute(
+                "SELECT value FROM account_settings WHERE key='default_thumbnail_style'"
+            ).fetchone()
         value = int(row[0]) if row else -1
         return value if 0 <= value < len(STYLES) else None
     except (sqlite3.Error, OSError, TypeError, ValueError):
@@ -133,7 +155,7 @@ def _group_style(group: str) -> int:
         temporary.write_text(json.dumps(styles, ensure_ascii=False, indent=1), encoding="utf-8")
         temporary.replace(STYLES_FILE)
     except OSError:
-        pass                                       # still a valid style for this thumbnail
+        pass  # still a valid style for this thumbnail
     return style
 
 
@@ -141,15 +163,19 @@ def lesson_name(title: str) -> str:
     """The main topic without the lesson prefix or extra topics after a comma."""
     text = " ".join(str(title or "").split())
     if text.startswith("Դաս՝"):
-        text = text[len("Դաս՝"):].strip()
+        text = text[len("Դաս՝") :].strip()
     return text.split(", ")[0].strip() or text
 
 
 def _covers(font, text: str) -> bool:
     missing = font.getmask("\U0010ffff")
     signature = (missing.size, bytes(missing))
-    return all((mask.size, bytes(mask)) != signature and mask.getbbox()
-               for char in set(text) if not char.isspace() for mask in [font.getmask(char)])
+    return all(
+        (mask.size, bytes(mask)) != signature and mask.getbbox()
+        for char in set(text)
+        if not char.isspace()
+        for mask in [font.getmask(char)]
+    )
 
 
 def _brand_font(weight: str, size: int, text: str):
@@ -206,9 +232,11 @@ def _fit(draw, text: str, width: int, sizes, weight: str, max_lines: int):
 
 def _ink(bg) -> tuple:
     """Black or white text, whichever contrasts more with bg (WCAG relative luminance)."""
+
     def channel(v):
         v /= 255
         return v / 12.92 if v <= 0.03928 else ((v + 0.055) / 1.055) ** 2.4
+
     lum = 0.2126 * channel(bg[0]) + 0.7152 * channel(bg[1]) + 0.0722 * channel(bg[2])
     return INK if (lum + 0.05) / 0.05 > 1.05 / (lum + 0.05) else WHITE
 
@@ -232,8 +260,11 @@ def render_card(frame, group: str | None, name: str, style: int):
         draw.ellipse((M + 420, 40, M + 470, 90), fill=secondary)
     fw, fh = 560, 315
     fx, fy = W - M - fw, 112
-    draw.rounded_rectangle((fx + 24, fy + 24, fx + fw + 24, fy + fh + 24), 40,
-                           fill=secondary if primary == DARK else INK)
+    draw.rounded_rectangle(
+        (fx + 24, fy + 24, fx + fw + 24, fy + fh + 24),
+        40,
+        fill=secondary if primary == DARK else INK,
+    )
     window = frame.convert("RGB").resize((fw, fh), Image.LANCZOS).convert("RGBA")
     mask = Image.new("L", (fw, fh), 0)
     ImageDraw.Draw(mask).rounded_rectangle((0, 0, fw - 1, fh - 1), 40, fill=255)
@@ -262,8 +293,16 @@ def render_card(frame, group: str | None, name: str, style: int):
     return img.convert("RGB")
 
 
-def make_thumbnail(video_path: str, title: str, out_path: str,
-                   at_sec: float | None = None, *, group: str | None = None, lesson_info: dict | None = None, variant: int = 0) -> str:
+def make_thumbnail(
+    video_path: str,
+    title: str,
+    out_path: str,
+    at_sec: float | None = None,
+    *,
+    group: str | None = None,
+    lesson_info: dict | None = None,
+    variant: int = 0,
+) -> str:
     """Select the sharpest of 20 frames and lay it out in the group's academy style
     with the group name and the lesson name (render_card)."""
     try:
@@ -272,21 +311,52 @@ def make_thumbnail(video_path: str, title: str, out_path: str,
         from PIL import Image
 
         if not isinstance(title, str) or not title.strip():
-            raise PublishError(_t('thumbnail.empty_title'), False)
-        duration = float(_run(["ffprobe", "-v", "error", "-show_entries",
-                               "format=duration", "-of", "default=nw=1:nk=1",
-                               str(video_path)]).decode().strip())
+            raise PublishError(_t("thumbnail.empty_title"), False)
+        duration = float(
+            _run(
+                [
+                    "ffprobe",
+                    "-v",
+                    "error",
+                    "-show_entries",
+                    "format=duration",
+                    "-of",
+                    "default=nw=1:nk=1",
+                    str(video_path),
+                ]
+            )
+            .decode()
+            .strip()
+        )
         if not math.isfinite(duration) or duration <= 0:
-            raise PublishError(_t('thumbnail.invalid_duration'), False)
+            raise PublishError(_t("thumbnail.invalid_duration"), False)
         if at_sec is not None and (not math.isfinite(at_sec) or not 0 <= at_sec < duration):
-            raise PublishError(_t('thumbnail.invalid_frame_time'), False)
-        times = [at_sec] if at_sec is not None else [duration * (.1 + .8 * i / 19) for i in range(20)]
+            raise PublishError(_t("thumbnail.invalid_frame_time"), False)
+        times = (
+            [at_sec] if at_sec is not None else [duration * (0.1 + 0.8 * i / 19) for i in range(20)]
+        )
         best, best_score = None, -1.0
         for timestamp in times:
-            data = _run(["ffmpeg", "-v", "error", "-ss", str(timestamp), "-i", str(video_path),
-                         "-frames:v", "1", "-vf",
-                         "scale=1280:720:force_original_aspect_ratio=increase,crop=1280:720",
-                         "-f", "image2pipe", "-vcodec", "png", "pipe:1"])
+            data = _run(
+                [
+                    "ffmpeg",
+                    "-v",
+                    "error",
+                    "-ss",
+                    str(timestamp),
+                    "-i",
+                    str(video_path),
+                    "-frames:v",
+                    "1",
+                    "-vf",
+                    "scale=1280:720:force_original_aspect_ratio=increase,crop=1280:720",
+                    "-f",
+                    "image2pipe",
+                    "-vcodec",
+                    "png",
+                    "pipe:1",
+                ]
+            )
             if not data:
                 continue
             frame = cv2.imdecode(np.frombuffer(data, dtype=np.uint8), cv2.IMREAD_GRAYSCALE)
@@ -296,35 +366,56 @@ def make_thumbnail(video_path: str, title: str, out_path: str,
             if score > best_score:
                 best, best_score = data, score
         if best is None:
-            raise PublishError(_t('thumbnail.frame_unavailable'), False)
+            raise PublishError(_t("thumbnail.frame_unavailable"), False)
         with Image.open(io.BytesIO(best)) as source:
             frame = source.convert("RGB")
-        rgb = (render_lesson_card(frame, lesson_info, variant) if lesson_info else
-               render_card(frame, group, lesson_name(title), group_style(group) if group else 0))
+        rgb = (
+            render_lesson_card(frame, lesson_info, variant)
+            if lesson_info
+            else render_card(frame, group, lesson_name(title), group_style(group) if group else 0)
+        )
         for quality in range(95, 9, -5):
             encoded = io.BytesIO()
             rgb.save(encoded, format="JPEG", quality=quality, optimize=True)
             if encoded.tell() < 2_000_000:
                 Path(out_path).write_bytes(encoded.getvalue())
                 return str(out_path)
-        raise PublishError(_t('thumbnail.image_too_large'), False)
+        raise PublishError(_t("thumbnail.image_too_large"), False)
     except PublishError:
         raise
     except (ImportError, FileNotFoundError) as exc:
-        raise PublishError(_t('thumbnail.missing_dependency', error=type(exc).__name__), False) from exc
+        raise PublishError(
+            _t("thumbnail.missing_dependency", error=type(exc).__name__), False
+        ) from exc
     except Exception as exc:
-        raise PublishError(_t('thumbnail.creation_failed', error=type(exc).__name__), False) from exc
+        raise PublishError(
+            _t("thumbnail.creation_failed", error=type(exc).__name__), False
+        ) from exc
 
 
 def _smoke() -> None:
     with tempfile.TemporaryDirectory(prefix="reel-thumbnail-") as directory:
         video = str(Path(directory) / "test.mp4")
         output = str(Path(directory) / "thumbnail.jpg")
-        _run(["ffmpeg", "-v", "error", "-f", "lavfi", "-i",
-              "testsrc=size=640x360:rate=10:duration=10", "-c:v", "libx264",
-              "-pix_fmt", "yuv420p", video])
+        _run(
+            [
+                "ffmpeg",
+                "-v",
+                "error",
+                "-f",
+                "lavfi",
+                "-i",
+                "testsrc=size=640x360:rate=10:duration=10",
+                "-c:v",
+                "libx264",
+                "-pix_fmt",
+                "yuv420p",
+                video,
+            ]
+        )
         make_thumbnail(video, "Դաս 21. JavaScript this և OOP", output)
         from PIL import Image
+
         with Image.open(output) as result:
             assert result.size == (1280, 720) and result.format == "JPEG"
         assert Path(output).stat().st_size < 2_000_000
@@ -341,31 +432,48 @@ if __name__ == "__main__":
 
 def render_lesson_card(frame, info, variant=0):
     """Three Academy cards. Explicit course/group/lesson/subject, local OFL Armenian font."""
-    from PIL import Image, ImageDraw, ImageOps, ImageFilter
-    if variant not in (0,1,2):raise ValueError('thumbnail variant must be 0, 1 or 2')
-    image=Image.new('RGB',(1280,720),DARK);d=ImageDraw.Draw(image)
-    if variant==0:
-        d.polygon([(800,0),(1280,0),(1280,720),(590,720)],fill=MAGENTA)
-        crop=ImageOps.fit(frame,(530,298));image.paste(crop,(700,208))
-        width=590
-    elif variant==1:
-        crop=ImageOps.fit(frame,(1280,720)).filter(ImageFilter.GaussianBlur(12)).convert('RGBA')
-        crop.alpha_composite(Image.new('RGBA',crop.size,(0,0,0,205)))
-        image=crop.convert('RGB');d=ImageDraw.Draw(image);width=1120
-        d.rectangle((0,0,20,720),fill=MAGENTA)
+    from PIL import Image, ImageDraw, ImageFilter, ImageOps
+
+    if variant not in (0, 1, 2):
+        raise ValueError("thumbnail variant must be 0, 1 or 2")
+    image = Image.new("RGB", (1280, 720), DARK)
+    d = ImageDraw.Draw(image)
+    if variant == 0:
+        d.polygon([(800, 0), (1280, 0), (1280, 720), (590, 720)], fill=MAGENTA)
+        crop = ImageOps.fit(frame, (530, 298))
+        image.paste(crop, (700, 208))
+        width = 590
+    elif variant == 1:
+        crop = ImageOps.fit(frame, (1280, 720)).filter(ImageFilter.GaussianBlur(12)).convert("RGBA")
+        crop.alpha_composite(Image.new("RGBA", crop.size, (0, 0, 0, 205)))
+        image = crop.convert("RGB")
+        d = ImageDraw.Draw(image)
+        width = 1120
+        d.rectangle((0, 0, 20, 720), fill=MAGENTA)
     else:
-        image=Image.new('RGB',(1280,720),(252,252,252));d=ImageDraw.Draw(image);width=1120
-        d.rounded_rectangle((720,-90,1400,310),radius=90,fill=MINT)
-        d.polygon([(0,620),(1280,510),(1280,720),(0,720)],fill=MAGENTA)
-    ink=INK if variant==2 else WHITE
-    def label(text,y,size,color=ink):
-        text=str(text)
-        minimum=48 if size>=70 else min(size,28)
-        font,lines=_fit(d,text,width,range(size,minimum-1,-2),'Bold',2 if size==74 else 1)
-        for i,line in enumerate(lines):d.text((64,y+i*(font.size+10)),line,font=font,fill=color)
-    label(info.get('course','Reel'),48,38)
-    label(info.get('group',''),112,32,MAGENTA if variant==2 else MINT)
-    label(('Lesson ' if info.get('language') == 'en' else 'Դաս ')+str(info.get('lesson',1)),218,100)
-    label(info.get('subject',''),370,74)
-    label('Reel',638,28,WHITE if variant==2 else MINT)
+        image = Image.new("RGB", (1280, 720), (252, 252, 252))
+        d = ImageDraw.Draw(image)
+        width = 1120
+        d.rounded_rectangle((720, -90, 1400, 310), radius=90, fill=MINT)
+        d.polygon([(0, 620), (1280, 510), (1280, 720), (0, 720)], fill=MAGENTA)
+    ink = INK if variant == 2 else WHITE
+
+    def label(text, y, size, color=ink):
+        text = str(text)
+        minimum = 48 if size >= 70 else min(size, 28)
+        font, lines = _fit(
+            d, text, width, range(size, minimum - 1, -2), "Bold", 2 if size == 74 else 1
+        )
+        for i, line in enumerate(lines):
+            d.text((64, y + i * (font.size + 10)), line, font=font, fill=color)
+
+    label(info.get("course", "Reel"), 48, 38)
+    label(info.get("group", ""), 112, 32, MAGENTA if variant == 2 else MINT)
+    label(
+        ("Lesson " if info.get("language") == "en" else "Դաս ") + str(info.get("lesson", 1)),
+        218,
+        100,
+    )
+    label(info.get("subject", ""), 370, 74)
+    label("Reel", 638, 28, WHITE if variant == 2 else MINT)
     return image

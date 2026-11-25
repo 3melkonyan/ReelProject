@@ -1,58 +1,225 @@
 "use strict";
-const ACCOUNT_ROLE = {admin:i18nText("ui.accounts.administrator"),lecturer:i18nText("ui.groups.lecturer"),student:i18nText("ui.accounts.student")};
+const ACCOUNT_ROLE = {
+  admin: i18nText("ui.accounts.administrator"),
+  lecturer: i18nText("ui.groups.lecturer"),
+  student: i18nText("ui.accounts.student"),
+};
 function accountLink(user) {
   if (!user?.id) return "";
-  const initials = user.name.trim().split(/\s+/).slice(0,2).map(x=>x[0]).join("");
+  const initials = user.name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((x) => x[0])
+    .join("");
   return `<a class="account-avatar" href="#/profile" aria-label="${i18nText("ui.accounts.my_settings")}">${user.avatar ? `<img src="${esc(user.avatar)}" alt="">` : esc(initials)}</a>`;
 }
-function refreshAccountAvatars() {document.querySelectorAll(".account-avatar").forEach(node=>{node.outerHTML=accountLink(S.user);});}
-function accountPublic(title,body) {
+function refreshAccountAvatars() {
+  document.querySelectorAll(".account-avatar").forEach((node) => {
+    node.outerHTML = accountLink(S.user);
+  });
+}
+function accountPublic(title, body) {
   clearInterval(S.poll);
-  app.innerHTML=`<main class="account-public"><div class="account-public-head">${languageSelector()}<div class="brand brand-pair">${reelBrand()}</div><button class="icon-btn" id="theme" aria-label="${i18nText("ui.accounts.change_theme")}">${ic(isDark()?"sun":"moon")}</button></div><section class="card account-form"><h1>${esc(title)}</h1>${body}<p id="account-error" role="alert" class="err-text"></p><a class="btn" href="#/login">${i18nText("ui.accounts.back_to_sign_in")}</a></section></main>`;
+  app.innerHTML = `<main class="account-public"><div class="account-public-head">${languageSelector()}<div class="brand brand-pair">${reelBrand()}</div><button class="icon-btn" id="theme" aria-label="${i18nText("ui.accounts.change_theme")}">${ic(isDark() ? "sun" : "moon")}</button></div><section class="card account-form"><h1>${esc(title)}</h1>${body}<p id="account-error" role="alert" class="err-text"></p><a class="btn" href="#/login">${i18nText("ui.accounts.back_to_sign_in")}</a></section></main>`;
 }
-function accountField(name,label,type="text",extra="") {return `<label class="fld"><span>${label}</span><input class="input" name="${name}" type="${type}" ${extra} required></label>`;}
+function accountField(name, label, type = "text", extra = "") {
+  return `<label class="fld"><span>${label}</span><input class="input" name="${name}" type="${type}" ${extra} required></label>`;
+}
 function bindAccountForm(fn) {
-  $("#account-form").onsubmit=async event=>{event.preventDefault();const form=event.target,button=form.querySelector('button[type=submit]');button.disabled=true;
-    try {await fn(Object.fromEntries(new FormData(form)),form);} catch(error){const target=$("#account-error");if(target)target.textContent=error.message;}finally{if(button.isConnected)button.disabled=false;}};
+  $("#account-form").onsubmit = async (event) => {
+    event.preventDefault();
+    const form = event.target,
+      button = form.querySelector("button[type=submit]");
+    button.disabled = true;
+    try {
+      await fn(Object.fromEntries(new FormData(form)), form);
+    } catch (error) {
+      const target = $("#account-error");
+      if (target) target.textContent = error.message;
+    } finally {
+      if (button.isConnected) button.disabled = false;
+    }
+  };
 }
-function signedIn(data) {if(data.second_factor){viewSecondFactor();return;}S.role=data.role;S.user=data.user||null;location.hash=data.role==="bootstrap"?"#/setup":data.role==="student"?"#/library":"#/";location.reload();}
+function signedIn(data) {
+  if (data.second_factor) {
+    viewSecondFactor();
+    return;
+  }
+  S.role = data.role;
+  S.user = data.user || null;
+  location.hash =
+    data.role === "bootstrap" ? "#/setup" : data.role === "student" ? "#/library" : "#/";
+  location.reload();
+}
 function publicAccountRoute() {
-  const hash=location.hash;
-  if(hash==='#/privacy'){viewPrivacy();return true;}
-  if(hash==="#/forgot"){viewForgot();return true;}
-  let match=hash.match(/^#\/(invite|reset)\/([A-Za-z0-9_-]{43})$/);
-  if(match){if(match[1]==="invite")viewInvite(match[2]);else viewReset(match[2]);return true;}
+  const hash = location.hash;
+  if (hash === "#/privacy") {
+    viewPrivacy();
+    return true;
+  }
+  if (hash === "#/forgot") {
+    viewForgot();
+    return true;
+  }
+  let match = hash.match(/^#\/(invite|reset)\/([A-Za-z0-9_-]{43})$/);
+  if (match) {
+    if (match[1] === "invite") viewInvite(match[2]);
+    else viewReset(match[2]);
+    return true;
+  }
   return false;
 }
 function viewForgot() {
-  accountPublic(i18nText("ui.accounts.forgot_your_password"),`<p>${i18nText("ui.accounts.enter_your_username_or_email_address")}</p><form id="account-form">${accountField("login",i18nText("ui.accounts.username_or_email"),"text",'autocomplete="username" maxlength="254"')}<button class="btn primary" type="submit">${i18nText("ui.accounts.send_link")}</button></form>`);
-  bindAccountForm(async data=>{const result=await api('/api/accounts/forgot',{method:'POST',body:JSON.stringify(data)});$("#account-form").innerHTML=`<p role="status">${esc(result.message)}</p>`;});
+  accountPublic(
+    i18nText("ui.accounts.forgot_your_password"),
+    `<p>${i18nText("ui.accounts.enter_your_username_or_email_address")}</p><form id="account-form">${accountField("login", i18nText("ui.accounts.username_or_email"), "text", 'autocomplete="username" maxlength="254"')}<button class="btn primary" type="submit">${i18nText("ui.accounts.send_link")}</button></form>`,
+  );
+  bindAccountForm(async (data) => {
+    const result = await api("/api/accounts/forgot", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+    $("#account-form").innerHTML = `<p role="status">${esc(result.message)}</p>`;
+  });
 }
 async function viewInvite(token) {
-  accountPublic(i18nText("ui.accounts.invitation_from_reel"),(`<p role="status">${i18nText("ui.accounts.checking_invitation")}</p>`));
+  accountPublic(
+    i18nText("ui.accounts.invitation_from_reel"),
+    `<p role="status">${i18nText("ui.accounts.checking_invitation")}</p>`,
+  );
   try {
-    const data=await api('/api/accounts/invitation',{method:'POST',body:JSON.stringify({token})});
-    accountPublic(i18nText("ui.accounts.accept_invitation"),`<dl class="invite-facts"><dt>${i18nText("ui.accounts.name")}</dt><dd>${esc(data.name)}</dd><dt>${i18nText("ui.accounts.email")}</dt><dd>${esc(data.email)}</dd><dt>${i18nText("ui.accounts.role")}</dt><dd>${esc(ACCOUNT_ROLE[data.role])}</dd><dt>${i18nText("ui.accounts.group")}</dt><dd>${esc(data.role==='admin'?i18nText("ui.accounts.all_groups"):data.groups.join(', '))}</dd></dl><p class="muted">${i18nText("ui.accounts.invitation_details_cannot_be_edited_choose_your")}</p><form id="account-form">${accountField('login',i18nText("ui.accounts.username"),'text','autocomplete="username" minlength="3" maxlength="64"')}${accountField('password',i18nText("ui.accounts.password_at_least_10_characters"),'password','autocomplete="new-password" minlength="10" maxlength="1024"')}<label class="fld"><span><input type="checkbox" name="recording_consent" required> ${i18nText("ui.accounts.lessons_are_recorded_and_faces_are_blurred")} <a href="#/privacy" target="_blank" rel="noopener">${i18nText("ui.accounts.privacy_policy")}</a> ${i18nText("ui.accounts.and_agree")}</span></label>${data.guardian_required?`${accountField('guardian_name',i18nText("ui.accounts.parent_or_guardian_name"))}${accountField('guardian_email',i18nText("ui.accounts.parent_or_guardian_email"),'email')}<label class="fld"><span><input type="checkbox" name="guardian_consent" required> ${i18nText("ui.accounts.i_am_the_parent_or_legal_guardian")}</span></label>`:''}<button class="btn primary" type="submit">${i18nText("ui.accounts.create_account")}</button></form>`);
-    bindAccountForm(async form=>signedIn(await api('/api/accounts/register',{method:'POST',body:JSON.stringify({...form,recording_consent:form.recording_consent==='on',guardian_consent:form.guardian_consent==='on',token})})));
-  }catch(error){$("#account-error").textContent=error.message;}
+    const data = await api("/api/accounts/invitation", {
+      method: "POST",
+      body: JSON.stringify({ token }),
+    });
+    accountPublic(
+      i18nText("ui.accounts.accept_invitation"),
+      `<dl class="invite-facts"><dt>${i18nText("ui.accounts.name")}</dt><dd>${esc(data.name)}</dd><dt>${i18nText("ui.accounts.email")}</dt><dd>${esc(data.email)}</dd><dt>${i18nText("ui.accounts.role")}</dt><dd>${esc(ACCOUNT_ROLE[data.role])}</dd><dt>${i18nText("ui.accounts.group")}</dt><dd>${esc(data.role === "admin" ? i18nText("ui.accounts.all_groups") : data.groups.join(", "))}</dd></dl><p class="muted">${i18nText("ui.accounts.invitation_details_cannot_be_edited_choose_your")}</p><form id="account-form">${accountField("login", i18nText("ui.accounts.username"), "text", 'autocomplete="username" minlength="3" maxlength="64"')}${accountField("password", i18nText("ui.accounts.password_at_least_10_characters"), "password", 'autocomplete="new-password" minlength="10" maxlength="1024"')}<label class="fld"><span><input type="checkbox" name="recording_consent" required> ${i18nText("ui.accounts.lessons_are_recorded_and_faces_are_blurred")} <a href="#/privacy" target="_blank" rel="noopener">${i18nText("ui.accounts.privacy_policy")}</a> ${i18nText("ui.accounts.and_agree")}</span></label>${data.guardian_required ? `${accountField("guardian_name", i18nText("ui.accounts.parent_or_guardian_name"))}${accountField("guardian_email", i18nText("ui.accounts.parent_or_guardian_email"), "email")}<label class="fld"><span><input type="checkbox" name="guardian_consent" required> ${i18nText("ui.accounts.i_am_the_parent_or_legal_guardian")}</span></label>` : ""}<button class="btn primary" type="submit">${i18nText("ui.accounts.create_account")}</button></form>`,
+    );
+    bindAccountForm(async (form) =>
+      signedIn(
+        await api("/api/accounts/register", {
+          method: "POST",
+          body: JSON.stringify({
+            ...form,
+            recording_consent: form.recording_consent === "on",
+            guardian_consent: form.guardian_consent === "on",
+            token,
+          }),
+        }),
+      ),
+    );
+  } catch (error) {
+    $("#account-error").textContent = error.message;
+  }
 }
 function viewReset(token) {
-  accountPublic(i18nText("ui.accounts.new_password"),`<p>${i18nText("ui.accounts.you_will_need_to_sign_in_again")}</p><form id="account-form">${accountField('password',i18nText("ui.accounts.password_at_least_10_characters"),'password','autocomplete="new-password" minlength="10" maxlength="1024"')}<button class="btn primary" type="submit">${i18nText("ui.accounts.save_password")}</button></form>`);
-  bindAccountForm(async data=>{await api('/api/accounts/reset',{method:'POST',body:JSON.stringify({...data,token})});S.role=null;S.user=null;location.hash='#/login';renderLogin(i18nText("ui.accounts.password_changed_sign_in_with_your_new"));});
+  accountPublic(
+    i18nText("ui.accounts.new_password"),
+    `<p>${i18nText("ui.accounts.you_will_need_to_sign_in_again")}</p><form id="account-form">${accountField("password", i18nText("ui.accounts.password_at_least_10_characters"), "password", 'autocomplete="new-password" minlength="10" maxlength="1024"')}<button class="btn primary" type="submit">${i18nText("ui.accounts.save_password")}</button></form>`,
+  );
+  bindAccountForm(async (data) => {
+    await api("/api/accounts/reset", { method: "POST", body: JSON.stringify({ ...data, token }) });
+    S.role = null;
+    S.user = null;
+    location.hash = "#/login";
+    renderLogin(i18nText("ui.accounts.password_changed_sign_in_with_your_new"));
+  });
 }
 function viewSetup() {
-  accountPublic(i18nText("ui.accounts.create_administrator_account"),`<p>${i18nText("ui.accounts.this_is_the_initial_setup_create_a")}</p><form id="account-form">${accountField('name',i18nText("ui.accounts.full_name"),'text',(`autocomplete="name" placeholder="${i18nText("ui.accounts.full_name")}" maxlength="120"`))}${accountField('email',i18nText("ui.accounts.email"),'email','autocomplete="email" maxlength="254"')}${accountField('login',i18nText("ui.accounts.username"),'text','autocomplete="username" minlength="3" maxlength="64"')}${accountField('password',i18nText("ui.accounts.new_password"),'password','autocomplete="new-password" minlength="10" maxlength="1024"')}<label class="fld"><span><input type="checkbox" name="recording_consent" required> ${i18nText("ui.accounts.lessons_are_recorded_and_faces_are_blurred_2")} <a href="#/privacy" target="_blank" rel="noopener">${i18nText("ui.accounts.privacy_policy_2")}</a>${i18nText("ui.accounts.punctuation")}</span></label><button class="btn primary" type="submit">${i18nText("ui.accounts.create_administrator_account")}</button></form>`);
-  bindAccountForm(async data=>signedIn(await api('/api/accounts/bootstrap',{method:'POST',body:JSON.stringify({...data,recording_consent:data.recording_consent==='on'})})));
-  const back=document.querySelector('.account-form>a');back.textContent=i18nText("ui.accounts.sign_out");back.onclick=async event=>{event.preventDefault();await api('/api/logout',{method:'POST'});S.role=null;S.user=null;location.hash='#/login';renderLogin();};
+  accountPublic(
+    i18nText("ui.accounts.create_administrator_account"),
+    `<p>${i18nText("ui.accounts.this_is_the_initial_setup_create_a")}</p><form id="account-form">${accountField("name", i18nText("ui.accounts.full_name"), "text", `autocomplete="name" placeholder="${i18nText("ui.accounts.full_name")}" maxlength="120"`)}${accountField("email", i18nText("ui.accounts.email"), "email", 'autocomplete="email" maxlength="254"')}${accountField("login", i18nText("ui.accounts.username"), "text", 'autocomplete="username" minlength="3" maxlength="64"')}${accountField("password", i18nText("ui.accounts.new_password"), "password", 'autocomplete="new-password" minlength="10" maxlength="1024"')}<label class="fld"><span><input type="checkbox" name="recording_consent" required> ${i18nText("ui.accounts.lessons_are_recorded_and_faces_are_blurred_2")} <a href="#/privacy" target="_blank" rel="noopener">${i18nText("ui.accounts.privacy_policy_2")}</a>${i18nText("ui.accounts.punctuation")}</span></label><button class="btn primary" type="submit">${i18nText("ui.accounts.create_administrator_account")}</button></form>`,
+  );
+  bindAccountForm(async (data) =>
+    signedIn(
+      await api("/api/accounts/bootstrap", {
+        method: "POST",
+        body: JSON.stringify({ ...data, recording_consent: data.recording_consent === "on" }),
+      }),
+    ),
+  );
+  const back = document.querySelector(".account-form>a");
+  back.textContent = i18nText("ui.accounts.sign_out");
+  back.onclick = async (event) => {
+    event.preventDefault();
+    await api("/api/logout", { method: "POST" });
+    S.role = null;
+    S.user = null;
+    location.hash = "#/login";
+    renderLogin();
+  };
 }
 async function viewProfile() {
-  if($("#profile-name"))return;
-  const user=await api('/api/accounts/profile');S.user=user;
-  $("#main").innerHTML=`<div class="top"><div><div class="eyebrow">${i18nText("ui.accounts.my_account")}</div><h1>${i18nText("ui.accounts.personal_settings")}</h1><p>${esc(user.email)} · ${esc(ACCOUNT_ROLE[user.role])} · ${esc(user.role==='admin'?i18nText("ui.accounts.all_groups"):user.groups.join(', '))}</p></div></div><div class="grid two"><section class="card"><h2>${i18nText("ui.accounts.name_and_profile_picture")}</h2><div class="profile-avatar">${accountLink(user)}</div><form id="profile-avatar-form"><label class="fld"><span>${i18nText("ui.accounts.jpeg_png_or_webp_up_to_5")}</span><input class="input" id="avatar-file" type="file" accept="image/jpeg,image/png,image/webp" required></label><button class="btn" type="submit">${i18nText("ui.accounts.save_picture")}</button></form><form id="profile-name"><label class="fld"><span>${i18nText("ui.accounts.name")}</span><input class="input" name="name" value="${esc(user.name)}" maxlength="120" required></label><button class="btn primary" type="submit">${i18nText("ui.accounts.save_name")}</button></form><p id="profile-message" role="status"></p></section><section class="card">${S.role==='admin'?(`<button type="button" class="btn" id="forget-devices">${i18nText("ui.accounts.forget_all_remembered_devices")}</button>`):''}<h2>${i18nText("ui.accounts.privacy")}</h2><p><a href="#/privacy">${i18nText("ui.accounts.privacy_policy_3")}</a> · <a href="#/data-request">${i18nText("ui.accounts.data_deletion_request")}</a></p><h2>${i18nText("ui.accounts.change_password")}</h2><p>${i18nText("ui.accounts.all_sessions_will_end")}</p><form id="profile-password">${accountField('current_password',i18nText("ui.accounts.current_password"),'password','autocomplete="current-password"')}${accountField('password',i18nText("ui.accounts.new_password"),'password','autocomplete="new-password" minlength="10" maxlength="1024"')}<button class="btn primary" type="submit">${i18nText("ui.accounts.change_password")}</button></form></section></div>`;
-  const report=message=>{const el=$("#profile-message");if(el)el.textContent=message;};
-  if($('#forget-devices'))$('#forget-devices').onclick=async()=>{await api('/api/admin-auth/forget-devices',{method:'POST'});toast(i18nText("ui.accounts.remembered_devices_cleared"));};
-  for(const id of ['profile-name','profile-password']) $("#"+id).onsubmit=async event=>{event.preventDefault();const button=event.target.querySelector('button');button.disabled=true;try{await api('/api/accounts/'+(id==='profile-name'?'profile':'password'),{method:'POST',body:JSON.stringify(Object.fromEntries(new FormData(event.target)))});if(id==='profile-password'){S.role=null;S.user=null;renderLogin(i18nText("ui.accounts.password_changed_sign_in_again"));}else{S.user.name=event.target.elements.name.value;refreshAccountAvatars();report(i18nText("ui.accounts.name_saved"));}}catch(error){report(error.message);}finally{button.disabled=false;}};
-  $("#profile-avatar-form").onsubmit=async event=>{event.preventDefault();const file=$("#avatar-file").files[0];if(!file)return;if(file.size>5*1024*1024){report(i18nText("account_api.the_maximum_image_size_is_5_mb"));return;}const button=event.target.querySelector('button');button.disabled=true;try{const response=await fetch('/api/accounts/avatar',{method:'POST',credentials:'same-origin',headers:{'X-Requested-With':'reel','Content-Type':file.type},body:file});const data=await response.json();if(!response.ok)throw Error(data.detail);S.user.avatar=data.avatar;refreshAccountAvatars();report(i18nText("ui.accounts.picture_saved"));}catch(error){report(error.message);}finally{button.disabled=false;}};
+  if ($("#profile-name")) return;
+  const user = await api("/api/accounts/profile");
+  S.user = user;
+  $("#main").innerHTML =
+    `<div class="top"><div><div class="eyebrow">${i18nText("ui.accounts.my_account")}</div><h1>${i18nText("ui.accounts.personal_settings")}</h1><p>${esc(user.email)} · ${esc(ACCOUNT_ROLE[user.role])} · ${esc(user.role === "admin" ? i18nText("ui.accounts.all_groups") : user.groups.join(", "))}</p></div></div><div class="grid two"><section class="card"><h2>${i18nText("ui.accounts.name_and_profile_picture")}</h2><div class="profile-avatar">${accountLink(user)}</div><form id="profile-avatar-form"><label class="fld"><span>${i18nText("ui.accounts.jpeg_png_or_webp_up_to_5")}</span><input class="input" id="avatar-file" type="file" accept="image/jpeg,image/png,image/webp" required></label><button class="btn" type="submit">${i18nText("ui.accounts.save_picture")}</button></form><form id="profile-name"><label class="fld"><span>${i18nText("ui.accounts.name")}</span><input class="input" name="name" value="${esc(user.name)}" maxlength="120" required></label><button class="btn primary" type="submit">${i18nText("ui.accounts.save_name")}</button></form><p id="profile-message" role="status"></p></section><section class="card">${S.role === "admin" ? `<button type="button" class="btn" id="forget-devices">${i18nText("ui.accounts.forget_all_remembered_devices")}</button>` : ""}<h2>${i18nText("ui.accounts.privacy")}</h2><p><a href="#/privacy">${i18nText("ui.accounts.privacy_policy_3")}</a> · <a href="#/data-request">${i18nText("ui.accounts.data_deletion_request")}</a></p><h2>${i18nText("ui.accounts.change_password")}</h2><p>${i18nText("ui.accounts.all_sessions_will_end")}</p><form id="profile-password">${accountField("current_password", i18nText("ui.accounts.current_password"), "password", 'autocomplete="current-password"')}${accountField("password", i18nText("ui.accounts.new_password"), "password", 'autocomplete="new-password" minlength="10" maxlength="1024"')}<button class="btn primary" type="submit">${i18nText("ui.accounts.change_password")}</button></form></section></div>`;
+  const report = (message) => {
+    const el = $("#profile-message");
+    if (el) el.textContent = message;
+  };
+  if ($("#forget-devices"))
+    $("#forget-devices").onclick = async () => {
+      await api("/api/admin-auth/forget-devices", { method: "POST" });
+      toast(i18nText("ui.accounts.remembered_devices_cleared"));
+    };
+  for (const id of ["profile-name", "profile-password"])
+    $("#" + id).onsubmit = async (event) => {
+      event.preventDefault();
+      const button = event.target.querySelector("button");
+      button.disabled = true;
+      try {
+        await api("/api/accounts/" + (id === "profile-name" ? "profile" : "password"), {
+          method: "POST",
+          body: JSON.stringify(Object.fromEntries(new FormData(event.target))),
+        });
+        if (id === "profile-password") {
+          S.role = null;
+          S.user = null;
+          renderLogin(i18nText("ui.accounts.password_changed_sign_in_again"));
+        } else {
+          S.user.name = event.target.elements.name.value;
+          refreshAccountAvatars();
+          report(i18nText("ui.accounts.name_saved"));
+        }
+      } catch (error) {
+        report(error.message);
+      } finally {
+        button.disabled = false;
+      }
+    };
+  $("#profile-avatar-form").onsubmit = async (event) => {
+    event.preventDefault();
+    const file = $("#avatar-file").files[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      report(i18nText("account_api.the_maximum_image_size_is_5_mb"));
+      return;
+    }
+    const button = event.target.querySelector("button");
+    button.disabled = true;
+    try {
+      const response = await fetch("/api/accounts/avatar", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "X-Requested-With": "reel", "Content-Type": file.type },
+        body: file,
+      });
+      const data = await response.json();
+      if (!response.ok) throw Error(data.detail);
+      S.user.avatar = data.avatar;
+      refreshAccountAvatars();
+      report(i18nText("ui.accounts.picture_saved"));
+    } catch (error) {
+      report(error.message);
+    } finally {
+      button.disabled = false;
+    }
+  };
 }
 /* scoped account directory, invitations and a separate edit page. */
 function accountsStyles() {
@@ -75,8 +242,11 @@ function accountsStyles() {
 }
 
 const USERS_TABS = [
-  ["student", i18nText("ui.accounts.students")], ["lecturer", i18nText("ui.accounts.lecturers")], ["admin", i18nText("ui.accounts.administrators")],
-  ["invitations", i18nText("ui.accounts.invitations")], ["removed", i18nText("ui.accounts.removed_accounts")]
+  ["student", i18nText("ui.accounts.students")],
+  ["lecturer", i18nText("ui.accounts.lecturers")],
+  ["admin", i18nText("ui.accounts.administrators")],
+  ["invitations", i18nText("ui.accounts.invitations")],
+  ["removed", i18nText("ui.accounts.removed_accounts")],
 ];
 function usersQuery() {
   const values = new URLSearchParams(location.hash.split("?")[1] || "");
@@ -84,9 +254,11 @@ function usersQuery() {
   const scope = values.get("group_status");
   return {
     tab: USERS_TABS.some(([key]) => key === tab) ? tab : "student",
-    q: (values.get("q") || "").slice(0, 120), group: values.get("group") || "",
+    q: (values.get("q") || "").slice(0, 120),
+    group: values.get("group") || "",
     group_status: ["active", "completed", "all"].includes(scope) ? scope : "active",
-    page: Math.max(1, Number.parseInt(values.get("page"), 10) || 1), page_size: 20
+    page: Math.max(1, Number.parseInt(values.get("page"), 10) || 1),
+    page_size: 20,
   };
 }
 function usersParams(query) {
@@ -99,29 +271,55 @@ function usersParams(query) {
   values.set("page_size", String(query.page_size));
   return values;
 }
-function usersListHash(query) { return "#/users?" + usersParams(query); }
-function usersEditHash(id, query) { return `#/users/${encodeURIComponent(id)}?` + usersParams(query); }
+function usersListHash(query) {
+  return "#/users?" + usersParams(query);
+}
+function usersEditHash(id, query) {
+  return `#/users/${encodeURIComponent(id)}?` + usersParams(query);
+}
 function usersDate(value) {
   if (!value) return i18nText("ui.accounts.never_signed_in");
   const date = new Date(typeof value === "number" ? value * 1000 : value);
-  return Number.isNaN(date.getTime()) ? "—" : new Intl.DateTimeFormat((I18N.language === "hy" ? "hy-AM" : "en-US"), {dateStyle:"medium",timeStyle:"short"}).format(date);
+  return Number.isNaN(date.getTime())
+    ? "—"
+    : new Intl.DateTimeFormat(I18N.language === "hy" ? "hy-AM" : "en-US", {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }).format(date);
 }
 function usersAvatar(user) {
-  const initials = String(user.name || "").trim().split(/\s+/).slice(0, 2).map(part => Array.from(part)[0] || "").join("");
+  const initials = String(user.name || "")
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => Array.from(part)[0] || "")
+    .join("");
   return `<span class="users-avatar" aria-hidden="true">${user.avatar ? `<img loading="lazy" src="${esc(user.avatar)}" alt="">` : esc(initials || "?")}</span>`;
 }
-function usersShortGroup(name){
-  const suffix=String(name).match(/(\d+\.\d+)$/);if(!suffix)return name;
-  if(name.includes(i18nText("courses.atmk")))return (`${i18nText("courses.atmk")} `)+suffix[1];if(name.includes('1991'))return '1991 '+suffix[1];
-  const prefix=[['AI Application',i18nText("courses.applications")],['AI Modern','AI'],['AI DevHack',i18nText("courses.security")],['AI Graphic',i18nText("courses.design")],['AI Junior',i18nText("courses.teenagers")],['AI UX',i18nText("courses.interface")]].find(([key])=>name.startsWith(key));
-  return prefix?prefix[1]+' '+suffix[1]:name;
+function usersShortGroup(name) {
+  const suffix = String(name).match(/(\d+\.\d+)$/);
+  if (!suffix) return name;
+  if (name.includes(i18nText("courses.atmk"))) return `${i18nText("courses.atmk")} ` + suffix[1];
+  if (name.includes("1991")) return "1991 " + suffix[1];
+  const prefix = [
+    ["AI Application", i18nText("courses.applications")],
+    ["AI Modern", "AI"],
+    ["AI DevHack", i18nText("courses.security")],
+    ["AI Graphic", i18nText("courses.design")],
+    ["AI Junior", i18nText("courses.teenagers")],
+    ["AI UX", i18nText("courses.interface")],
+  ].find(([key]) => name.startsWith(key));
+  return prefix ? prefix[1] + " " + suffix[1] : name;
 }
 function usersGroups(user) {
-  if (user.role === "admin") return (`<span class="muted">${i18nText("ui.accounts.all_groups")}</span>`);
-  return `<div class="users-groups">${(user.groups || []).map(group => `<span class="pill structure-group-chip" title="${esc(group)}">${esc(usersShortGroup(group))}</span>`).join("") || (`<span class="muted">${i18nText("ui.accounts.no_group")}</span>`)}</div>`;
+  if (user.role === "admin")
+    return `<span class="muted">${i18nText("ui.accounts.all_groups")}</span>`;
+  return `<div class="users-groups">${(user.groups || []).map((group) => `<span class="pill structure-group-chip" title="${esc(group)}">${esc(usersShortGroup(group))}</span>`).join("") || `<span class="muted">${i18nText("ui.accounts.no_group")}</span>`}</div>`;
 }
 function usersError(error) {
-  return error.net ? i18nText("ui.accounts.could_not_connect_to_the_server_try") : String(error.message || error);
+  return error.net
+    ? i18nText("ui.accounts.could_not_connect_to_the_server_try")
+    : String(error.message || error);
 }
 function usersShowMessage(element, text, error = true) {
   if (!element) return;
@@ -130,23 +328,31 @@ function usersShowMessage(element, text, error = true) {
   element.className = text ? `alert ${error ? "err" : "ok"} users-error` : "";
 }
 function usersRoleOptions(current) {
-  return Object.entries(ACCOUNT_ROLE).map(([key, label]) => `<option value="${key}"${current === key ? " selected" : ""}>${esc(label)}</option>`).join("");
+  return Object.entries(ACCOUNT_ROLE)
+    .map(
+      ([key, label]) =>
+        `<option value="${key}"${current === key ? " selected" : ""}>${esc(label)}</option>`,
+    )
+    .join("");
 }
 function usersGroupFields(groups, selected, completed = new Set()) {
-  return `<fieldset class="account-group-checks"><legend>${i18nText("ui.accounts.groups")}</legend>${groups.map(group => `<label><input type="checkbox" name="groups" value="${esc(group)}"${selected.includes(group) ? " checked" : ""}><span>${esc(group)}${completed.has(group) ? (` <span class="muted">${i18nText("ui.accounts.completed")}</span>`) : ""}</span></label>`).join("") || (`<p class="muted">${i18nText("ui.accounts.no_active_groups_manage_groups_in_settings")}</p>`)}</fieldset>`;
+  return `<fieldset class="account-group-checks"><legend>${i18nText("ui.accounts.groups")}</legend>${groups.map((group) => `<label><input type="checkbox" name="groups" value="${esc(group)}"${selected.includes(group) ? " checked" : ""}><span>${esc(group)}${completed.has(group) ? ` <span class="muted">${i18nText("ui.accounts.completed")}</span>` : ""}</span></label>`).join("") || `<p class="muted">${i18nText("ui.accounts.no_active_groups_manage_groups_in_settings")}</p>`}</fieldset>`;
 }
 function usersSyncGroups(form) {
-  const role = form.elements.role.value, fieldset = form.querySelector(".account-group-checks");
+  const role = form.elements.role.value,
+    fieldset = form.querySelector(".account-group-checks");
   fieldset.disabled = role === "admin";
-  fieldset.querySelector("legend").textContent = role === "admin" ? i18nText("ui.accounts.all_groups") : i18nText("ui.accounts.groups");
+  fieldset.querySelector("legend").textContent =
+    role === "admin" ? i18nText("ui.accounts.all_groups") : i18nText("ui.accounts.groups");
 }
 function usersGroupPayload(form) {
-  const values = new FormData(form), role = values.get("role");
+  const values = new FormData(form),
+    role = values.get("role");
   const groups = role === "admin" ? [] : values.getAll("groups");
   if ((role === "student" && groups.length !== 1) || (role === "lecturer" && !groups.length)) {
     throw new Error(i18nText("ui.accounts.choose_one_group_for_a_student_and"));
   }
-  return {role, groups};
+  return { role, groups };
 }
 
 /* Keep bearer links only in the current page, never in browser storage. */
@@ -162,9 +368,9 @@ function shareAccountLink(url, options = {}) {
   target.innerHTML = `<h2>${invitation ? i18nText("ui.accounts.invitation_link") : i18nText("ui.accounts.password_reset_link")}</h2><div class="users-invite-link">
     <p>${hint}</p><label class="fld"><span>${i18nText("ui.accounts.full_link")}</span><input class="input" id="one-time-link" readonly value="${esc(absolute)}" spellcheck="false"></label>
     <div class="row"><button class="btn primary" id="copy-account-link" type="button">${ic("copy")} ${i18nText("ui.accounts.copy_link")}</button><span id="copy-result" class="users-link-result" role="status"></span></div>
-    ${!available ? (`<div class="alert warn">${i18nText("ui.accounts.this_site_is_only_available_on_this")}</div>`) : ""}
+    ${!available ? `<div class="alert warn">${i18nText("ui.accounts.this_site_is_only_available_on_this")}</div>` : ""}
     <p class="muted">${options.mail_sent ? i18nText("ui.accounts.the_email_was_sent_automatically_you_can") : i18nText("ui.accounts.the_email_was_not_sent_automatically_copy")}</p>
-    ${(options.warnings || []).map(warning => `<p class="muted">${esc(warning)}</p>`).join("")}</div>`;
+    ${(options.warnings || []).map((warning) => `<p class="muted">${esc(warning)}</p>`).join("")}</div>`;
   target.hidden = false;
   $("#copy-account-link").onclick = async () => {
     const result = $("#copy-result");
@@ -173,11 +379,15 @@ function shareAccountLink(url, options = {}) {
       if (result?.isConnected) result.textContent = i18nText("ui.accounts.link_copied");
     } catch (_) {
       const input = $("#one-time-link");
-      if (input) { input.focus(); input.select(); }
-      if (result?.isConnected) result.textContent = i18nText("ui.accounts.link_selected_please_copy_it");
+      if (input) {
+        input.focus();
+        input.select();
+      }
+      if (result?.isConnected)
+        result.textContent = i18nText("ui.accounts.link_selected_please_copy_it");
     }
   };
-  target.scrollIntoView({block:"nearest"});
+  target.scrollIntoView({ block: "nearest" });
 }
 
 async function viewUsers() {
@@ -202,47 +412,85 @@ async function viewUsers() {
     </section>
     <details class="card"><summary>${i18nText("ui.accounts.legacy_shared_sign_in_settings")}</summary><div id="users-legacy-panel"><button class="btn" type="button" id="users-legacy-load" style="margin-top:12px">${i18nText("ui.accounts.show_setting")}</button></div></details>
   </div>`;
-  const view = $("#account-users-page"), find = selector => $(selector, view);
+  const view = $("#account-users-page"),
+    find = (selector) => $(selector, view);
   const alive = () => $("#account-users-page") === view && S.role === "admin";
-  const state = {query, data:null, request:0, inviteBusy:false, activeGroups:null};
+  const state = { query, data: null, request: 0, inviteBusy: false, activeGroups: null };
   find("#users-group-scope").value = query.group_status;
   let searchTimer;
 
-  function syncHash() { history.replaceState(null, "", usersListHash(state.query)); }
+  function syncHash() {
+    history.replaceState(null, "", usersListHash(state.query));
+  }
   function renderTabs(counts) {
-    find("#users-tabs").innerHTML = USERS_TABS.map(([key,label]) => `<a class="users-tab${state.query.tab === key ? " on" : ""}" href="${esc(usersListHash({...state.query,tab:key,page:1}))}"${state.query.tab === key ? ' aria-current="page"' : ""}>${label}<strong>${Number(counts[key]) || 0}</strong></a>`).join("");
+    find("#users-tabs").innerHTML = USERS_TABS.map(
+      ([key, label]) =>
+        `<a class="users-tab${state.query.tab === key ? " on" : ""}" href="${esc(usersListHash({ ...state.query, tab: key, page: 1 }))}"${state.query.tab === key ? ' aria-current="page"' : ""}>${label}<strong>${Number(counts[key]) || 0}</strong></a>`,
+    ).join("");
     find("#users-list-title").textContent = USERS_TABS.find(([key]) => key === state.query.tab)[1];
   }
   function groupOptions(groups) {
     const selected = state.query.group;
     const values = [...groups];
     if (selected && !values.includes(selected)) values.unshift(selected);
-    find("#users-group").innerHTML = (`<option value="">${i18nText("ui.accounts.all_groups")}</option>`) + values.map(group => `<option value="${esc(group)}"${group === selected ? " selected" : ""}>${esc(group)}</option>`).join("");
+    find("#users-group").innerHTML =
+      `<option value="">${i18nText("ui.accounts.all_groups")}</option>` +
+      values
+        .map(
+          (group) =>
+            `<option value="${esc(group)}"${group === selected ? " selected" : ""}>${esc(group)}</option>`,
+        )
+        .join("");
   }
   function userRows(items) {
-    return items.map(user => {
-      const removed = state.query.tab === "removed";
-      const edit = usersEditHash(user.id, state.query);
-      return `<tr class="account-clickable" tabindex="0" data-users-edit="${esc(edit)}" aria-label="${esc(user.name)}${i18nText("ui.accounts.open_account")}"><td class="users-person-cell"><a class="users-person" href="${esc(edit)}">${usersAvatar(user)}<span><b>${esc(user.name)}</b><small>${esc(user.email)}</small></span></a></td>
+    return items
+      .map((user) => {
+        const removed = state.query.tab === "removed";
+        const edit = usersEditHash(user.id, state.query);
+        return `<tr class="account-clickable" tabindex="0" data-users-edit="${esc(edit)}" aria-label="${esc(user.name)}${i18nText("ui.accounts.open_account")}"><td class="users-person-cell"><a class="users-person" href="${esc(edit)}">${usersAvatar(user)}<span><b>${esc(user.name)}</b><small>${esc(user.email)}</small></span></a></td>
         <td data-label="${i18nText("ui.accounts.groups")}">${usersGroups(user)}</td><td data-label="${i18nText("ui.accounts.status")}"><span class="users-status${removed ? "" : user.active ? " active" : ""}">${removed ? i18nText("ui.accounts.removed") : user.active ? i18nText("ui.accounts.active") : i18nText("ui.accounts.disabled")}</span></td>
         <td class="users-time" data-label="${i18nText("ui.accounts.last_sign_in")}">${esc(usersDate(user.last_login_at))}</td>
         <td class="users-actions-cell"><div class="users-row-actions">${removed ? `<button class="btn sm" type="button" data-users-action="restore" data-id="${user.id}" data-name="${esc(user.name)}">${i18nText("ui.accounts.restore")}</button><button class="btn danger sm" type="button" data-users-action="delete" data-id="${user.id}" data-name="${esc(user.name)}">${i18nText("ui.accounts.delete_permanently")}</button>` : `<a class="btn sm" href="${esc(edit)}">${i18nText("ui.accounts.edit")}</a>`}</div></td></tr>`;
-    }).join("");
+      })
+      .join("");
   }
   function inviteRows(items) {
-    const statusNames = {pending:i18nText("ui.accounts.awaiting_acceptance"),used:i18nText("ui.accounts.accepted"),expired:i18nText("ui.accounts.expired"),revoked:i18nText("ui.accounts.cancelled")};
-    return items.map(invite => `<tr><td class="users-person-cell"><div class="users-person">${usersAvatar(invite)}<span><b>${esc(invite.name)}</b><small>${esc(invite.email)}</small></span></div></td>
+    const statusNames = {
+      pending: i18nText("ui.accounts.awaiting_acceptance"),
+      used: i18nText("ui.accounts.accepted"),
+      expired: i18nText("ui.accounts.expired"),
+      revoked: i18nText("ui.accounts.cancelled"),
+    };
+    return items
+      .map(
+        (
+          invite,
+        ) => `<tr><td class="users-person-cell"><div class="users-person">${usersAvatar(invite)}<span><b>${esc(invite.name)}</b><small>${esc(invite.email)}</small></span></div></td>
       <td data-label="${i18nText("ui.accounts.role_and_groups")}"><span class="muted">${esc(ACCOUNT_ROLE[invite.role] || "—")}</span>${usersGroups(invite)}</td>
       <td data-label="${i18nText("ui.accounts.status")}"><span class="users-status${invite.status === "pending" ? " pending" : ""}">${esc(statusNames[invite.status] || invite.status)}</span>${invite.registered_login ? `<small class="muted">${esc(invite.registered_login)}</small>` : ""}</td>
       <td class="users-time" data-label="${i18nText("ui.accounts.sent")}">${esc(usersDate(invite.created_at))}</td>
-      <td class="users-actions-cell"><div class="users-row-actions">${invite.status !== "used" ? `<button class="btn sm" type="button" data-users-action="resend" data-id="${invite.id}">${i18nText("ui.accounts.resend")}</button>` : ""}${invite.status === "pending" ? `<button class="btn danger sm" type="button" data-users-action="revoke" data-id="${invite.id}">${i18nText("ui.accounts.cancel")}</button>` : ""}</div></td></tr>`).join("");
+      <td class="users-actions-cell"><div class="users-row-actions">${invite.status !== "used" ? `<button class="btn sm" type="button" data-users-action="resend" data-id="${invite.id}">${i18nText("ui.accounts.resend")}</button>` : ""}${invite.status === "pending" ? `<button class="btn danger sm" type="button" data-users-action="revoke" data-id="${invite.id}">${i18nText("ui.accounts.cancel")}</button>` : ""}</div></td></tr>`,
+      )
+      .join("");
   }
   function renderDirectory(data) {
     const invitations = state.query.tab === "invitations";
     const rows = data.items || [];
-    const page = Number(data.page) || state.query.page, pages = Math.max(1, Number(data.pages) || 1), total = Number(data.total) || 0;
-    find("#users-directory").innerHTML = `${rows.length ? `<div class="users-table-wrap"><table class="users-table"><thead><tr><th>${i18nText("ui.accounts.full_name_and_email")}</th><th>${invitations ? i18nText("ui.accounts.role_and_groups") : i18nText("ui.accounts.groups")}</th><th>${i18nText("ui.accounts.status")}</th><th>${invitations ? i18nText("ui.accounts.sent") : i18nText("ui.accounts.last_sign_in")}</th><th>${i18nText("ui.accounts.action")}</th></tr></thead><tbody>${invitations ? inviteRows(rows) : userRows(rows)}</tbody></table></div>` : `<div class="users-empty">${state.query.q || state.query.group ? i18nText("ui.accounts.no_matching_records") : invitations ? i18nText("ui.accounts.no_invitations_yet") : state.query.tab === "removed" ? i18nText("ui.accounts.no_removed_accounts") : i18nText("ui.accounts.no_users_in_this_category_yet")}</div>`}
-      <footer class="users-footer"><span class="muted">${i18nText("ui.accounts.total")} ${total} ${i18nText("ui.accounts.records")}</span><nav class="users-pagination" aria-label="${i18nText("ui.accounts.user_pages")}">${usersPageNumbers(page,pages).map(n=>n===null?'<span class="muted" aria-hidden="true">…</span>':`<a class="chip${n===page?' on':''}" ${n===page?'aria-current="page"':''} href="${esc(usersListHash({...state.query,page:n}))}">${n}</a>`).join('')}</nav></footer>`;
+    const page = Number(data.page) || state.query.page,
+      pages = Math.max(1, Number(data.pages) || 1),
+      total = Number(data.total) || 0;
+    find("#users-directory").innerHTML =
+      `${rows.length ? `<div class="users-table-wrap"><table class="users-table"><thead><tr><th>${i18nText("ui.accounts.full_name_and_email")}</th><th>${invitations ? i18nText("ui.accounts.role_and_groups") : i18nText("ui.accounts.groups")}</th><th>${i18nText("ui.accounts.status")}</th><th>${invitations ? i18nText("ui.accounts.sent") : i18nText("ui.accounts.last_sign_in")}</th><th>${i18nText("ui.accounts.action")}</th></tr></thead><tbody>${invitations ? inviteRows(rows) : userRows(rows)}</tbody></table></div>` : `<div class="users-empty">${state.query.q || state.query.group ? i18nText("ui.accounts.no_matching_records") : invitations ? i18nText("ui.accounts.no_invitations_yet") : state.query.tab === "removed" ? i18nText("ui.accounts.no_removed_accounts") : i18nText("ui.accounts.no_users_in_this_category_yet")}</div>`}
+      <footer class="users-footer"><span class="muted">${i18nText("ui.accounts.total")} ${total} ${i18nText("ui.accounts.records")}</span><nav class="users-pagination" aria-label="${i18nText("ui.accounts.user_pages")}">${usersPageNumbers(
+        page,
+        pages,
+      )
+        .map((n) =>
+          n === null
+            ? '<span class="muted" aria-hidden="true">…</span>'
+            : `<a class="chip${n === page ? " on" : ""}" ${n === page ? 'aria-current="page"' : ""} href="${esc(usersListHash({ ...state.query, page: n }))}">${n}</a>`,
+        )
+        .join("")}</nav></footer>`;
   }
   async function loadDirectory() {
     const request = ++state.request;
@@ -257,9 +505,11 @@ async function viewUsers() {
       groupOptions(data.groups || []);
       renderDirectory(data);
     } catch (error) {
-      if (alive() && request === state.request && error.message !== "auth") usersShowMessage(find("#users-list-error"), usersError(error));
+      if (alive() && request === state.request && error.message !== "auth")
+        usersShowMessage(find("#users-list-error"), usersError(error));
     } finally {
-      if (alive() && request === state.request) find("#users-directory").setAttribute("aria-busy", "false");
+      if (alive() && request === state.request)
+        find("#users-directory").setAttribute("aria-busy", "false");
     }
   }
   function updateFilters(scopeChanged = false) {
@@ -277,13 +527,18 @@ async function viewUsers() {
     button.disabled = true;
     try {
       if (!state.activeGroups) {
-        const data = await api("/api/accounts/directory?tab=student&group_status=active&page=1&page_size=1");
+        const data = await api(
+          "/api/accounts/directory?tab=student&group_status=active&page=1&page_size=1",
+        );
         if (!alive()) return;
         state.activeGroups = data.groups || [];
       }
-      const selectedRole = ["lecturer","admin"].includes(state.query.tab) ? state.query.tab : "student";
-      find("#invite-panel").innerHTML = `<div class="row" style="justify-content:space-between;flex-wrap:wrap"><h2 id="users-invite-title">${i18nText("ui.accounts.invite_user")}</h2><button class="btn sm" type="button" data-users-action="close-invite">${i18nText("ui.accounts.close")}</button></div>
-        <form id="invite-form" class="users-edit-form" novalidate><div class="users-grid">${accountField("name",i18nText("ui.accounts.full_name"),"text",(`maxlength="120" placeholder="${i18nText("ui.accounts.full_name")}" autocomplete="name"`))}${accountField("email",i18nText("ui.accounts.email"),"email",'maxlength="254" autocomplete="email"')}</div>
+      const selectedRole = ["lecturer", "admin"].includes(state.query.tab)
+        ? state.query.tab
+        : "student";
+      find("#invite-panel").innerHTML =
+        `<div class="row" style="justify-content:space-between;flex-wrap:wrap"><h2 id="users-invite-title">${i18nText("ui.accounts.invite_user")}</h2><button class="btn sm" type="button" data-users-action="close-invite">${i18nText("ui.accounts.close")}</button></div>
+        <form id="invite-form" class="users-edit-form" novalidate><div class="users-grid">${accountField("name", i18nText("ui.accounts.full_name"), "text", `maxlength="120" placeholder="${i18nText("ui.accounts.full_name")}" autocomplete="name"`)}${accountField("email", i18nText("ui.accounts.email"), "email", 'maxlength="254" autocomplete="email"')}</div>
           <label class="fld"><span>${i18nText("ui.accounts.role")}</span><select class="input" name="role">${usersRoleOptions(selectedRole)}</select></label>${usersGroupFields(state.activeGroups, [])}
           <p class="users-help">${i18nText("ui.accounts.choose_one_group_for_a_student_and_2")}</p>
           <div id="users-invite-error" role="alert" hidden></div><div class="users-edit-actions"><button class="btn primary" type="submit">${i18nText("ui.accounts.create_and_send_invitation")}</button></div></form>`;
@@ -291,78 +546,168 @@ async function viewUsers() {
       const form = find("#invite-form");
       form.elements.role.onchange = () => usersSyncGroups(form);
       usersSyncGroups(form);
-      form.onsubmit = async event => {
+      form.onsubmit = async (event) => {
         event.preventDefault();
         const submit = form.querySelector('button[type="submit"]');
         if (submit.disabled) return;
         usersShowMessage(find("#users-invite-error"), "");
         try {
-          const values = new FormData(form), name = String(values.get("name") || "").trim(), email = String(values.get("email") || "").trim();
+          const values = new FormData(form),
+            name = String(values.get("name") || "").trim(),
+            email = String(values.get("email") || "").trim();
           if (!name) throw new Error(i18nText("ui.accounts.enter_a_full_name"));
-          if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error(i18nText("ui.accounts.enter_a_valid_email_address"));
-          const payload = {...usersGroupPayload(form),name,email};
+          if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+            throw new Error(i18nText("ui.accounts.enter_a_valid_email_address"));
+          const payload = { ...usersGroupPayload(form), name, email };
           submit.disabled = true;
-          const result = await api("/api/accounts/invitations", {method:"POST",body:JSON.stringify(payload)});
+          const result = await api("/api/accounts/invitations", {
+            method: "POST",
+            body: JSON.stringify(payload),
+          });
           if (!alive()) return;
           find("#invite-panel").hidden = true;
-          shareAccountLink(result.link, {...result,kind:"invite"});
+          shareAccountLink(result.link, { ...result, kind: "invite" });
           await loadDirectory();
         } catch (error) {
-          if (alive() && error.message !== "auth") usersShowMessage(find("#users-invite-error"), usersError(error));
-        } finally { if (submit.isConnected) submit.disabled = false; }
+          if (alive() && error.message !== "auth")
+            usersShowMessage(find("#users-invite-error"), usersError(error));
+        } finally {
+          if (submit.isConnected) submit.disabled = false;
+        }
       };
       find('#invite-form [name="name"]').focus();
-      find("#invite-panel").scrollIntoView({block:"start"});
+      find("#invite-panel").scrollIntoView({ block: "start" });
     } catch (error) {
-      if (alive() && error.message !== "auth") usersShowMessage(find("#users-list-error"), usersError(error));
-    } finally { state.inviteBusy = false; if (button.isConnected) button.disabled = false; }
+      if (alive() && error.message !== "auth")
+        usersShowMessage(find("#users-list-error"), usersError(error));
+    } finally {
+      state.inviteBusy = false;
+      if (button.isConnected) button.disabled = false;
+    }
   }
 
-
-  find("#users-filter-form").onsubmit = event => {event.preventDefault();clearTimeout(searchTimer);updateFilters();};
-  find("#users-search").oninput = () => {clearTimeout(searchTimer);searchTimer=setTimeout(()=>{if(alive())updateFilters();},350);};
-  find("#users-group").onchange = () => {clearTimeout(searchTimer);updateFilters();};
-  find("#users-group-scope").onchange = () => {clearTimeout(searchTimer);updateFilters(true);};
-  find("#show-invite").onclick = openInvite;
-  find("#users-legacy-load").onclick = async event => {
-    const button = event.currentTarget;button.disabled=true;
-    try {
-      const data = await api("/api/accounts/legacy");if(!alive())return;
-      find("#users-legacy-panel").innerHTML=`<label class="users-toggle" style="margin-top:14px"><input type="checkbox" id="legacy-access"${data.enabled?' checked':''}><span>${i18nText("ui.accounts.allow_legacy_shared_passwords")}<span class="users-help" style="display:block">${i18nText("ui.accounts.disabling_this_ends_shared_sessions_personal_accounts")}</span></span></label><p id="users-legacy-message" role="status" hidden></p>`;
-      find("#legacy-access").onchange=async change=>{
-        const input=change.target;input.disabled=true;
-        try{await api('/api/accounts/legacy',{method:'POST',body:JSON.stringify({enabled:input.checked})});if(alive())usersShowMessage(find('#users-legacy-message'),i18nText("ui.accounts.shared_sign_in_setting_saved"),false);}
-        catch(error){if(alive()){input.checked=!input.checked;usersShowMessage(find('#users-legacy-message'),usersError(error));}}
-        finally{if(input.isConnected)input.disabled=false;}
-      };
-    }catch(error){if(alive())usersShowMessage(find('#users-list-error'),usersError(error));}
-    finally{if(button.isConnected)button.disabled=false;}
+  find("#users-filter-form").onsubmit = (event) => {
+    event.preventDefault();
+    clearTimeout(searchTimer);
+    updateFilters();
   };
-  view.onkeydown=event=>{const row=event.target.closest('[data-users-edit]');if(row && event.target===row && ['Enter',' '].includes(event.key)){event.preventDefault();location.hash=row.dataset.usersEdit;}};
-  view.onclick = async event => {
-    const row=event.target.closest('[data-users-edit]');
-    if(row&&!event.target.closest('a,button,input,select')){location.hash=row.dataset.usersEdit;return;}
+  find("#users-search").oninput = () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      if (alive()) updateFilters();
+    }, 350);
+  };
+  find("#users-group").onchange = () => {
+    clearTimeout(searchTimer);
+    updateFilters();
+  };
+  find("#users-group-scope").onchange = () => {
+    clearTimeout(searchTimer);
+    updateFilters(true);
+  };
+  find("#show-invite").onclick = openInvite;
+  find("#users-legacy-load").onclick = async (event) => {
+    const button = event.currentTarget;
+    button.disabled = true;
+    try {
+      const data = await api("/api/accounts/legacy");
+      if (!alive()) return;
+      find("#users-legacy-panel").innerHTML =
+        `<label class="users-toggle" style="margin-top:14px"><input type="checkbox" id="legacy-access"${data.enabled ? " checked" : ""}><span>${i18nText("ui.accounts.allow_legacy_shared_passwords")}<span class="users-help" style="display:block">${i18nText("ui.accounts.disabling_this_ends_shared_sessions_personal_accounts")}</span></span></label><p id="users-legacy-message" role="status" hidden></p>`;
+      find("#legacy-access").onchange = async (change) => {
+        const input = change.target;
+        input.disabled = true;
+        try {
+          await api("/api/accounts/legacy", {
+            method: "POST",
+            body: JSON.stringify({ enabled: input.checked }),
+          });
+          if (alive())
+            usersShowMessage(
+              find("#users-legacy-message"),
+              i18nText("ui.accounts.shared_sign_in_setting_saved"),
+              false,
+            );
+        } catch (error) {
+          if (alive()) {
+            input.checked = !input.checked;
+            usersShowMessage(find("#users-legacy-message"), usersError(error));
+          }
+        } finally {
+          if (input.isConnected) input.disabled = false;
+        }
+      };
+    } catch (error) {
+      if (alive()) usersShowMessage(find("#users-list-error"), usersError(error));
+    } finally {
+      if (button.isConnected) button.disabled = false;
+    }
+  };
+  view.onkeydown = (event) => {
+    const row = event.target.closest("[data-users-edit]");
+    if (row && event.target === row && ["Enter", " "].includes(event.key)) {
+      event.preventDefault();
+      location.hash = row.dataset.usersEdit;
+    }
+  };
+  view.onclick = async (event) => {
+    const row = event.target.closest("[data-users-edit]");
+    if (row && !event.target.closest("a,button,input,select")) {
+      location.hash = row.dataset.usersEdit;
+      return;
+    }
     const button = event.target.closest("[data-users-action]");
     if (!button || button.disabled) return;
     const action = button.dataset.usersAction;
-    if (action === "close-invite") {find("#invite-panel").hidden=true;return;}
+    if (action === "close-invite") {
+      find("#invite-panel").hidden = true;
+      return;
+    }
 
     const id = button.dataset.id;
-    if (action === "delete" && !confirm(`${i18nText("ui.accounts.permanently_delete")}${button.dataset.name}${i18nText("ui.accounts.this_cannot_be_undone_past_records_will")}`)) return;
-    if (action === "restore" && !confirm(`${i18nText("ui.accounts.restore_access_for")}${button.dataset.name}${i18nText("ui.accounts.punctuation_2")}`)) return;
-    if (action === "revoke" && !confirm(i18nText("ui.accounts.cancel_this_invitation_the_old_link_will"))) return;
-    if (!["delete","restore","resend","revoke"].includes(action)) return;
+    if (
+      action === "delete" &&
+      !confirm(
+        `${i18nText("ui.accounts.permanently_delete")}${button.dataset.name}${i18nText("ui.accounts.this_cannot_be_undone_past_records_will")}`,
+      )
+    )
+      return;
+    if (
+      action === "restore" &&
+      !confirm(
+        `${i18nText("ui.accounts.restore_access_for")}${button.dataset.name}${i18nText("ui.accounts.punctuation_2")}`,
+      )
+    )
+      return;
+    if (
+      action === "revoke" &&
+      !confirm(i18nText("ui.accounts.cancel_this_invitation_the_old_link_will"))
+    )
+      return;
+    if (!["delete", "restore", "resend", "revoke"].includes(action)) return;
     button.disabled = true;
     try {
-      const path = ["resend","revoke"].includes(action) ? `/api/accounts/invitations/${id}/${action}` : `/api/accounts/users/${id}/${action}`;
-      const result = await api(path, {method:"POST"});
+      const path = ["resend", "revoke"].includes(action)
+        ? `/api/accounts/invitations/${id}/${action}`
+        : `/api/accounts/users/${id}/${action}`;
+      const result = await api(path, { method: "POST" });
       if (!alive()) return;
-      if (action === "resend") shareAccountLink(result.link, {...result,kind:"invite"});
-      else toast(action === "restore" ? i18nText("ui.accounts.user_restored") : action === "delete" ? i18nText("ui.accounts.the_user_s_personal_information_has_been") : i18nText("ui.accounts.invitation_cancelled"));
+      if (action === "resend") shareAccountLink(result.link, { ...result, kind: "invite" });
+      else
+        toast(
+          action === "restore"
+            ? i18nText("ui.accounts.user_restored")
+            : action === "delete"
+              ? i18nText("ui.accounts.the_user_s_personal_information_has_been")
+              : i18nText("ui.accounts.invitation_cancelled"),
+        );
       await loadDirectory();
     } catch (error) {
-      if (alive() && error.message !== "auth") usersShowMessage(find("#users-list-error"), usersError(error));
-    } finally { if (button.isConnected) button.disabled = false; }
+      if (alive() && error.message !== "auth")
+        usersShowMessage(find("#users-list-error"), usersError(error));
+    } finally {
+      if (button.isConnected) button.disabled = false;
+    }
   };
   await loadDirectory();
 }
@@ -372,99 +717,239 @@ async function viewUser(id) {
   if (existing && existing.dataset.userId === String(id)) return;
   if (S.role !== "admin" || !S.user) return;
   accountsStyles();
-  const query = usersQuery(), back = usersListHash(query);
-  $("#main").innerHTML = `<div class="accounts-page users-editor" id="account-user-edit" data-user-id="${id}"><a class="back" href="${esc(back)}">${ic("back")} ${i18nText("ui.accounts.back_to_users")}</a><div id="user-edit-loading" class="card muted" role="status">${i18nText("ui.accounts.loading_account")}</div><div id="user-edit-error" role="alert" hidden></div><div id="user-edit-content" hidden></div><section class="card" id="account-link" aria-live="polite" hidden></section></div>`;
-  const view = $("#account-user-edit"), find = selector => $(selector, view);
+  const query = usersQuery(),
+    back = usersListHash(query);
+  $("#main").innerHTML =
+    `<div class="accounts-page users-editor" id="account-user-edit" data-user-id="${id}"><a class="back" href="${esc(back)}">${ic("back")} ${i18nText("ui.accounts.back_to_users")}</a><div id="user-edit-loading" class="card muted" role="status">${i18nText("ui.accounts.loading_account")}</div><div id="user-edit-error" role="alert" hidden></div><div id="user-edit-content" hidden></div><section class="card" id="account-link" aria-live="polite" hidden></section></div>`;
+  const view = $("#account-user-edit"),
+    find = (selector) => $(selector, view);
   const alive = () => $("#account-user-edit") === view && S.role === "admin";
-  let user, availableGroups = [], completed = new Set(), busy = false;
-  function message(text, error=true) {usersShowMessage(find("#user-edit-error"),text,error);}
+  let user,
+    availableGroups = [],
+    completed = new Set(),
+    busy = false;
+  function message(text, error = true) {
+    usersShowMessage(find("#user-edit-error"), text, error);
+  }
   function groupList(data) {
-    completed=new Set(data.groups.filter(group=>group.completed).map(group=>group.name));
-    availableGroups=[...new Set([...data.groups.filter(group=>!group.completed).map(group=>group.name),...(user.groups||[])])];
+    completed = new Set(data.groups.filter((group) => group.completed).map((group) => group.name));
+    availableGroups = [
+      ...new Set([
+        ...data.groups.filter((group) => !group.completed).map((group) => group.name),
+        ...(user.groups || []),
+      ]),
+    ];
   }
   function content() {
-    const removed=Boolean(user.removed||user.removed_at);
-    find('#user-edit-content').innerHTML=`<section class="card"><div class="users-editor-header">${usersAvatar(user)}<div><h1>${esc(user.name)}</h1><p>${esc(user.email)}</p><p class="users-help">${i18nText("ui.accounts.username_2")} ${esc(user.login)} ${i18nText("ui.accounts.last_sign_in_2")} ${esc(usersDate(user.last_login_at))}</p></div></div></section>
-      ${removed ? `<section class="card"><h2>${i18nText("ui.accounts.account_removed")}</h2><p class="muted">${i18nText("ui.accounts.sign_in_is_blocked_restore_the_account")}</p><div class="users-edit-actions"><button class="btn primary" type="button" data-user-edit-action="restore">${i18nText("ui.accounts.restore_account")}</button><button class="btn danger" type="button" data-user-edit-action="delete">${i18nText("ui.accounts.delete_permanently")}</button></div></section>` : `<section class="card"><h2>${i18nText("ui.accounts.access_settings")}</h2><form id="user-edit-form" class="users-edit-form" novalidate>
-        <label class="fld"><span>${i18nText("ui.accounts.role")}</span><select class="input" name="role">${usersRoleOptions(user.role)}</select></label>${usersGroupFields(availableGroups,user.groups||[],completed)}
-        <label class="users-toggle"><input type="checkbox" name="active"${user.active?' checked':''}><span><b>${i18nText("ui.accounts.account_is_active")}</b><span class="users-help" style="display:block">${i18nText("ui.accounts.disabled_accounts_cannot_sign_in_their_data")}</span></span></label>
+    const removed = Boolean(user.removed || user.removed_at);
+    find("#user-edit-content").innerHTML =
+      `<section class="card"><div class="users-editor-header">${usersAvatar(user)}<div><h1>${esc(user.name)}</h1><p>${esc(user.email)}</p><p class="users-help">${i18nText("ui.accounts.username_2")} ${esc(user.login)} ${i18nText("ui.accounts.last_sign_in_2")} ${esc(usersDate(user.last_login_at))}</p></div></div></section>
+      ${
+        removed
+          ? `<section class="card"><h2>${i18nText("ui.accounts.account_removed")}</h2><p class="muted">${i18nText("ui.accounts.sign_in_is_blocked_restore_the_account")}</p><div class="users-edit-actions"><button class="btn primary" type="button" data-user-edit-action="restore">${i18nText("ui.accounts.restore_account")}</button><button class="btn danger" type="button" data-user-edit-action="delete">${i18nText("ui.accounts.delete_permanently")}</button></div></section>`
+          : `<section class="card"><h2>${i18nText("ui.accounts.access_settings")}</h2><form id="user-edit-form" class="users-edit-form" novalidate>
+        <label class="fld"><span>${i18nText("ui.accounts.role")}</span><select class="input" name="role">${usersRoleOptions(user.role)}</select></label>${usersGroupFields(availableGroups, user.groups || [], completed)}
+        <label class="users-toggle"><input type="checkbox" name="active"${user.active ? " checked" : ""}><span><b>${i18nText("ui.accounts.account_is_active")}</b><span class="users-help" style="display:block">${i18nText("ui.accounts.disabled_accounts_cannot_sign_in_their_data")}</span></span></label>
         <div class="users-edit-actions"><button class="btn primary" type="submit">${i18nText("ui.accounts.save_changes")}</button><a class="btn" href="${esc(back)}">${i18nText("ui.accounts.cancel")}</a></div></form></section>
         <section class="card"><h2>${i18nText("ui.accounts.password_reset")}</h2><p class="users-help">${i18nText("ui.accounts.create_a_single_use_reset_link_to")}</p><button class="btn" type="button" data-user-edit-action="reset" style="margin-top:12px">${i18nText("ui.accounts.create_reset_link")}</button></section>
-        <section class="card users-danger"><h2>${i18nText("ui.accounts.remove_user")}</h2><p class="users-help">${i18nText("ui.accounts.sign_in_will_be_blocked_history_and")}</p><button class="btn danger" type="button" data-user-edit-action="remove" style="margin-top:12px">${i18nText("ui.accounts.remove_user")}</button></section>`}`;
-    find('#user-edit-content').hidden=false;
-    const form=find('#user-edit-form');
-    if(form){
-      form.elements.role.onchange=()=>usersSyncGroups(form);usersSyncGroups(form);
-      form.onsubmit=async event=>{
-        event.preventDefault();if(busy)return;
-        message('');
-        try{
-          const payload={...usersGroupPayload(form),active:form.elements.active.checked};
-          busy=true;lock();
-          await api('/api/accounts/users/'+id,{method:'POST',body:JSON.stringify(payload)});
-          if(!alive())return;
-          user=await api('/api/accounts/users/'+id);
-          if(!alive())return;
-          content();message(i18nText("ui.accounts.access_settings_saved"),false);
-        }catch(error){if(alive()&&error.message!=='auth')message(usersError(error));}
-        finally{busy=false;if(alive())lock();}
+        <section class="card users-danger"><h2>${i18nText("ui.accounts.remove_user")}</h2><p class="users-help">${i18nText("ui.accounts.sign_in_will_be_blocked_history_and")}</p><button class="btn danger" type="button" data-user-edit-action="remove" style="margin-top:12px">${i18nText("ui.accounts.remove_user")}</button></section>`
+      }`;
+    find("#user-edit-content").hidden = false;
+    const form = find("#user-edit-form");
+    if (form) {
+      form.elements.role.onchange = () => usersSyncGroups(form);
+      usersSyncGroups(form);
+      form.onsubmit = async (event) => {
+        event.preventDefault();
+        if (busy) return;
+        message("");
+        try {
+          const payload = { ...usersGroupPayload(form), active: form.elements.active.checked };
+          busy = true;
+          lock();
+          await api("/api/accounts/users/" + id, { method: "POST", body: JSON.stringify(payload) });
+          if (!alive()) return;
+          user = await api("/api/accounts/users/" + id);
+          if (!alive()) return;
+          content();
+          message(i18nText("ui.accounts.access_settings_saved"), false);
+        } catch (error) {
+          if (alive() && error.message !== "auth") message(usersError(error));
+        } finally {
+          busy = false;
+          if (alive()) lock();
+        }
       };
     }
     lock();
   }
-  function lock(){
-    view.querySelectorAll('#user-edit-form input,#user-edit-form select,#user-edit-form button,[data-user-edit-action]').forEach(node=>{node.disabled=busy;});
-    const form=find('#user-edit-form');if(form&&!busy)usersSyncGroups(form);
+  function lock() {
+    view
+      .querySelectorAll(
+        "#user-edit-form input,#user-edit-form select,#user-edit-form button,[data-user-edit-action]",
+      )
+      .forEach((node) => {
+        node.disabled = busy;
+      });
+    const form = find("#user-edit-form");
+    if (form && !busy) usersSyncGroups(form);
   }
-  async function load(){
-    try{
-      const result=await Promise.all([api('/api/accounts/users/'+id),api('/api/admin/group-status')]);
-      if(!alive())return;
-      user=result[0];groupList(result[1]);find('#user-edit-loading').hidden=true;content();
-    }catch(error){if(alive()&&error.message!=='auth'){find('#user-edit-loading').hidden=true;message(usersError(error));}}
+  async function load() {
+    try {
+      const result = await Promise.all([
+        api("/api/accounts/users/" + id),
+        api("/api/admin/group-status"),
+      ]);
+      if (!alive()) return;
+      user = result[0];
+      groupList(result[1]);
+      find("#user-edit-loading").hidden = true;
+      content();
+    } catch (error) {
+      if (alive() && error.message !== "auth") {
+        find("#user-edit-loading").hidden = true;
+        message(usersError(error));
+      }
+    }
   }
-  view.onclick=async event=>{
-    const button=event.target.closest('[data-user-edit-action]');if(!button||button.disabled||busy)return;
-    const action=button.dataset.userEditAction;
-    if(action==='remove'&&!confirm(`${i18nText("ui.accounts.remove")}${user.name}${i18nText("ui.accounts.sign_in_will_be_blocked_and_data")}`))return;
-    if(action==='delete'&&!confirm(i18nText("accounts.delete_personal_data", {name:user.name})))return;
-    if(action==='restore'&&!confirm(`${i18nText("ui.accounts.restore_access_for")}${user.name}${i18nText("ui.accounts.punctuation_2")}`))return;
-    busy=true;lock();message('');
-    try{
-      const result=await api(`/api/accounts/users/${id}/${action}`,{method:'POST'});if(!alive())return;
-      if(action==='reset'){shareAccountLink(result.link,{...result,kind:'reset'});}
-      else if(action==='delete'){toast(i18nText("ui.accounts.the_user_s_personal_information_has_been"));location.hash=back;}
-      else{user=await api('/api/accounts/users/'+id);if(!alive())return;content();toast(action==='remove'?i18nText("ui.accounts.user_removed"):i18nText("ui.accounts.user_restored"));}
-    }catch(error){if(alive()&&error.message!=='auth')message(usersError(error));}
-    finally{busy=false;if(alive())lock();}
+  view.onclick = async (event) => {
+    const button = event.target.closest("[data-user-edit-action]");
+    if (!button || button.disabled || busy) return;
+    const action = button.dataset.userEditAction;
+    if (
+      action === "remove" &&
+      !confirm(
+        `${i18nText("ui.accounts.remove")}${user.name}${i18nText("ui.accounts.sign_in_will_be_blocked_and_data")}`,
+      )
+    )
+      return;
+    if (
+      action === "delete" &&
+      !confirm(i18nText("accounts.delete_personal_data", { name: user.name }))
+    )
+      return;
+    if (
+      action === "restore" &&
+      !confirm(
+        `${i18nText("ui.accounts.restore_access_for")}${user.name}${i18nText("ui.accounts.punctuation_2")}`,
+      )
+    )
+      return;
+    busy = true;
+    lock();
+    message("");
+    try {
+      const result = await api(`/api/accounts/users/${id}/${action}`, { method: "POST" });
+      if (!alive()) return;
+      if (action === "reset") {
+        shareAccountLink(result.link, { ...result, kind: "reset" });
+      } else if (action === "delete") {
+        toast(i18nText("ui.accounts.the_user_s_personal_information_has_been"));
+        location.hash = back;
+      } else {
+        user = await api("/api/accounts/users/" + id);
+        if (!alive()) return;
+        content();
+        toast(
+          action === "remove"
+            ? i18nText("ui.accounts.user_removed")
+            : i18nText("ui.accounts.user_restored"),
+        );
+      }
+    } catch (error) {
+      if (alive() && error.message !== "auth") message(usersError(error));
+    } finally {
+      busy = false;
+      if (alive()) lock();
+    }
   };
   await load();
 }
 
-
-async function viewPrivacy(){
-  const p=await api('/api/privacy/policy');
-  accountPublic(i18nText("ui.accounts.privacy_policy_3"),`<p class="muted">${i18nText("ui.accounts.version")} ${esc(p.version)}</p>${p.paragraphs.map(x=>`<p>${esc(x)}</p>`).join('')}`);
-  if(typeof renderLecturerReferences==='function')await renderLecturerReferences();
+async function viewPrivacy() {
+  const p = await api("/api/privacy/policy");
+  accountPublic(
+    i18nText("ui.accounts.privacy_policy_3"),
+    `<p class="muted">${i18nText("ui.accounts.version")} ${esc(p.version)}</p>${p.paragraphs.map((x) => `<p>${esc(x)}</p>`).join("")}`,
+  );
+  if (typeof renderLecturerReferences === "function") await renderLecturerReferences();
 }
-async function viewDataRequest(){
-  const rows=await api('/api/privacy/requests');
-  $('#main').innerHTML=`<h1>${i18nText("ui.accounts.data_requests")}</h1><p>${i18nText("ui.accounts.describe_the_data_you_want_deleted_an")}</p><form id="data-request"><label class="fld">${i18nText("ui.accounts.request")}<textarea class="input" name="message" minlength="5" maxlength="2000" required></textarea></label><button class="btn primary">${i18nText("ui.accounts.send_request")}</button></form><p id="data-status" role="status"></p><section class="card data-request-list">${rows.map(r=>`<p>#${r.id} ${S.role==='admin'?`· <a href="#/users/${r.user_id}">${i18nText("ui.accounts.account")}${r.user_id}</a>`:''} · ${esc(r.message)} · ${r.status==='open'?i18nText("ui.accounts.pending"):i18nText("ui.accounts.closed")} ${S.role==='admin'&&r.status==='open'?`<button class="btn" data-resolve="${r.id}">${i18nText("ui.accounts.mark_reviewed")}</button>`:''}</p>`).join('')}</section>`;
-  $('#data-request').onsubmit=async e=>{e.preventDefault();try{await api('/api/privacy/requests',{method:'POST',body:JSON.stringify(Object.fromEntries(new FormData(e.target)))});viewDataRequest();}catch(err){$('#data-status').textContent=err.message;}};
-  document.querySelectorAll('[data-resolve]').forEach(b=>b.onclick=async()=>{await api(`/api/privacy/requests/${b.dataset.resolve}/resolve`,{method:'POST'});viewDataRequest();});
+async function viewDataRequest() {
+  const rows = await api("/api/privacy/requests");
+  $("#main").innerHTML =
+    `<h1>${i18nText("ui.accounts.data_requests")}</h1><p>${i18nText("ui.accounts.describe_the_data_you_want_deleted_an")}</p><form id="data-request"><label class="fld">${i18nText("ui.accounts.request")}<textarea class="input" name="message" minlength="5" maxlength="2000" required></textarea></label><button class="btn primary">${i18nText("ui.accounts.send_request")}</button></form><p id="data-status" role="status"></p><section class="card data-request-list">${rows.map((r) => `<p>#${r.id} ${S.role === "admin" ? `· <a href="#/users/${r.user_id}">${i18nText("ui.accounts.account")}${r.user_id}</a>` : ""} · ${esc(r.message)} · ${r.status === "open" ? i18nText("ui.accounts.pending") : i18nText("ui.accounts.closed")} ${S.role === "admin" && r.status === "open" ? `<button class="btn" data-resolve="${r.id}">${i18nText("ui.accounts.mark_reviewed")}</button>` : ""}</p>`).join("")}</section>`;
+  $("#data-request").onsubmit = async (e) => {
+    e.preventDefault();
+    try {
+      await api("/api/privacy/requests", {
+        method: "POST",
+        body: JSON.stringify(Object.fromEntries(new FormData(e.target))),
+      });
+      viewDataRequest();
+    } catch (err) {
+      $("#data-status").textContent = err.message;
+    }
+  };
+  document.querySelectorAll("[data-resolve]").forEach(
+    (b) =>
+      (b.onclick = async () => {
+        await api(`/api/privacy/requests/${b.dataset.resolve}/resolve`, { method: "POST" });
+        viewDataRequest();
+      }),
+  );
 }
 
-
-function viewSecondFactor(cooldown=60){
-  S.role=null;S.user=null;
-  accountPublic(i18nText("ui.accounts.confirm_sign_in"),`<p>${i18nText("ui.accounts.a_6_digit_code_was_sent_to")}</p><form id="account-form">${accountField('code',i18nText("ui.accounts.verification_code"),'text','inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" minlength="6" maxlength="6"')}<label class="fld"><span><input type="checkbox" name="remember"> ${i18nText("ui.accounts.remember_this_device_for_30_days")}</span></label><button class="btn primary" type="submit">${i18nText("ui.accounts.confirm")}</button></form><button class="btn" id="otp-resend" disabled>${i18nText("ui.accounts.resend_in_60_s")}</button><p id="otp-message" role="status"></p>`);
-  let remaining=cooldown;const b=$('#otp-resend');const tick=setInterval(()=>{if(!b.isConnected){clearInterval(tick);return;}remaining--;b.textContent=remaining>0?`${i18nText("ui.accounts.resend_in")} ${remaining} ${i18nText("ui.accounts.s")}`:i18nText("ui.accounts.resend_2");b.disabled=remaining>0;},1000);
-  bindAccountForm(async data=>signedIn(await api('/api/admin-auth/verify',{method:'POST',body:JSON.stringify({code:data.code,remember:data.remember==='on'}),login:true})));
-  b.onclick=async()=>{b.disabled=true;try{await api('/api/admin-auth/resend',{method:'POST',body:'{}',login:true});remaining=60;$('#otp-message').textContent=i18nText("ui.accounts.new_code_sent");}catch(e){$('#otp-message').textContent=e.message;b.disabled=false;}};
+function viewSecondFactor(cooldown = 60) {
+  S.role = null;
+  S.user = null;
+  accountPublic(
+    i18nText("ui.accounts.confirm_sign_in"),
+    `<p>${i18nText("ui.accounts.a_6_digit_code_was_sent_to")}</p><form id="account-form">${accountField("code", i18nText("ui.accounts.verification_code"), "text", 'inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" minlength="6" maxlength="6"')}<label class="fld"><span><input type="checkbox" name="remember"> ${i18nText("ui.accounts.remember_this_device_for_30_days")}</span></label><button class="btn primary" type="submit">${i18nText("ui.accounts.confirm")}</button></form><button class="btn" id="otp-resend" disabled>${i18nText("ui.accounts.resend_in_60_s")}</button><p id="otp-message" role="status"></p>`,
+  );
+  let remaining = cooldown;
+  const b = $("#otp-resend");
+  const tick = setInterval(() => {
+    if (!b.isConnected) {
+      clearInterval(tick);
+      return;
+    }
+    remaining--;
+    b.textContent =
+      remaining > 0
+        ? `${i18nText("ui.accounts.resend_in")} ${remaining} ${i18nText("ui.accounts.s")}`
+        : i18nText("ui.accounts.resend_2");
+    b.disabled = remaining > 0;
+  }, 1000);
+  bindAccountForm(async (data) =>
+    signedIn(
+      await api("/api/admin-auth/verify", {
+        method: "POST",
+        body: JSON.stringify({ code: data.code, remember: data.remember === "on" }),
+        login: true,
+      }),
+    ),
+  );
+  b.onclick = async () => {
+    b.disabled = true;
+    try {
+      await api("/api/admin-auth/resend", { method: "POST", body: "{}", login: true });
+      remaining = 60;
+      $("#otp-message").textContent = i18nText("ui.accounts.new_code_sent");
+    } catch (e) {
+      $("#otp-message").textContent = e.message;
+      b.disabled = false;
+    }
+  };
 }
 
-
-function usersPageNumbers(page,pages){
-  const list=[...new Set([1,pages,page-1,page,page+1].filter(n=>n>=1&&n<=pages))].sort((a,b)=>a-b),result=[];
-  for(const n of list){if(result.length&&n-result[result.length-1]>1)result.push(null);result.push(n);}return result;
+function usersPageNumbers(page, pages) {
+  const list = [
+      ...new Set([1, pages, page - 1, page, page + 1].filter((n) => n >= 1 && n <= pages)),
+    ].sort((a, b) => a - b),
+    result = [];
+  for (const n of list) {
+    if (result.length && n - result[result.length - 1] > 1) result.push(null);
+    result.push(n);
+  }
+  return result;
 }

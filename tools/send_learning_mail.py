@@ -1,9 +1,10 @@
 """Explicit one-pass learning-mail reconciliation; requires an explicit project root."""
-from contextlib import closing
+
 import argparse
 import json
-from pathlib import Path
 import sys
+from contextlib import closing
+from pathlib import Path
 
 PROJECT = Path(__file__).resolve().parents[1]
 if str(PROJECT) not in sys.path:
@@ -16,6 +17,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
     from reel.db import DB
     from reel.student_mail import run_pending
+
     root = args.root.expanduser().resolve()
     if not root.is_dir() or not (root / "reel.db").is_file():
         parser.error("root must contain an existing Reel database")

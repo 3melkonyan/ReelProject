@@ -1,8 +1,8 @@
 """Fake-YouTube player, watched intervals and account isolation. No server or playback."""
+
 from test_brand import run_node
 
-
-PRELUDE = r'''
+PRELUDE = r"""
 const fs=require('fs'),vm=require('vm'),assert=require('assert/strict');
 const source=fs.readFileSync(process.argv[1].replace('app.js','learning.js'),'utf8');
 const appSource=fs.readFileSync(process.argv[1],'utf8');
@@ -12,11 +12,13 @@ function context(extra={}) {
  vm.runInContext(appSource.slice(appSource.indexOf('const esc ='),appSource.indexOf('const STATUS =')),c);
  vm.runInContext(source,c);return c;
 }
-'''
+"""
 
 
 def test_watched_intervals_exclude_seeks_pauses_replays_and_suspended_timers():
-    run_node(PRELUDE + r'''
+    run_node(
+        PRELUDE
+        + r"""
 let at=0,pos=0,rate=1;
 const player={getCurrentTime:()=>pos,getDuration:()=>200,getPlaybackRate:()=>rate};
 const c=context();
@@ -33,11 +35,14 @@ step(25,20);assert.equal(t.progress().watched_sec,6,'suspended browser timer ear
 assert.equal(t.progress().completed,false);
 assert.equal(JSON.stringify(c.mergeWatchIntervals([[4,8],[1,5],[8,10],[20,21]])),JSON.stringify([[1,10],[20,21]]));
 t.stop(false);
-''')
+"""
+    )
 
 
 def test_personal_save_body_and_logout_during_save_never_cross_users():
-    run_node(PRELUDE + r'''
+    run_node(
+        PRELUDE
+        + r"""
 (async()=>{
  let at=0,pos=0,valid=true,resolve;
  const calls=[],updates=[];
@@ -53,11 +58,14 @@ def test_personal_save_body_and_logout_during_save_never_cross_users():
  pos=50;at=3;t.sample();await t.save();t.stop();assert.equal(calls.length,1,'no request after identity changes');
  assert.equal(c.libraryProgressFor(8),undefined,'personal data never enters legacy memory');
 })().catch(e=>{console.error(e);process.exitCode=1});
-''')
+"""
+    )
 
 
 def test_resume_transcript_escaping_and_continue_watching_exclude_completed():
-    run_node(PRELUDE + r'''
+    run_node(
+        PRELUDE
+        + r"""
 const box={innerHTML:''};const c=context({$:s=>s==='#library-continue'?box:null,clock:String});
 assert.equal(c.lessonRoute({job_id:7},61.9),'#/library/7?t=61');
 const lesson={job_id:7,duration:200,personal:true,progress:{position:62}};
@@ -72,10 +80,11 @@ c.S.libraryProgress={items:[{job_id:7,position:62,percent:30,updated_at:'2026-01
  {job_id:8,position:90,percent:90,completed:true}]};
 c.renderContinueWatching();assert(box.innerHTML.includes('#/library/7'));assert(box.innerHTML.includes('&lt;img&gt;'));
 assert(!box.innerHTML.includes('Completed'));
-''')
+"""
+    )
 
 
-DOM = r'''
+DOM = r"""
 function fakeDOM() {
  const ids={},events={},observers=[],timers=new Map();let timer=0;
  class Element {
@@ -117,11 +126,14 @@ function playerFixture(extra={}) {
  api:async(path,options)=>{calls.push(path);return options?{saved:true,percent:10}:data},...extra});
  return {c,dom,players,calls,data};
 }
-'''
+"""
 
 
 def test_fake_youtube_player_controls_polling_and_dom_cleanup():
-    run_node(PRELUDE + DOM + r'''
+    run_node(
+        PRELUDE
+        + DOM
+        + r"""
 (async()=>{
  const {c,dom,players,calls}=playerFixture();await c.viewLesson(7);
  assert.equal(players.length,1);const player=players[0];
@@ -137,11 +149,15 @@ def test_fake_youtube_player_controls_polling_and_dom_cleanup():
  const cue=root.querySelector('[data-cue="1"]');assert.equal(cue.attrs['aria-current'],'true');
  root.isConnected=false;dom.observers[0]();assert.equal(player.destroyed,true);assert.equal(dom.timers.size,0);
 })().catch(e=>{console.error(e);process.exitCode=1});
-''')
+"""
+    )
 
 
 def test_logout_clears_shared_resume_and_does_not_flush_as_next_identity():
-    run_node(PRELUDE + DOM + r'''
+    run_node(
+        PRELUDE
+        + DOM
+        + r"""
 (async()=>{
  const {c,dom,players,calls,data}=playerFixture();data.personal=false;data.progress=null;c.S.user=null;
  await c.viewLesson(7);const p=players[0];p.options.events.onReady({target:p});
@@ -153,11 +169,15 @@ def test_logout_clears_shared_resume_and_does_not_flush_as_next_identity():
  assert.equal(c.libraryProgressFor(9),undefined);assert.equal(p.destroyed,true);
  assert.equal(calls.filter(path=>path.endsWith('/progress')).length,0);
 })().catch(e=>{console.error(e);process.exitCode=1});
-''')
+"""
+    )
 
 
 def test_late_lesson_fetch_and_youtube_load_cannot_mount_after_navigation():
-    run_node(PRELUDE + DOM + r'''
+    run_node(
+        PRELUDE
+        + DOM
+        + r"""
 (async()=>{
  let resolve;const {c,dom,players,data}=playerFixture({api:()=>new Promise(r=>resolve=r)});
  const loading=c.viewLesson(7);dom.ids['#lesson-view'].isConnected=false;resolve(data);await loading;
@@ -169,11 +189,14 @@ def test_late_lesson_fetch_and_youtube_load_cannot_mount_after_navigation():
  assert.equal(typeof apiFixture.c.window.onYouTubeIframeAPIReady,'function',apiFixture.dom.ids['#lesson-view'].innerHTML);
  apiFixture.c.window.onYouTubeIframeAPIReady();await loadingAPI;
 })().catch(e=>{console.error(e);process.exitCode=1});
-''')
+"""
+    )
 
 
 def test_demo_metadata_card_has_no_player_notes_or_progress_actions():
-    run_node(PRELUDE + r'''
+    run_node(
+        PRELUDE
+        + r"""
 const c=context({ic:()=>'',fmtDur:String,formatLessonDate:String,clock:String});
 const demo={job_id:'demo-row-7',demo:true,playable:false,title:'<demo>',description:'<description>',group:'Group-A',subject:'Python',thumbnail:null,url:null,chapters:[]};
 const html=c.libraryCardHtml(demo);
@@ -181,12 +204,14 @@ assert(html.includes('Ցուցադրական դաս · վիդեո չկա'));asse
 assert(!html.includes('href='));assert(!html.includes('data-notes'));assert(!html.includes('Գլուխներ'));assert(!html.includes('learning-progress'));
 assert.equal(c.isPlayableLesson(demo),false);
 assert.equal(c.isPlayableLesson({job_id:7,url:'https://youtu.be/abcdefghijk'}),true);
-''')
-
+"""
+    )
 
 
 def test_watch_statistics_escape_every_name_and_present_all_three_views():
-    run_node(PRELUDE + r"""
+    run_node(
+        PRELUDE
+        + r"""
 const c=context({ic:()=>'',fmtDur:String});
 const html=c.watchStatisticsHtml({threshold:90,lessons:[{job_id:7,title:'<lesson>',group:'<group>',subject:'Python',published_at:'2026-01-01',students:2,started:1,completed:0,average_percent:22.5}],
  students:[{id:1,name:'<student>',group:'<group>',percent:22.5,completed:0,total_lessons:1,watched_sec:22.5,lessons:[{job_id:7,percent:22.5,completed:false}]}],
@@ -195,11 +220,15 @@ for(const text of ['&lt;lesson&gt;','&lt;student&gt;','&lt;missed&gt;','Ըստ �
 assert(!html.includes('<student>'));assert(!html.includes('<lesson>'));assert(html.includes('#/library/7'));assert(!html.includes('mailto:'));
 const box={innerHTML:''};c.$=()=>box;c.S.user=null;c.S.libraryFacets={watch_stats_available:true};c.renderLearningLinks();assert(box.innerHTML.includes('#/library/watch-stats'));
 c.S.libraryFacets.watch_stats_available=false;c.renderLearningLinks();assert.equal(box.innerHTML,'');
-""")
+"""
+    )
 
 
 def test_watch_stats_preserve_filter_hash_throttle_polling_and_ignore_stale_response():
-    run_node(PRELUDE + DOM + r"""
+    run_node(
+        PRELUDE
+        + DOM
+        + r"""
 (async()=>{
  const dom=fakeDOM(),calls=[],data={groups:[{name:'Group A'},{name:'B'}],selected_group:'Group A',lessons:[],students:[],missed:[]};
  const c=context({...dom,window:{addEventListener(){}},location:{hash:'#/library/watch-stats?group=Group%20A'},ic:()=>'',fmtDur:String,
@@ -212,12 +241,15 @@ def test_watch_stats_preserve_filter_hash_throttle_polling_and_ignore_stale_resp
  const oldBody=dom.ids['#watch-content'];c.location.hash='#/library';resolve(data);await pending;
  assert(!oldBody.innerHTML.includes('Ըստ դասերի'),'stale response cannot paint after navigation');
 })().catch(e=>{console.error(e);process.exitCode=1});
-""")
-
+"""
+    )
 
 
 def test_notification_preferences_defaults_save_only_own_booleans_and_survive_polling():
-    run_node(PRELUDE + DOM + r"""
+    run_node(
+        PRELUDE
+        + DOM
+        + r"""
 (async()=>{
  const dom=fakeDOM(),target=new dom.Element(),calls=[];
  const c=context({...dom,window:{addEventListener(){}},ic:()=>'',api:async(path,opts)=>{calls.push({path,opts});return opts?{personal:true,user_id:1,...JSON.parse(opts.body)}:{personal:true,user_id:1,new_lessons:true,weekly_digest:true}}});
@@ -234,11 +266,15 @@ def test_notification_preferences_defaults_save_only_own_booleans_and_survive_po
  const box={innerHTML:''};c.$=()=>box;c.S.libraryFacets={};c.renderLearningLinks();assert(box.innerHTML.includes('#/library/settings'));
  c.S.user=null;c.renderLearningLinks();assert.equal(box.innerHTML,'','shared sessions have no personal settings link');
 })().catch(e=>{console.error(e);process.exitCode=1});
-""")
+"""
+    )
 
 
 def test_notification_shared_account_and_stale_get_never_offer_personal_controls():
-    run_node(PRELUDE + DOM + r"""
+    run_node(
+        PRELUDE
+        + DOM
+        + r"""
 (async()=>{
  const dom=fakeDOM(),target=new dom.Element(),calls=[];
  const c=context({...dom,window:{addEventListener(){}},api:async(path,opts)=>{calls.push(path);return {personal:false,new_lessons:false,weekly_digest:false}}});
@@ -249,12 +285,15 @@ def test_notification_shared_account_and_stale_get_never_offer_personal_controls
  detached.isConnected=false;resolve({personal:true,user_id:1,new_lessons:true,weekly_digest:true});await pending;
  assert(!detached.innerHTML.includes('checkbox'),'late settings response cannot paint after navigation');
 })().catch(e=>{console.error(e);process.exitCode=1});
-""")
-
+"""
+    )
 
 
 def test_cross_tab_cookie_change_is_guarded_on_progress_and_preferences():
-    run_node(PRELUDE + DOM + r"""
+    run_node(
+        PRELUDE
+        + DOM
+        + r"""
 (async()=>{
  let pos=0,at=0;const calls=[];
  const c=context({api:async(path,opts)=>{calls.push(JSON.parse(opts.body));c.S.role=null;throw Error('auth')}});
@@ -267,4 +306,5 @@ def test_cross_tab_cookie_change_is_guarded_on_progress_and_preferences():
  await prefs.mountLearningPreferences(target);assert.equal(prefs.S.role,null);assert.equal(login,1);
  assert(!target.innerHTML.includes('checkbox'),'user B preferences never mount under stale user A identity');
 })().catch(e=>{console.error(e);process.exitCode=1});
-""")
+"""
+    )

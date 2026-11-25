@@ -4,18 +4,19 @@ Run ``python -m reel.cleanup --days 7 --blurred-days 30 --dry-run`` to
 inspect candidates. Archived originals are retained unless --archive-days is
 explicitly supplied. Database rows and directories are never changed.
 """
+
 from __future__ import annotations
 
 import argparse
-from contextlib import contextmanager
-from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
 import math
 import os
-from pathlib import Path
 import sqlite3
 import stat
 import sys
+from contextlib import contextmanager
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 from reel.db import DB
 
@@ -63,7 +64,12 @@ class _ReadOnlyDB(DB):
 
 
 def _days(value: float, name: str) -> float:
-    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0:
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or not math.isfinite(value)
+        or value <= 0
+    ):
         raise ValueError(f"{name} must be finite and positive")
     return float(value)
 
@@ -83,14 +89,23 @@ def _job_id(value: object) -> int | None:
 
 
 def _fingerprint(info: os.stat_result) -> tuple[int, ...]:
-    return (info.st_dev, info.st_ino, info.st_mode, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+    return (
+        info.st_dev,
+        info.st_ino,
+        info.st_mode,
+        info.st_size,
+        info.st_mtime_ns,
+        info.st_ctime_ns,
+    )
 
 
 def _protected(parts: tuple[str, ...]) -> bool:
     name = parts[-1].casefold()
-    return (any(part.casefold() == "privacy" for part in parts[:-1])
-            or ".json" in name
-            or name in _PROTECTED)
+    return (
+        any(part.casefold() == "privacy" for part in parts[:-1])
+        or ".json" in name
+        or name in _PROTECTED
+    )
 
 
 def _walk(fd: int, parts: tuple[str, ...]):
@@ -131,17 +146,27 @@ def _work_candidates(root: Path, job: dict, days: float, blurred_days: float, no
                     retention = blurred_days
                 elif _protected(relative):
                     continue
-                elif (relative in {("audio16k.wav",), ("final.mp4",)}
-                      or (len(relative) == 1 and relative[0].casefold().startswith("source_joined."))
-                      or ".part" in relative[-1].casefold()
-                      or (relative[0] == "transcript" and len(relative) > 1
-                          and Path(relative[-1]).suffix.casefold() in _AUDIO)):
+                elif (
+                    relative in {("audio16k.wav",), ("final.mp4",)}
+                    or (len(relative) == 1 and relative[0].casefold().startswith("source_joined."))
+                    or ".part" in relative[-1].casefold()
+                    or (
+                        relative[0] == "transcript"
+                        and len(relative) > 1
+                        and Path(relative[-1]).suffix.casefold() in _AUDIO
+                    )
+                ):
                     retention = days
                 else:
                     continue
                 if _old_enough(job["updated_at"], now, retention):
-                    yield _Candidate(job["id"], job["updated_at"], ("work", str(job["id"]), *relative),
-                                     retention, _fingerprint(info))
+                    yield _Candidate(
+                        job["id"],
+                        job["updated_at"],
+                        ("work", str(job["id"]), *relative),
+                        retention,
+                        _fingerprint(info),
+                    )
     except OSError:
         return
 
@@ -161,15 +186,23 @@ def _archive_candidate(root: Path, job: dict, archive_days: float, now: datetime
         with _directory(root, parts[:-1]) as fd:
             info = os.stat(parts[-1], dir_fd=fd, follow_symlinks=False)
             if stat.S_ISREG(info.st_mode):
-                yield _Candidate(job["id"], job["updated_at"], parts, archive_days,
-                                 _fingerprint(info), source)
+                yield _Candidate(
+                    job["id"], job["updated_at"], parts, archive_days, _fingerprint(info), source
+                )
     except OSError:
         return
 
 
-def cleanup(db: DB, root: str | Path, *, days: float = 7, blurred_days: float = 30,
-            archive_days: float | None = None, dry_run: bool = False,
-            now: datetime | None = None) -> dict:
+def cleanup(
+    db: DB,
+    root: str | Path,
+    *,
+    days: float = 7,
+    blurred_days: float = 30,
+    archive_days: float | None = None,
+    dry_run: bool = False,
+    now: datetime | None = None,
+) -> dict:
     """Clean only allowlisted files; revalidate job state and file identity.
 
     ``db`` needs only jobs(limit=-1) and job(id), allowing isolated fake DBs.
@@ -179,7 +212,7 @@ def cleanup(db: DB, root: str | Path, *, days: float = 7, blurred_days: float = 
     days, blurred_days = _days(days, "days"), _days(blurred_days, "blurred_days")
     if archive_days is not None:
         archive_days = _days(archive_days, "archive_days")
-    now = now if now is not None else datetime.now(timezone.utc)
+    now = now if now is not None else datetime.now(UTC)
     if not isinstance(now, datetime) or now.utcoffset() is None:
         raise ValueError("now must be a timezone-aware datetime")
     root = _absolute(root)
@@ -188,7 +221,11 @@ def cleanup(db: DB, root: str | Path, *, days: float = 7, blurred_days: float = 
     planned = []
     for row in db.jobs(limit=-1):
         job = dict(row)
-        if _job_id(job.get("id")) is None or job.get("status") != "done" or not isinstance(job.get("updated_at"), str):
+        if (
+            _job_id(job.get("id")) is None
+            or job.get("status") != "done"
+            or not isinstance(job.get("updated_at"), str)
+        ):
             continue
         planned.extend(_work_candidates(root, job, days, blurred_days, now))
         if archive_days is not None:
@@ -209,9 +246,15 @@ def cleanup(db: DB, root: str | Path, *, days: float = 7, blurred_days: float = 
                         job = dict(db.job(candidate.job_id))
                     except KeyError:
                         job = {}
-                    if (job.get("status") != "done" or job.get("updated_at") != candidate.updated_at
-                            or not _old_enough(job.get("updated_at"), now, candidate.days)
-                            or (candidate.source_path is not None and job.get("source_path") != candidate.source_path)):
+                    if (
+                        job.get("status") != "done"
+                        or job.get("updated_at") != candidate.updated_at
+                        or not _old_enough(job.get("updated_at"), now, candidate.days)
+                        or (
+                            candidate.source_path is not None
+                            and job.get("source_path") != candidate.source_path
+                        )
+                    ):
                         reason = "job changed"
                     else:
                         # Reopen from root: the old descriptor may now refer to
@@ -219,7 +262,16 @@ def cleanup(db: DB, root: str | Path, *, days: float = 7, blurred_days: float = 
                         with _directory(root, candidate.parts[:-1]) as current_fd:
                             if not os.path.samestat(parent_info, os.fstat(current_fd)):
                                 reason = "directory changed"
-                            elif _fingerprint(os.stat(candidate.parts[-1], dir_fd=current_fd, follow_symlinks=False)) != candidate.fingerprint:
+                            elif (
+                                _fingerprint(
+                                    os.stat(
+                                        candidate.parts[-1],
+                                        dir_fd=current_fd,
+                                        follow_symlinks=False,
+                                    )
+                                )
+                                != candidate.fingerprint
+                            ):
                                 reason = "file changed"
                             else:
                                 if not dry_run:
@@ -236,8 +288,12 @@ def cleanup(db: DB, root: str | Path, *, days: float = 7, blurred_days: float = 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--days", type=float, default=7, help="intermediate retention (default: 7 days)")
-    parser.add_argument("--blurred-days", type=float, default=30, help="blurred video retention (default: 30 days)")
+    parser.add_argument(
+        "--days", type=float, default=7, help="intermediate retention (default: 7 days)"
+    )
+    parser.add_argument(
+        "--blurred-days", type=float, default=30, help="blurred video retention (default: 30 days)"
+    )
     parser.add_argument("--archive-days", type=float, help="opt in to archived original deletion")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--root", type=Path, default=ROOT, help="project root")
@@ -247,8 +303,14 @@ def main(argv: list[str] | None = None) -> int:
     try:
         root = _absolute(args.root)
         db = _ReadOnlyDB(args.db if args.db is not None else root / "reel.db")
-        report = cleanup(db, root, days=args.days, blurred_days=args.blurred_days,
-                         archive_days=args.archive_days, dry_run=args.dry_run)
+        report = cleanup(
+            db,
+            root,
+            days=args.days,
+            blurred_days=args.blurred_days,
+            archive_days=args.archive_days,
+            dry_run=args.dry_run,
+        )
     except (OSError, sqlite3.Error, ValueError) as exc:
         print(f"Cleanup failed: {exc}", file=sys.stderr)
         return 1
@@ -258,7 +320,9 @@ def main(argv: list[str] | None = None) -> int:
     verb = "Would delete" if args.dry_run else "Deleted"
     for path in report["candidates"]:
         print(f"{verb}: {path}")
-    print(f"{verb} {len(report['candidates'])} file(s), {report['bytes']} bytes (estimated {report['bytes'] / 1_000_000_000:.6f} GB); skipped {len(report['skipped'])}")
+    print(
+        f"{verb} {len(report['candidates'])} file(s), {report['bytes']} bytes (estimated {report['bytes'] / 1_000_000_000:.6f} GB); skipped {len(report['skipped'])}"
+    )
     return 0
 
 

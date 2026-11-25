@@ -1,4 +1,5 @@
 """Minimal local Ollama client (JSON output). No paid APIs."""
+
 from __future__ import annotations
 
 import json
@@ -13,9 +14,15 @@ class LLMError(Exception):
     retryable = True
 
 
-def chat_json(system: str, user: str, *, model: str = DEFAULT_MODEL,
-              schema: dict | None = None, temperature: float = 0.2,
-              timeout: float = 600) -> dict:
+def chat_json(
+    system: str,
+    user: str,
+    *,
+    model: str = DEFAULT_MODEL,
+    schema: dict | None = None,
+    temperature: float = 0.2,
+    timeout: float = 600,
+) -> dict:
     body = {
         "model": model,
         "stream": False,
@@ -24,11 +31,13 @@ def chat_json(system: str, user: str, *, model: str = DEFAULT_MODEL,
         # Unload ~30 s after the last call instead of Ollama's default 5 min: the ~8 GB model must not
         # sit in memory through render/blur (measured: memory pressure 'warn' with it loaded).
         "keep_alive": "30s",
-        "messages": [{"role": "system", "content": system},
-                     {"role": "user", "content": user}],
+        "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
     }
-    req = urllib.request.Request(f"{OLLAMA_URL}/api/chat", data=json.dumps(body).encode(),
-                                 headers={"Content-Type": "application/json"})
+    req = urllib.request.Request(
+        f"{OLLAMA_URL}/api/chat",
+        data=json.dumps(body).encode(),
+        headers={"Content-Type": "application/json"},
+    )
     try:
         with urllib.request.urlopen(req, timeout=timeout) as r:
             content = json.loads(r.read())["message"]["content"]

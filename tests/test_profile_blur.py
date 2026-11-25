@@ -1,4 +1,5 @@
 """Synthetic-only checks for the scoped blur performance profiling driver."""
+
 import io
 import json
 import subprocess
@@ -12,7 +13,7 @@ from tools import profile_blur as profile
 
 
 def test_nested_timers_are_exclusive_and_phase_paths_separate_guard():
-    now = [0.]
+    now = [0.0]
     stats = profile.Measurements(wall=lambda: now[0], cpu=lambda: now[0] / 2)
     with stats.measure("phase.run"):
         with stats.measure("phase.analyze"):
@@ -20,7 +21,7 @@ def test_nested_timers_are_exclusive_and_phase_paths_separate_guard():
             with stats.measure("yunet"):
                 now[0] += 2
             now[0] += 1
-        with stats.measure('phase.privacy'), stats.measure('phase.analyze'), stats.measure('yunet'):
+        with stats.measure("phase.privacy"), stats.measure("phase.analyze"), stats.measure("yunet"):
             now[0] += 3
     rows = {(r["phase"], r["metric"]): r for r in stats.report()["metrics"]}
     analysis = rows["run/analyze", "phase.analyze"]
@@ -34,7 +35,7 @@ def test_nested_timers_are_exclusive_and_phase_paths_separate_guard():
 
 def test_timer_records_failure_and_preserves_exception():
     stats = profile.Measurements()
-    with pytest.raises(ValueError, match='synthetic'), stats.measure('phase.analyze'):
+    with pytest.raises(ValueError, match="synthetic"), stats.measure("phase.analyze"):
         raise ValueError("synthetic")
     assert stats.stack() == []
     assert stats.report()["metrics"][0]["calls"] == 1
@@ -51,7 +52,11 @@ def test_pipe_delegates_buffer_io_and_close():
     pipe.close()
     assert original.closed
     names = {r["metric"] for r in stats.report()["metrics"]}
-    assert names == {"ffmpeg.decode.pipe_readinto", "ffmpeg.decode.pipe_read", "ffmpeg.decode.pipe_close"}
+    assert names == {
+        "ffmpeg.decode.pipe_readinto",
+        "ffmpeg.decode.pipe_read",
+        "ffmpeg.decode.pipe_close",
+    }
 
 
 @pytest.mark.parametrize("poll_first", [False, True])
@@ -63,7 +68,7 @@ def test_popen_collects_child_cpu_once_for_wait_and_poll(poll_first):
         if poll_first:
             deadline = time.monotonic() + 10
             while child.poll() is None and time.monotonic() < deadline:
-                time.sleep(.001)
+                time.sleep(0.001)
             assert child.poll() == 0
             child.stdout.close()
         else:
@@ -80,6 +85,7 @@ def test_popen_collects_child_cpu_once_for_wait_and_poll(poll_first):
 
 def test_instrumentation_restores_every_patch_on_failure(monkeypatch):
     import cv2
+
     from reel import blur, lecturer
     from reel.stages import privacy
 
@@ -94,21 +100,37 @@ def test_instrumentation_restores_every_patch_on_failure(monkeypatch):
             return np.ones((1, 128), np.float32)
 
         def best_match(self, feature):
-            return .5
+            return 0.5
 
     for module in (blur, lecturer, privacy):
         monkeypatch.setattr(module, "FaceID", FakeFaceID)
-    originals = (subprocess.Popen, cv2.resize, blur.analyze, blur._Tracker.update, lecturer.discover)
+    originals = (
+        subprocess.Popen,
+        cv2.resize,
+        blur.analyze,
+        blur._Tracker.update,
+        lecturer.discover,
+    )
     stats = profile.Measurements()
-    with pytest.raises(ValueError, match='synthetic'), profile.instrument(stats), stats.measure('phase.analyze'):
+    with (
+        pytest.raises(ValueError, match="synthetic"),
+        profile.instrument(stats),
+        stats.measure("phase.analyze"),
+    ):
         assert blur.FaceID is lecturer.FaceID is privacy.FaceID
         fid = blur.FaceID([])
         image = np.zeros((2, 2, 3), np.uint8)
         assert fid.faces(image).shape == (0, 15)
-        assert fid.best_match(fid.feature(image, [])) == .5
+        assert fid.best_match(fid.feature(image, [])) == 0.5
         assert cv2.resize(image, (1, 1)).shape == (1, 1, 3)
         raise ValueError("synthetic")
-    assert originals == (subprocess.Popen, cv2.resize, blur.analyze, blur._Tracker.update, lecturer.discover)
+    assert originals == (
+        subprocess.Popen,
+        cv2.resize,
+        blur.analyze,
+        blur._Tracker.update,
+        lecturer.discover,
+    )
     assert blur.FaceID is lecturer.FaceID is privacy.FaceID is FakeFaceID
     names = {r["metric"] for r in stats.report()["metrics"]}
     assert {"faceid.load", "yunet", "sface.feature_align", "sface.match", "resize"} <= names
@@ -126,8 +148,8 @@ def test_output_rejects_outside_directory_and_resolves_symlinks(tmp_path):
 
 
 def test_analysis_export_never_serializes_biometric_features():
-    records = [{"t": 0., "box": [0, 0, 16, 16], "feat": np.ones((1, 128))}]
-    assert profile.serializable_analysis(records) == [{"t": 0., "box": [0, 0, 16, 16]}]
+    records = [{"t": 0.0, "box": [0, 0, 16, 16], "feat": np.ones((1, 128))}]
+    assert profile.serializable_analysis(records) == [{"t": 0.0, "box": [0, 0, 16, 16]}]
     assert "feat" in records[0]
 
 
@@ -151,7 +173,9 @@ def test_cli_refuses_stale_outputs_before_loading_models(tmp_path, monkeypatch):
     saved = folder / "lecturer_choice.json"
     saved.write_text('{"none": true}')
     with pytest.raises(SystemExit) as exc:
-        profile.main(["stage", "--video", str(tmp_path / "synthetic.mp4"), "--out-dir", str(folder)])
+        profile.main(
+            ["stage", "--video", str(tmp_path / "synthetic.mp4"), "--out-dir", str(folder)]
+        )
     assert exc.value.code == 2
     assert saved.read_text() == '{"none": true}'
 
@@ -159,6 +183,7 @@ def test_cli_refuses_stale_outputs_before_loading_models(tmp_path, monkeypatch):
 def test_interrupted_run_is_reported_as_incomplete(tmp_path, monkeypatch):
     from contextlib import nullcontext
     from types import SimpleNamespace
+
     from reel import blur
 
     monkeypatch.setattr(profile, "ROOT", tmp_path)
@@ -171,8 +196,16 @@ def test_interrupted_run_is_reported_as_incomplete(tmp_path, monkeypatch):
         raise KeyboardInterrupt()
 
     monkeypatch.setattr(blur, "analyze", interrupted)
-    args = SimpleNamespace(mode="analyze", video=tmp_path / "synthetic.mp4", job_id=1,
-                           fps=5, label="interrupted", opencv_threads=None, refs=[], with_privacy=False)
+    args = SimpleNamespace(
+        mode="analyze",
+        video=tmp_path / "synthetic.mp4",
+        job_id=1,
+        fps=5,
+        label="interrupted",
+        opencv_threads=None,
+        refs=[],
+        with_privacy=False,
+    )
     with pytest.raises(KeyboardInterrupt):
         profile.run(args, out)
     report = json.loads((out / "profile.json").read_text())
@@ -197,7 +230,7 @@ def test_background_pipe_metrics_keep_the_creating_phase():
 def test_progress_events_describe_phase_boundaries():
     events = []
     stats = profile.Measurements(progress=events.append)
-    with stats.measure('phase.run'), stats.measure('identify'):
+    with stats.measure("phase.run"), stats.measure("identify"):
         pass
     assert [event["event"] for event in events] == ["started", "finished"]
     assert all(event["phase"] == "run" for event in events)

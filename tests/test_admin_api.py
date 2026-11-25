@@ -3,6 +3,7 @@
 The app source is executed with a temporary __file__, and served on an ephemeral
 localhost port. No production app import, worker, credentials or live API is used.
 """
+
 from __future__ import annotations
 
 import copy
@@ -23,30 +24,43 @@ from uuid import uuid4
 import pytest
 import uvicorn
 
-from reel import config as config_module, pipeline
+from reel import config as config_module
+from reel import pipeline
 from reel.db import DB
 from reel.publish import youtube
 from reel.publish.errors import PublishError
 from reel.web import admin
 
 PROJECT = Path(__file__).resolve().parents[1]
-PASSWORDS = {"admin": "admin-settings-fixture", "viewer": "viewer-settings-fixture",
-             "uploader": "uploader-settings-fixture"}
-PLAYLISTS = [{"id": "PLpy", "title": "Python դասեր", "privacy": "unlisted", "count": 12},
-             {"id": "PLjs", "title": "JavaScript", "privacy": "private", "count": 3}]
+PASSWORDS = {
+    "admin": "admin-settings-fixture",
+    "viewer": "viewer-settings-fixture",
+    "uploader": "uploader-settings-fixture",
+}
+PLAYLISTS = [
+    {"id": "PLpy", "title": "Python դասեր", "privacy": "unlisted", "count": 12},
+    {"id": "PLjs", "title": "JavaScript", "privacy": "private", "count": 3},
+]
 
 
 def group_body(**changes):
-    body = {"subjects": [{"name": "Python", "playlist": "PLpy"},
-                         {"name": "JavaScript", "playlist": "PLjs"}],
-            "slack_channel": "Cgroup", "lecturers": []}
+    body = {
+        "subjects": [
+            {"name": "Python", "playlist": "PLpy"},
+            {"name": "JavaScript", "playlist": "PLjs"},
+        ],
+        "slack_channel": "Cgroup",
+        "lecturers": [],
+    }
     body.update(changes)
     return body
 
 
 def settings_body(**changes):
-    body = {"operator_slack_channel": "Coperator-new",
-            "cut": {"min_silence_sec": 60, "max_cut_ratio": 0.25}}
+    body = {
+        "operator_slack_channel": "Coperator-new",
+        "cut": {"min_silence_sec": 60, "max_cut_ratio": 0.25},
+    }
     body.update(changes)
     return body
 
@@ -67,8 +81,9 @@ class Client:
             data = json.dumps(body).encode("utf-8")
             headers["Content-Type"] = "application/json"
         try:
-            response = self.opener.open(Request(self.base + path, data=data, headers=headers,
-                                                method=method), timeout=10)
+            response = self.opener.open(
+                Request(self.base + path, data=data, headers=headers, method=method), timeout=10
+            )
         except HTTPError as exc:
             response = exc
         with response:
@@ -88,11 +103,18 @@ def production_config_is_untouched():
 @pytest.fixture
 def web(tmp_path, monkeypatch):
     config_path = tmp_path / "config.yaml"
-    initial = {"groups": {"Group-A": group_body(classroom_course_id="123"),
-                           "Group-B": group_body(subjects=[{"name": "C++", "playlist": "PLcpp"}],
-                                                  slack_channel="Cother", lecturers=["lecturer1"])},
-               "operator_slack_channel": "Coperator",
-               "cut": {"min_silence_sec": 120, "max_cut_ratio": 0.4, "pad_sec": 1.5}}
+    initial = {
+        "groups": {
+            "Group-A": group_body(classroom_course_id="123"),
+            "Group-B": group_body(
+                subjects=[{"name": "C++", "playlist": "PLcpp"}],
+                slack_channel="Cother",
+                lecturers=["lecturer1"],
+            ),
+        },
+        "operator_slack_channel": "Coperator",
+        "cut": {"min_silence_sec": 120, "max_cut_ratio": 0.4, "pad_sec": 1.5},
+    }
     config_path.write_text(json.dumps(initial, ensure_ascii=False, indent=2), encoding="utf-8")
     refs = tmp_path / "refs" / "lecturer1"
     refs.mkdir(parents=True)
@@ -141,6 +163,7 @@ def web(tmp_path, monkeypatch):
     monkeypatch.setitem(sys.modules, module.__name__, module)
     exec(compile(source.read_text(encoding="utf-8"), str(fake), "exec"), module.__dict__)
     from account_fixture import existing_admin
+
     existing_admin(module)
     assert module.ROOT == admin.ROOT == tmp_path
     database = DB(tmp_path / "reel.db")
@@ -149,8 +172,9 @@ def web(tmp_path, monkeypatch):
     sock = socket.socket()
     sock.bind(("127.0.0.1", 0))
     sock.listen(64)
-    server = uvicorn.Server(uvicorn.Config(module.app, log_level="critical", access_log=False,
-                                           lifespan="off"))
+    server = uvicorn.Server(
+        uvicorn.Config(module.app, log_level="critical", access_log=False, lifespan="off")
+    )
     thread = threading.Thread(target=server.run, kwargs={"sockets": [sock]}, daemon=True)
     thread.start()
     try:
@@ -163,12 +187,24 @@ def web(tmp_path, monkeypatch):
         def client(role=None):
             result = Client(base)
             if role:
-                code, body = result.call("POST", "/api/login", {"login":"fixture-admin" if role=="admin" else "", "password": PASSWORDS[role]})
+                code, body = result.call(
+                    "POST",
+                    "/api/login",
+                    {
+                        "login": "fixture-admin" if role == "admin" else "",
+                        "password": PASSWORDS[role],
+                    },
+                )
                 assert code == 200 and body["role"] == role
             return result
 
-        yield SimpleNamespace(root=tmp_path, config_path=config_path, client=client,
-                              playlist_calls=playlist_calls, notes=notes)
+        yield SimpleNamespace(
+            root=tmp_path,
+            config_path=config_path,
+            client=client,
+            playlist_calls=playlist_calls,
+            notes=notes,
+        )
     finally:
         server.should_exit = True
         thread.join(5)
@@ -183,13 +219,19 @@ def saved(web):
 def snapshot(web):
     path = web.config_path
     backup = path.with_name(path.name + ".bak")
-    return path.read_bytes(), path.stat().st_mtime_ns, backup.read_bytes() if backup.exists() else None
+    return (
+        path.read_bytes(),
+        path.stat().st_mtime_ns,
+        backup.read_bytes() if backup.exists() else None,
+    )
 
 
 def add_job(web, *, status="queued", group="Group-A", subject="Python"):
     database = DB(web.root / "reel.db")
     try:
-        job_id = database.create_job(str(web.root / "archive" / "fixture.mp4"), uuid4().hex, group, subject)
+        job_id = database.create_job(
+            str(web.root / "archive" / "fixture.mp4"), uuid4().hex, group, subject
+        )
         database.set_job(job_id, status=status)
         return job_id
     finally:
@@ -197,10 +239,13 @@ def add_job(web, *, status="queued", group="Group-A", subject="Python"):
 
 
 def test_all_admin_routes_reject_viewer_uploader_and_anonymous(web):
-    routes = [("GET", "/api/admin/config", None), ("PUT", group_url("Group-A"), group_body()),
-              ("DELETE", group_url("Group-A"), None),
-              ("PUT", "/api/admin/settings", settings_body()),
-              ("GET", "/api/admin/youtube/playlists", None)]
+    routes = [
+        ("GET", "/api/admin/config", None),
+        ("PUT", group_url("Group-A"), group_body()),
+        ("DELETE", group_url("Group-A"), None),
+        ("PUT", "/api/admin/settings", settings_body()),
+        ("GET", "/api/admin/youtube/playlists", None),
+    ]
     before = snapshot(web)
     for role in ("viewer", "uploader", None):
         client = web.client(role)
@@ -214,11 +259,13 @@ def test_all_admin_routes_reject_viewer_uploader_and_anonymous(web):
 def test_every_admin_route_requires_exact_csrf_header(web, csrf):
     client = web.client("admin")
     before = snapshot(web)
-    for method, path, body in [("GET", "/api/admin/config", None),
-                               ("PUT", group_url("Group-A"), group_body()),
-                               ("DELETE", group_url("Group-A"), None),
-                               ("PUT", "/api/admin/settings", settings_body()),
-                               ("GET", "/api/admin/youtube/playlists", None)]:
+    for method, path, body in [
+        ("GET", "/api/admin/config", None),
+        ("PUT", group_url("Group-A"), group_body()),
+        ("DELETE", group_url("Group-A"), None),
+        ("PUT", "/api/admin/settings", settings_body()),
+        ("GET", "/api/admin/youtube/playlists", None),
+    ]:
         code, response = client.call(method, path, body, csrf=csrf)
         assert code == 400, (path, code, response)
     assert snapshot(web) == before and web.playlist_calls == []
@@ -235,13 +282,17 @@ def test_config_returns_normalized_groups_and_reference_counts_without_writing(w
 
 @pytest.mark.parametrize("framing", ["board", "off", "auto", "projector"])
 def test_group_framing_accepts_explicit_board_and_off(web, framing):
-    code, response = web.client("admin").call("PUT", group_url("Group-A"), group_body(framing=framing))
+    code, response = web.client("admin").call(
+        "PUT", group_url("Group-A"), group_body(framing=framing)
+    )
     assert code == 200, response
     assert saved(web)["groups"]["Group-A"]["framing"] == framing
     assert response["config"]["groups"]["Group-A"]["framing"] == framing
 
 
-@pytest.mark.parametrize("framing", [None, True, False, 0, 1, "", "BOARD", " board ", "automatic", [], {}])
+@pytest.mark.parametrize(
+    "framing", [None, True, False, 0, 1, "", "BOARD", " board ", "automatic", [], {}]
+)
 def test_invalid_framing_returns_armenian_400_and_preserves_config_and_backup(web, framing):
     client = web.client("admin")
     assert client.call("PUT", group_url("Group-A"), group_body(framing="board"))[0] == 200
@@ -269,27 +320,56 @@ def test_new_group_without_framing_defaults_to_full_frame(web):
 
 def test_creates_unicode_group_with_two_subjects_normalizes_urls_and_keeps_backup(web):
     before = web.config_path.read_bytes()
-    body = group_body(subjects=[{"name": " Python ", "playlist": "https://www.youtube.com/playlist?list=PLnew-py&index=2"},
-                                {"name": "JavaScript", "playlist": "https://www.youtube.com/watch?v=video&list=PLnew-js"}],
-                      lecturers=["lecturer1"], classroom_course_id="")
+    body = group_body(
+        subjects=[
+            {
+                "name": " Python ",
+                "playlist": "https://www.youtube.com/playlist?list=PLnew-py&index=2",
+            },
+            {
+                "name": "JavaScript",
+                "playlist": "https://www.youtube.com/watch?v=video&list=PLnew-js",
+            },
+        ],
+        lecturers=["lecturer1"],
+        classroom_course_id="",
+    )
     code, response = web.client("admin").call("PUT", group_url("Խումբ 3"), body)
     assert code == 200, response
     group = saved(web)["groups"]["Խումբ 3"]
-    assert group["subjects"] == [{"name": "Python", "playlist": "PLnew-py"}, {"name": "JavaScript", "playlist": "PLnew-js"}]
+    assert group["subjects"] == [
+        {"name": "Python", "playlist": "PLnew-py"},
+        {"name": "JavaScript", "playlist": "PLnew-js"},
+    ]
     assert group["lecturers"] == ["lecturer1"] and "classroom_course_id" not in group
     assert web.config_path.with_name("config.yaml.bak").read_bytes() == before
 
 
-@pytest.mark.parametrize("changes", [
-    {"subjects": []},
-    {"subjects": [{"name": f"Subject{i}", "playlist": f"PL{i}"} for i in range(6)]},
-    {"subjects": [{"name": "Python", "playlist": "PL1"}, {"name": "python", "playlist": "PL2"}]},
-    {"subjects": [{"name": "Python", "playlist": "PL1"}, {"name": "Go", "playlist": "PL1"}]},
-    {"subjects": [{"name": "Python", "playlist": "PLsame"}, {"name": "Go", "playlist": "https://www.youtube.com/playlist?list=PLsame"}]},
-    {"subjects": [{"name": "x" * 41, "playlist": "PL1"}]},
-    {"slack_channel": ""}, {"lecturers": ["../outside"]}, {"lecturers": ["missing-ref"]},
-    {"classroom_course_id": 123},
-])
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"subjects": []},
+        {"subjects": [{"name": f"Subject{i}", "playlist": f"PL{i}"} for i in range(6)]},
+        {
+            "subjects": [
+                {"name": "Python", "playlist": "PL1"},
+                {"name": "python", "playlist": "PL2"},
+            ]
+        },
+        {"subjects": [{"name": "Python", "playlist": "PL1"}, {"name": "Go", "playlist": "PL1"}]},
+        {
+            "subjects": [
+                {"name": "Python", "playlist": "PLsame"},
+                {"name": "Go", "playlist": "https://www.youtube.com/playlist?list=PLsame"},
+            ]
+        },
+        {"subjects": [{"name": "x" * 41, "playlist": "PL1"}]},
+        {"slack_channel": ""},
+        {"lecturers": ["../outside"]},
+        {"lecturers": ["missing-ref"]},
+        {"classroom_course_id": 123},
+    ],
+)
 def test_invalid_groups_return_400_without_touching_config_or_backup(web, changes):
     before = snapshot(web)
     code, response = web.client("admin").call("PUT", group_url("Group-A"), group_body(**changes))
@@ -309,8 +389,10 @@ def test_invalid_group_paths_are_rejected_without_filesystem_or_config_changes(w
 def test_active_subject_cannot_be_removed_or_renamed_and_conflict_names_job_ids(web, status):
     job_id = add_job(web, status=status)
     client, before = web.client("admin"), snapshot(web)
-    for subjects in ([{"name": "JavaScript", "playlist": "PLjs"}],
-                     [{"name": "Go", "playlist": "PLpy"}, {"name": "JavaScript", "playlist": "PLjs"}]):
+    for subjects in (
+        [{"name": "JavaScript", "playlist": "PLjs"}],
+        [{"name": "Go", "playlist": "PLpy"}, {"name": "JavaScript", "playlist": "PLjs"}],
+    ):
         code, response = client.call("PUT", group_url("Group-A"), group_body(subjects=subjects))
         assert code == 409 and str(job_id) in json.dumps(response), response
         assert snapshot(web) == before
@@ -320,8 +402,11 @@ def test_subject_conflicts_include_jobs_older_than_default_db_page(web):
     old = add_job(web)
     for _ in range(55):
         add_job(web, status="done", group="Group-B", subject="C++")
-    code, response = web.client("admin").call("PUT", group_url("Group-A"),
-                                              group_body(subjects=[{"name": "JavaScript", "playlist": "PLjs"}]))
+    code, response = web.client("admin").call(
+        "PUT",
+        group_url("Group-A"),
+        group_body(subjects=[{"name": "JavaScript", "playlist": "PLjs"}]),
+    )
     assert code == 409 and str(old) in json.dumps(response), response
 
 
@@ -340,21 +425,29 @@ def test_destructive_subject_edits_block_queued_jobs_without_a_resolved_subject(
 
 def test_completed_subject_jobs_do_not_block_edits_and_history_is_preserved(web):
     job_id = add_job(web, status="done")
-    code, response = web.client("admin").call("PUT", group_url("Group-A"),
-                                              group_body(subjects=[{"name": "JavaScript", "playlist": "PLjs"}]))
+    code, response = web.client("admin").call(
+        "PUT",
+        group_url("Group-A"),
+        group_body(subjects=[{"name": "JavaScript", "playlist": "PLjs"}]),
+    )
     assert code == 200, response
     assert len(saved(web)["groups"]["Group-A"]["subjects"]) == 1
     database = DB(web.root / "reel.db")
     try:
-        assert database.job(job_id)["subject"] == "Python" and database.job(job_id)["status"] == "done"
+        assert (
+            database.job(job_id)["subject"] == "Python" and database.job(job_id)["status"] == "done"
+        )
     finally:
         database.conn.close()
 
 
 def test_unchanged_active_subject_and_other_groups_do_not_block_safe_update(web):
     add_job(web, subject="JavaScript")
-    code, response = web.client("admin").call("PUT", group_url("Group-A"),
-                                              group_body(subjects=[{"name": "JavaScript", "playlist": "PLjs"}], slack_channel="Cupdated"))
+    code, response = web.client("admin").call(
+        "PUT",
+        group_url("Group-A"),
+        group_body(subjects=[{"name": "JavaScript", "playlist": "PLjs"}], slack_channel="Cupdated"),
+    )
     assert code == 200, response
     assert saved(web)["groups"]["Group-A"]["slack_channel"] == "Cupdated"
 
@@ -399,11 +492,15 @@ def test_rename_moves_the_entire_inbox_directory_without_changing_file_bytes(web
     source.parent.mkdir(parents=True)
     source.write_bytes(b"inbox original bytes")
     old = saved(web)["groups"]["Group-A"]
-    code, response = web.client("admin").call("PUT", group_url("Group-A"), {**old, "rename_to": "Նոր խումբ"})
+    code, response = web.client("admin").call(
+        "PUT", group_url("Group-A"), {**old, "rename_to": "Նոր խումբ"}
+    )
     assert code == 200, response
     assert "Group-A" not in saved(web)["groups"] and saved(web)["groups"]["Նոր խումբ"] == old
     assert not (web.root / "inbox" / "Group-A").exists()
-    assert (web.root / "inbox" / "Նոր խումբ" / "Lesson" / "part.mp4").read_bytes() == b"inbox original bytes"
+    assert (
+        web.root / "inbox" / "Նոր խումբ" / "Lesson" / "part.mp4"
+    ).read_bytes() == b"inbox original bytes"
 
 
 @pytest.mark.parametrize("target", ["Group-B", "ExistingInbox", "../outside"])
@@ -415,9 +512,15 @@ def test_rename_never_overwrites_an_existing_group_inbox_or_escapes_root(web, ta
     existing.parent.mkdir(parents=True)
     existing.write_bytes(b"destination")
     before = snapshot(web)
-    code, response = web.client("admin").call("PUT", group_url("Group-A"), group_body(rename_to=target))
+    code, response = web.client("admin").call(
+        "PUT", group_url("Group-A"), group_body(rename_to=target)
+    )
     assert code in ((400,) if target.startswith("..") else (400, 409)), response
-    assert snapshot(web) == before and source.read_bytes() == b"source" and existing.read_bytes() == b"destination"
+    assert (
+        snapshot(web) == before
+        and source.read_bytes() == b"source"
+        and existing.read_bytes() == b"destination"
+    )
 
 
 @pytest.mark.parametrize("status", ["queued", "running", "stopped"])
@@ -427,7 +530,9 @@ def test_rename_blocks_noncompleted_jobs_even_when_subjects_are_unchanged(web, s
     source.parent.mkdir(parents=True)
     source.write_bytes(b"pending lesson")
     before = snapshot(web)
-    code, response = web.client("admin").call("PUT", group_url("Group-A"), group_body(rename_to="Renamed"))
+    code, response = web.client("admin").call(
+        "PUT", group_url("Group-A"), group_body(rename_to="Renamed")
+    )
     assert code == 409 and str(job_id) in json.dumps(response), response
     assert snapshot(web) == before and source.read_bytes() == b"pending lesson"
     assert not (web.root / "inbox" / "Renamed").exists()
@@ -448,7 +553,9 @@ def test_rename_rolls_back_inbox_move_if_atomic_config_save_fails(web, monkeypat
         raise OSError("fixture disk failure")
 
     monkeypatch.setattr(admin, "save_config", cannot_save)
-    code, response = web.client("admin").call("PUT", group_url("Group-A"), group_body(rename_to="Renamed"))
+    code, response = web.client("admin").call(
+        "PUT", group_url("Group-A"), group_body(rename_to="Renamed")
+    )
     assert code == 500, response
     assert attempts == [web.config_path] and snapshot(web) == before
     assert source.read_bytes() == b"original lesson bytes"
@@ -467,7 +574,9 @@ def test_concurrent_group_and_settings_updates_both_survive_read_modify_save(web
     group_client, settings_client = web.client("admin"), web.client("admin")
     with ThreadPoolExecutor(max_workers=2) as pool:
         group_request = pool.submit(group_client.call, "PUT", group_url("Parallel"), group_body())
-        settings_request = pool.submit(settings_client.call, "PUT", "/api/admin/settings", settings_body())
+        settings_request = pool.submit(
+            settings_client.call, "PUT", "/api/admin/settings", settings_body()
+        )
         assert group_request.result(timeout=10)[0] == 200
         assert settings_request.result(timeout=10)[0] == 200
     result = saved(web)
@@ -487,10 +596,18 @@ def test_settings_update_preserves_groups_and_other_cut_values_and_creates_backu
     assert web.config_path.with_name("config.yaml.bak").read_bytes() == before_bytes
 
 
-@pytest.mark.parametrize("field,value", [("min_silence_sec", 0), ("min_silence_sec", -1),
-                                          ("min_silence_sec", True), ("max_cut_ratio", 0),
-                                          ("max_cut_ratio", 1), ("max_cut_ratio", float("nan")),
-                                          ("max_cut_ratio", "bad")])
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("min_silence_sec", 0),
+        ("min_silence_sec", -1),
+        ("min_silence_sec", True),
+        ("max_cut_ratio", 0),
+        ("max_cut_ratio", 1),
+        ("max_cut_ratio", float("nan")),
+        ("max_cut_ratio", "bad"),
+    ],
+)
 def test_invalid_settings_do_not_change_the_config_or_backup(web, field, value):
     body = settings_body()
     body["cut"][field] = value
@@ -510,18 +627,21 @@ def test_playlists_endpoint_uses_mock_and_returns_the_contract_fields_without_wr
 def test_playlist_publish_error_becomes_502_with_message(web, monkeypatch):
     def unavailable():
         raise PublishError("fixture YouTube authorization unavailable", retryable=False)
+
     monkeypatch.setattr(youtube, "list_playlists", unavailable)
     before = snapshot(web)
     code, response = web.client("admin").call("GET", "/api/admin/youtube/playlists")
-    assert code == 502 and "fixture YouTube authorization unavailable" in json.dumps(response), response
+    assert code == 502 and "fixture YouTube authorization unavailable" in json.dumps(response), (
+        response
+    )
     assert snapshot(web) == before
 
 
 def test_group_editor_accepts_existing_processing_and_correction_options(web):
-    body=group_body(framing='auto')
-    body.update(framing_correction='perspective',processing={'studio_audio':{'enabled':True}})
-    code,result=web.client('admin').call('PUT',group_url('Group-A'),body)
-    assert code==200,result
-    group=saved(web)['groups']['Group-A']
-    assert group['framing']=='auto' and group['framing_correction']=='perspective'
-    assert group['processing']==body['processing']
+    body = group_body(framing="auto")
+    body.update(framing_correction="perspective", processing={"studio_audio": {"enabled": True}})
+    code, result = web.client("admin").call("PUT", group_url("Group-A"), body)
+    assert code == 200, result
+    group = saved(web)["groups"]["Group-A"]
+    assert group["framing"] == "auto" and group["framing_correction"] == "perspective"
+    assert group["processing"] == body["processing"]

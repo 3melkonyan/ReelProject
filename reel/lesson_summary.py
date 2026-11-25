@@ -5,6 +5,7 @@ produced (English per-part summaries + Armenian chapter titles); a short transcr
 The local model's free Armenian is not always reliable (see reel.stages.metadata), so the answer is
 schema-constrained, validated and retried once; anything unusable means "no summary", never a stopped lesson.
 """
+
 from __future__ import annotations
 
 import json
@@ -31,9 +32,16 @@ SCHEMA = {
     "type": "object",
     "properties": {
         "summary": {"type": "array", "items": {"type": "string"}, "minItems": 5, "maxItems": 10},
-        "terms": {"type": "array", "minItems": 3, "maxItems": 8, "items": {
-            "type": "object", "properties": {"term": {"type": "string"}, "meaning": {"type": "string"}},
-            "required": ["term", "meaning"]}},
+        "terms": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 8,
+            "items": {
+                "type": "object",
+                "properties": {"term": {"type": "string"}, "meaning": {"type": "string"}},
+                "required": ["term", "meaning"],
+            },
+        },
         "questions": {"type": "array", "items": {"type": "string"}, "minItems": 3, "maxItems": 5},
     },
     "required": ["summary", "terms", "questions"],
@@ -51,7 +59,8 @@ def _text(value: object, limit: int, *, armenian: bool = True) -> str | None:
     text = _BULLET.sub("", text).strip(" -–—")
     if not text or len(text) > limit or (armenian and not _ARMENIAN.search(text)):
         return None
-    from reel.stages.metadata import _normalize_terms     # same term spelling as titles and chapters
+    from reel.stages.metadata import _normalize_terms  # same term spelling as titles and chapters
+
     return _normalize_terms(text)
 
 
@@ -79,26 +88,47 @@ def validate(data: object, material: str | None = None, *, language="hy") -> dic
     lines = []
     for item in data.get("summary") or []:
         # The model sometimes packs a whole paragraph into one item: one sentence per line instead.
-        lines += re.split(r"(?<=[։.!?])\s+", item.strip()) if isinstance(item, str) and len(item) > 200 else [item]
-    summary = unique(t for t in map(lambda v: _text(v, 300, armenian=language == "hy"), lines) if t and len(t) >= 15)
-    questions = unique(t for t in map(lambda v: _text(v, 220, armenian=language == "hy"), data.get("questions") or []) if t and len(t) >= 10)
+        lines += (
+            re.split(r"(?<=[։.!?])\s+", item.strip())
+            if isinstance(item, str) and len(item) > 200
+            else [item]
+        )
+    summary = unique(
+        t
+        for t in map(lambda v: _text(v, 300, armenian=language == "hy"), lines)
+        if t and len(t) >= 15
+    )
+    questions = unique(
+        t
+        for t in map(
+            lambda v: _text(v, 220, armenian=language == "hy"), data.get("questions") or []
+        )
+        if t and len(t) >= 10
+    )
     terms = []
     for item in data.get("terms") or []:
         if isinstance(item, dict):
-            term, meaning = _text(item.get("term"), 60, armenian=False), _text(item.get("meaning"), 200, armenian=language == "hy")
+            term, meaning = (
+                _text(item.get("term"), 60, armenian=False),
+                _text(item.get("meaning"), 200, armenian=language == "hy"),
+            )
             if term and meaning:
                 # Remove a repeated term prefix before its explanation.
-                meaning = re.sub(r"^" + re.escape(term) + r"\s*[-–—:]\s*", "", meaning, flags=re.IGNORECASE)
+                meaning = re.sub(
+                    r"^" + re.escape(term) + r"\s*[-–—:]\s*", "", meaning, flags=re.IGNORECASE
+                )
                 if material is None or _grounded(term, material):
-                    if _ARMENIAN.match(meaning):          # capitalise Armenian, never code ("makeCounter")
+                    if _ARMENIAN.match(meaning):  # capitalise Armenian, never code ("makeCounter")
                         meaning = meaning[:1].upper() + meaning[1:]
                     terms.append({"term": term, "meaning": meaning})
     terms = unique(terms)
-    if not 5 <= len(summary):
+    if not len(summary) >= 5:
         raise ValueError(f"summary needs 5-10 Armenian sentences, got {len(summary)} usable")
     if len(terms) < 3:
-        raise ValueError(f"terms needs 3-8 items that appear in the material, with Armenian meanings; "
-                         f"got {len(terms)} usable")
+        raise ValueError(
+            f"terms needs 3-8 items that appear in the material, with Armenian meanings; "
+            f"got {len(terms)} usable"
+        )
     if len(questions) < 3:
         raise ValueError(f"questions needs 3-5 Armenian questions, got {len(questions)} usable")
     return {"summary": summary[:10], "terms": terms[:8], "questions": questions[:5]}
@@ -119,25 +149,50 @@ def excerpt(cues: list[dict], limit: int = EXCERPT_CHARS) -> str:
 
 
 def material(meta: dict, parts: list, transcript: str) -> str:
-    chapters = [c.get("title") for c in meta.get("chapters") or [] if isinstance(c, dict) and c.get("title")]
-    english = [{"topic": p.get("topic"), "summary": p.get("summary")} for p in parts or []
-               if isinstance(p, dict) and isinstance(p.get("summary"), str)]
-    return json.dumps({"title": meta.get("title"), "chapters": chapters, "internal_summaries": english,
-                       "transcript_excerpt": "" if len(english) >= 2 else transcript}, ensure_ascii=False)
+    chapters = [
+        c.get("title") for c in meta.get("chapters") or [] if isinstance(c, dict) and c.get("title")
+    ]
+    english = [
+        {"topic": p.get("topic"), "summary": p.get("summary")}
+        for p in parts or []
+        if isinstance(p, dict) and isinstance(p.get("summary"), str)
+    ]
+    return json.dumps(
+        {
+            "title": meta.get("title"),
+            "chapters": chapters,
+            "internal_summaries": english,
+            "transcript_excerpt": "" if len(english) >= 2 else transcript,
+        },
+        ensure_ascii=False,
+    )
 
 
-def generate(meta: dict, parts: list, transcript: str, *, chat=None, model: str | None = None, language="hy") -> dict:
+def generate(
+    meta: dict, parts: list, transcript: str, *, chat=None, model: str | None = None, language="hy"
+) -> dict:
     """Raises llm.LLMError (model unavailable) or ValueError (unusable twice)."""
     if language not in ("hy", "en"):
         raise ValueError("Unsupported summary language")
-    system = SYSTEM if language == "hy" else (
-        "Write English study notes using only the supplied lesson material. Preserve technical identifiers. "
-        "Return JSON with summary (5–10 short sentences), terms (3–8 term/meaning objects), "
-        "and questions (3–5 self-check questions). Every term must occur in the material. Do not invent facts.")
+    system = (
+        SYSTEM
+        if language == "hy"
+        else (
+            "Write English study notes using only the supplied lesson material. Preserve technical identifiers. "
+            "Return JSON with summary (5–10 short sentences), terms (3–8 term/meaning objects), "
+            "and questions (3–5 self-check questions). Every term must occur in the material. Do not invent facts."
+        )
+    )
     chat = chat or llm.chat_json
     payload, feedback = material(meta, parts, transcript), ""
     for _ in range(2):
-        data = chat(system + feedback, payload, model=model or llm.DEFAULT_MODEL, schema=SCHEMA, temperature=0.2)
+        data = chat(
+            system + feedback,
+            payload,
+            model=model or llm.DEFAULT_MODEL,
+            schema=SCHEMA,
+            temperature=0.2,
+        )
         try:
             return validate(data, payload.casefold(), language=language)
         except ValueError as error:

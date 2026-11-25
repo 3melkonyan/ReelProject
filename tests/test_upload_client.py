@@ -1,15 +1,17 @@
 """Run the upload controller as a JS unit (fake XHR/network, no browser automation)."""
-from pathlib import Path
+
 import shutil
 import subprocess
+from pathlib import Path
+
 import pytest
 
 
 @pytest.mark.parametrize("wake_mode", ["success", "rejected", "sync_error", "absent"])
 def test_phone_upload_recovers_partial_chunk_and_lost_finish_response(wake_mode):
-    root=Path(__file__).resolve().parents[1]
-    node=shutil.which("node") or "node"
-    script=r"""
+    root = Path(__file__).resolve().parents[1]
+    node = shutil.which("node") or "node"
+    script = r"""
 const fs=require('fs'),vm=require('vm'),assert=require('assert/strict');
 const events={},docEvents={},requests=[],stored=new Map(),wakeMode=process.argv[2];
 let received=0,receipt=false,failChunk=true,finishes=0,wakes=0,releases=0,timer;
@@ -58,14 +60,19 @@ vm.createContext(context);require(require('path').resolve('tests/browser_locale.
  console.log('partial chunk + online/visibility + lost finish + wake lock: passed');
 })().catch(e=>{console.error(e);process.exitCode=1;});
 """
-    result=subprocess.run([node,"-e",script,str(root/"reel/web/static/upload.js"),wake_mode],capture_output=True,text=True,timeout=15)
-    assert result.returncode==0,result.stdout+result.stderr
+    result = subprocess.run(
+        [node, "-e", script, str(root / "reel/web/static/upload.js"), wake_mode],
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
 
 
 def test_known_auto_notes_are_armenian_and_unknown_text_is_escaped():
-    root=Path(__file__).resolve().parents[1]
-    node=shutil.which("node") or "node"
-    script=r"""
+    root = Path(__file__).resolve().parents[1]
+    node = shutil.which("node") or "node"
+    script = r"""
 const fs=require('fs'),vm=require('vm'),assert=require('assert/strict');
 const source=fs.readFileSync(process.argv[1],'utf8');
 const start=source.indexOf('function autoDecisionLine(info)'),end=source.indexOf('async function viewJob(',start);
@@ -74,5 +81,10 @@ const known=['unclear windows','plan cut','planned result too short','grounded c
 for(const note of known){const html=c.autoDecisionLine({auto_note:note+' <img src=x onerror=alert(1)>'});assert.match(html,/Ավտոմատ որոշում/);assert.ok(!html.includes(note));assert.ok(!html.includes('<img'));}
 const unknown=c.autoDecisionLine({auto_note:'future <img src=x onerror=alert(1)>'});assert.ok(unknown.includes('&lt;img'));assert.ok(!unknown.includes('<img'));
 """
-    result=subprocess.run([node,"-e",script,str(root/"reel/web/static/app.js")],capture_output=True,text=True,timeout=15)
-    assert result.returncode==0,result.stdout+result.stderr
+    result = subprocess.run(
+        [node, "-e", script, str(root / "reel/web/static/app.js")],
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr

@@ -1,6 +1,7 @@
 """Choose a usable H.264 encoder without touching lesson media."""
-from functools import lru_cache
+
 import subprocess
+from functools import lru_cache
 
 
 @lru_cache(maxsize=1)
@@ -13,11 +14,29 @@ def h264_encoder() -> str:
     """
     try:
         probe = subprocess.run(
-            ["ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error",
-             "-f", "lavfi", "-i", "color=size=64x64:rate=1:duration=1",
-             "-frames:v", "1", "-c:v", "h264_videotoolbox", "-f", "null", "-"],
-            stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL, timeout=15, check=False,
+            [
+                "ffmpeg",
+                "-nostdin",
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-f",
+                "lavfi",
+                "-i",
+                "color=size=64x64:rate=1:duration=1",
+                "-frames:v",
+                "1",
+                "-c:v",
+                "h264_videotoolbox",
+                "-f",
+                "null",
+                "-",
+            ],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=15,
+            check=False,
         )
         if probe.returncode == 0:
             return "h264_videotoolbox"

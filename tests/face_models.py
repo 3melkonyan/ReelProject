@@ -3,6 +3,7 @@
 The YuNet and SFace weights are downloaded separately (see docs/INSTALLATION.md)
 and are not part of the repository.
 """
+
 import pytest
 
 from reel.stages.privacy import DET_MODEL, REC_MODEL

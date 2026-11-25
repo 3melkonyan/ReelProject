@@ -4,17 +4,18 @@ The production app loads/writes secrets at import time. Execute its source in an
 isolated module whose __file__ is already under tmp_path; never import app.py
 under its production package name. No worker, media command, or real job runs.
 """
+
 from __future__ import annotations
 
-from dataclasses import dataclass
-from http.cookiejar import CookieJar
 import json
-from pathlib import Path
 import socket
 import sqlite3
 import sys
 import threading
 import time
+from dataclasses import dataclass
+from http.cookiejar import CookieJar
+from pathlib import Path
 from types import ModuleType, SimpleNamespace
 from urllib.error import HTTPError
 from urllib.request import HTTPCookieProcessor, ProxyHandler, Request, build_opener
@@ -41,7 +42,7 @@ class Client:
         self.opener = build_opener(ProxyHandler({}), HTTPCookieProcessor(CookieJar()))
 
     def request(self, method: str, path: str, *, body=None, headers=None) -> Reply:
-        values = dict({"X-Requested-With":"reel"} if headers is None else headers)
+        values = dict({"X-Requested-With": "reel"} if headers is None else headers)
         data = None
         if body is not None:
             data = json.dumps(body, ensure_ascii=False).encode("utf-8")
@@ -70,8 +71,9 @@ def web(tmp_path, monkeypatch):
     # From the first executed line, ROOT/STATIC/SECRETS are temporary paths.
     exec(compile(source.read_text(encoding="utf-8"), str(fake_file), "exec"), module.__dict__)
     from account_fixture import existing_admin
+
     existing_admin(module)
-    if module.ROOT != tmp_path or module.SECRETS_FILE != tmp_path / "secrets" / "web.json":
+    if tmp_path != module.ROOT or tmp_path / "secrets" / "web.json" != module.SECRETS_FILE:
         raise RuntimeError("App root/secrets escaped the temporary fixture")
     if not module.SECRETS_FILE.is_file():
         raise RuntimeError("Temporary app secrets were not initialized")
@@ -86,12 +88,20 @@ def web(tmp_path, monkeypatch):
             if Path(path).resolve() != database.resolve():
                 raise RuntimeError("App attempted non-temporary DB access")
             # Starlette may dispatch separate synchronous calls to different threads.
-            self.conn = sqlite3.connect(str(database), isolation_level=None, check_same_thread=False)
+            self.conn = sqlite3.connect(
+                str(database), isolation_level=None, check_same_thread=False
+            )
             connections.append(self.conn)
             self.conn.row_factory = sqlite3.Row
             # Match DB's deterministic identity helpers on this custom connection.
             from reel.db import email_identity
-            self.conn.create_function("casefold", 1, lambda value: value.casefold() if isinstance(value, str) else "", deterministic=True)
+
+            self.conn.create_function(
+                "casefold",
+                1,
+                lambda value: value.casefold() if isinstance(value, str) else "",
+                deterministic=True,
+            )
             self.conn.create_function("email_identity", 1, email_identity, deterministic=True)
             self.conn.execute("PRAGMA journal_mode=WAL")
             self.conn.execute("PRAGMA foreign_keys=ON")
@@ -99,12 +109,17 @@ def web(tmp_path, monkeypatch):
 
     monkeypatch.setattr(module, "DB", RequestDB)
     retries = []
-    monkeypatch.setattr(module, "pipeline", SimpleNamespace(retry=lambda db, job: retries.append(job)))
+    monkeypatch.setattr(
+        module, "pipeline", SimpleNamespace(retry=lambda db, job: retries.append(job))
+    )
     clock = SimpleNamespace(now=1000.0, sleeps=[])
     # Do not replace time.sleep globally: uvicorn and thread startup need real time.
-    monkeypatch.setattr(module, "time", SimpleNamespace(time=lambda: clock.now, sleep=clock.sleeps.append))
+    monkeypatch.setattr(
+        module, "time", SimpleNamespace(time=lambda: clock.now, sleep=clock.sleeps.append)
+    )
     from reel.web import accounts
-    monkeypatch.setattr(accounts,"time",SimpleNamespace(time=lambda:clock.now))
+
+    monkeypatch.setattr(accounts, "time", SimpleNamespace(time=lambda: clock.now))
     seed = DB(database)
     job = seed.create_job(str(tmp_path / "source.mp4"), "temporary-g18-job", "Test-Group")
     if job is None:
@@ -129,6 +144,7 @@ def web(tmp_path, monkeypatch):
         def done(d):
             d.stage_start(job, "privacy")
             d.stage_done(job, "privacy", {"other_faces": 0})
+
         mutate(done)
 
     listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -136,7 +152,9 @@ def web(tmp_path, monkeypatch):
     listener.bind(("127.0.0.1", 0))
     listener.listen(128)
     base = f"http://127.0.0.1:{listener.getsockname()[1]}"
-    server = uvicorn.Server(uvicorn.Config(module.app, log_level="critical", access_log=False, lifespan="off"))
+    server = uvicorn.Server(
+        uvicorn.Config(module.app, log_level="critical", access_log=False, lifespan="off")
+    )
     thread = threading.Thread(target=server.run, kwargs={"sockets": [listener]}, daemon=True)
     thread.start()
     try:
@@ -149,15 +167,32 @@ def web(tmp_path, monkeypatch):
         def client(role=None):
             result = Client(base)
             if role:
-                password = {"admin": "g18-admin-test-password", "viewer": "g18-viewer-test-password"}[role]
-                reply = result.request("POST", "/api/login", body={"login":"fixture-admin" if role=="admin" else "", "password": password})
+                password = {
+                    "admin": "g18-admin-test-password",
+                    "viewer": "g18-viewer-test-password",
+                }[role]
+                reply = result.request(
+                    "POST",
+                    "/api/login",
+                    body={
+                        "login": "fixture-admin" if role == "admin" else "",
+                        "password": password,
+                    },
+                )
                 if reply.status != 200 or reply.json().get("role") != role:
                     raise RuntimeError(f"Fixture {role} login failed with HTTP {reply.status}")
             return result
 
         yield SimpleNamespace(
-            client=client, job=job, work=work, mutate=mutate, passed=privacy_passed,
-            retries=retries, clock=clock, face_name=face_name, face_bytes=face_bytes,
+            client=client,
+            job=job,
+            work=work,
+            mutate=mutate,
+            passed=privacy_passed,
+            retries=retries,
+            clock=clock,
+            face_name=face_name,
+            face_bytes=face_bytes,
         )
     finally:
         server.should_exit = True
@@ -169,16 +204,26 @@ def web(tmp_path, monkeypatch):
             connection.close()
 
 
-@pytest.mark.parametrize("method,path", [
-    ("GET", "/api/me"), ("GET", "/api/summary"), ("GET", "/api/jobs"),
-    ("GET", "/api/activity"), ("GET", "/api/groups"),
-    ("GET", "/api/jobs/{job}"), ("GET", "/api/jobs/{job}/video"),
-    ("GET", "/api/jobs/{job}/thumbnail"),
-    ("GET", "/api/jobs/{job}/faces/face_0001.0s_test.jpg"),
-    ("POST", "/api/jobs/{job}/retry"), ("POST", "/api/jobs/{job}/resolve"),
-])
+@pytest.mark.parametrize(
+    "method,path",
+    [
+        ("GET", "/api/me"),
+        ("GET", "/api/summary"),
+        ("GET", "/api/jobs"),
+        ("GET", "/api/activity"),
+        ("GET", "/api/groups"),
+        ("GET", "/api/jobs/{job}"),
+        ("GET", "/api/jobs/{job}/video"),
+        ("GET", "/api/jobs/{job}/thumbnail"),
+        ("GET", "/api/jobs/{job}/faces/face_0001.0s_test.jpg"),
+        ("POST", "/api/jobs/{job}/retry"),
+        ("POST", "/api/jobs/{job}/resolve"),
+    ],
+)
 def test_protected_apis_require_login(web, method, path):
-    reply = web.client().request(method, path.format(job=web.job), body={} if method == "POST" else None)
+    reply = web.client().request(
+        method, path.format(job=web.job), body={} if method == "POST" else None
+    )
     assert reply.status == 401
 
 
@@ -190,30 +235,63 @@ def test_logout_requires_login_under_literal_api_policy(web):
 def test_wrong_password_and_five_failure_lockout_expiry(web):
     client = web.client()
     for _ in range(5):
-        assert client.request("POST", "/api/login", body={"login":"fixture-admin","password": "wrong-password"}).status == 401
+        assert (
+            client.request(
+                "POST", "/api/login", body={"login": "fixture-admin", "password": "wrong-password"}
+            ).status
+            == 401
+        )
     assert web.clock.sleeps == []
-    assert client.request("POST", "/api/login", body={"login":"fixture-admin","password": "wrong-password"}).status == 429
-    assert client.request("POST", "/api/login", body={"login":"fixture-admin","password": "g18-admin-test-password"}).status == 429
+    assert (
+        client.request(
+            "POST", "/api/login", body={"login": "fixture-admin", "password": "wrong-password"}
+        ).status
+        == 429
+    )
+    assert (
+        client.request(
+            "POST",
+            "/api/login",
+            body={"login": "fixture-admin", "password": "g18-admin-test-password"},
+        ).status
+        == 429
+    )
     web.clock.now += 901
-    assert client.request("POST", "/api/login", body={"login":"fixture-admin","password": "g18-admin-test-password"}).status == 200
+    assert (
+        client.request(
+            "POST",
+            "/api/login",
+            body={"login": "fixture-admin", "password": "g18-admin-test-password"},
+        ).status
+        == 200
+    )
 
 
-def test_wrong_unicode_password_is_unauthorized(web):   # bytes compare
-    assert web.client().request("POST", "/api/login", body={"password": "սխալ գաղտնաբառ"}).status == 401
+def test_wrong_unicode_password_is_unauthorized(web):  # bytes compare
+    assert (
+        web.client().request("POST", "/api/login", body={"password": "սխալ գաղտնաբառ"}).status
+        == 401
+    )
 
 
 @pytest.mark.parametrize("action", ["retry", "resolve"])
 def test_admin_mutations_require_requested_with_header(web, action):
     client = web.client("admin")
     body = {"target": "slack", "state": "posted"}
-    assert client.request("POST", f"/api/jobs/{web.job}/{action}", body=body, headers={}).status == 400
+    assert (
+        client.request("POST", f"/api/jobs/{web.job}/{action}", body=body, headers={}).status == 400
+    )
     assert web.retries == []
 
 
 @pytest.mark.parametrize("action", ["retry", "resolve"])
 def test_viewer_cannot_mutate_jobs(web, action):
-    reply = web.client("viewer").request("POST", f"/api/jobs/{web.job}/{action}",
-        body={"target": "slack", "state": "posted"}, headers={"X-Requested-With": "reel"})
+    reply = web.client("viewer").request(
+        "POST",
+        f"/api/jobs/{web.job}/{action}",
+        body={"target": "slack", "state": "posted"},
+        headers={"X-Requested-With": "reel"},
+    )
     assert reply.status == 403
     assert web.retries == []
 
@@ -222,8 +300,12 @@ def test_viewer_cannot_mutate_jobs(web, action):
 def test_admin_mutations_positive_control(web, action):
     marker = web.work / "pub_slack.pending"
     marker.write_text("temporary marker")
-    reply = web.client("admin").request("POST", f"/api/jobs/{web.job}/{action}",
-        body={"target": "slack", "state": "posted"}, headers={"X-Requested-With": "reel"})
+    reply = web.client("admin").request(
+        "POST",
+        f"/api/jobs/{web.job}/{action}",
+        body={"target": "slack", "state": "posted"},
+        headers={"X-Requested-With": "reel"},
+    )
     assert reply.status == 200
     if action == "retry":
         assert web.retries == [web.job]
@@ -241,7 +323,10 @@ def test_private_face_crops_are_admin_only(web):
 
 @pytest.mark.parametrize("name", ["face_..jpg", "%2e%2e", "face_x%2Fsecret.jpg", "thumbnail.jpg"])
 def test_admin_face_names_reject_traversal_and_nonface_files(web, name):
-    assert web.client("admin").request("GET", f"/api/jobs/{web.job}/faces/{name}").status in {400, 404}
+    assert web.client("admin").request("GET", f"/api/jobs/{web.job}/faces/{name}").status in {
+        400,
+        404,
+    }
 
 
 @pytest.mark.parametrize("quality", ["", "?q=full"])
@@ -282,15 +367,26 @@ def test_viewer_detail_hides_face_list_with_admin_positive_control(web):
     assert [face["name"] for face in admin["faces"]] == [web.face_name]
 
 
-@pytest.mark.parametrize("target", [
-    "youtube",
-    "playlist", "slack", "classroom", "library",   # per-publication dry flag
-])
+@pytest.mark.parametrize(
+    "target",
+    [
+        "youtube",
+        "playlist",
+        "slack",
+        "classroom",
+        "library",  # per-publication dry flag
+    ],
+)
 def test_each_dry_publication_is_labeled_and_has_no_link(web, target):
     def publications(d):
         if target != "youtube":
-            d.add_publication(web.job, "youtube", "real-youtube-id", "https://example.com/real-youtube")
-        d.add_publication(web.job, target, f"opaque-dry-{target}", f"https://example.com/fake-{target}")
+            d.add_publication(
+                web.job, "youtube", "real-youtube-id", "https://example.com/real-youtube"
+            )
+        d.add_publication(
+            web.job, target, f"opaque-dry-{target}", f"https://example.com/fake-{target}"
+        )
+
     web.mutate(publications)
     reply = web.client("viewer").request("GET", f"/api/jobs/{web.job}")
     if reply.status != 200:

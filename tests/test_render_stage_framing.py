@@ -1,4 +1,5 @@
 """Rendering uses conservative framing and notifies the operator on fallback."""
+
 import pytest
 
 import reel.board
@@ -10,9 +11,19 @@ from reel.pipeline import Ctx
 @pytest.fixture
 def env(tmp_path, monkeypatch):
     calls = {"render": [], "detect": 0, "notify": []}
-    state = {"found": {"ok": True, "found": 20, "frames": 20, "agree": 0.9, "corners": [[0, 0]] * 4,
-                       "tilt_deg": -0.4},
-             "cut": 0.0, "fail_framed": False, "info": {"width": 3840, "height": 2160}}
+    state = {
+        "found": {
+            "ok": True,
+            "found": 20,
+            "frames": 20,
+            "agree": 0.9,
+            "corners": [[0, 0]] * 4,
+            "tilt_deg": -0.4,
+        },
+        "cut": 0.0,
+        "fail_framed": False,
+        "info": {"width": 3840, "height": 2160},
+    }
 
     def render(src, keep, out, *, framing=None, **kw):
         calls["render"].append(framing)
@@ -30,7 +41,9 @@ def env(tmp_path, monkeypatch):
     monkeypatch.setattr(rd, "measured_integrated", lambda p: rd.TARGET["I"])
     monkeypatch.setattr(rd, "video_info", lambda p: dict(state["info"]))
     monkeypatch.setattr(reel.board, "detect", detect)
-    monkeypatch.setattr(reel.board, "plan", lambda c, w, h: {"crop": [1, 2, 3, 4], "board_cut": state["cut"]})
+    monkeypatch.setattr(
+        reel.board, "plan", lambda c, w, h: {"crop": [1, 2, 3, 4], "board_cut": state["cut"]}
+    )
     monkeypatch.setattr(st, "_notify", calls["notify"].append)
 
     def ctx(framing="board"):
@@ -50,26 +63,49 @@ def test_groups_without_framing_are_rendered_as_before(env):
 
 def test_a_sure_board_is_framed(env):
     out = st.render_stage(env.ctx())
-    assert env.calls["render"] == [{"crop": [1, 2, 3, 4], "board_cut": 0.0}] and out["board"] == "framed"
+    assert (
+        env.calls["render"] == [{"crop": [1, 2, 3, 4], "board_cut": 0.0}]
+        and out["board"] == "framed"
+    )
     assert out["board_tilt_deg"] == -0.4 and out["path"] == "frame"
 
 
-@pytest.mark.parametrize("change, words", [
-    ({"found": {"ok": False, "found": 4, "frames": 20, "agree": 0.2, "corners": None, "tilt_deg": None}}, "not found"),
-    ({"found": None}, "detection failed"),
-    ({"cut": 0.2}, "cut 20%"),
-    ({"info": {"width": 1080, "height": 1920}}, "portrait"),
-    ({"fail_framed": True}, "framed render failed"),
-])
+@pytest.mark.parametrize(
+    "change, words",
+    [
+        (
+            {
+                "found": {
+                    "ok": False,
+                    "found": 4,
+                    "frames": 20,
+                    "agree": 0.2,
+                    "corners": None,
+                    "tilt_deg": None,
+                }
+            },
+            "not found",
+        ),
+        ({"found": None}, "detection failed"),
+        ({"cut": 0.2}, "cut 20%"),
+        ({"info": {"width": 1080, "height": 1920}}, "portrait"),
+        ({"fail_framed": True}, "framed render failed"),
+    ],
+)
 def test_anything_unsure_keeps_full_frame_and_notifies_once(env, change, words):
     env.state.update(change)
     out = st.render_stage(env.ctx())
-    assert env.calls["render"][-1] is None and words in out["board"] and "full frame kept" in out["board"]
+    assert (
+        env.calls["render"][-1] is None
+        and words in out["board"]
+        and "full frame kept" in out["board"]
+    )
     assert len(env.calls["notify"]) == 1 and "ամբողջ կադրը" in env.calls["notify"][0]
 
 
 def test_loudness_off_target_is_published_with_a_note_but_silence_stops(env, monkeypatch):
     from reel.pipeline import StopJob
+
     monkeypatch.setattr(rd, "measured_integrated", lambda p: rd.TARGET["I"] - 3)
     out = st.render_stage(env.ctx(framing=None))
     assert "published as is" in out["auto_note"] and env.calls["notify"] == []

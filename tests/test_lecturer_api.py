@@ -1,8 +1,8 @@
 """HTTP tests: source-exec app, ephemeral server and exclusively temporary data."""
+
 from __future__ import annotations
 
 import builtins
-
 import io
 import json
 import os
@@ -23,7 +23,8 @@ from uuid import uuid4
 import pytest
 import uvicorn
 
-from reel import config as config_module, pipeline
+from reel import config as config_module
+from reel import pipeline
 from reel.db import DB
 from reel.web import admin, lecturer_api
 
@@ -33,12 +34,28 @@ JPEG = b"\xff\xd8\xff\xe0isolated-jpeg-fixture\xff\xd9"
 
 
 def auto_data():
-    return {"mode": "unsure", "reason": "two candidates have similar presence", "face_frames": 70,
-            "identities": [{"presence": 40, "share": 0.57, "face_px": 120, "first_t": 2, "last_t": 90,
-                            "centre": [999], "extra": {"centres": [[999]]}},
-                           {"presence": 30, "share": 0.43, "face_px": 80, "first_t": 8, "last_t": 60}],
-            "centres": [[float(i) / 1000 for i in range(128)], [float(i + 128) / 1000 for i in range(128)]],
-            "extra": {"centre": [999]}}
+    return {
+        "mode": "unsure",
+        "reason": "two candidates have similar presence",
+        "face_frames": 70,
+        "identities": [
+            {
+                "presence": 40,
+                "share": 0.57,
+                "face_px": 120,
+                "first_t": 2,
+                "last_t": 90,
+                "centre": [999],
+                "extra": {"centres": [[999]]},
+            },
+            {"presence": 30, "share": 0.43, "face_px": 80, "first_t": 8, "last_t": 60},
+        ],
+        "centres": [
+            [float(i) / 1000 for i in range(128)],
+            [float(i + 128) / 1000 for i in range(128)],
+        ],
+        "extra": {"centre": [999]},
+    }
 
 
 def assert_no_centres(value):
@@ -70,8 +87,9 @@ class Client:
         if raw is not None:
             data, headers["Content-Type"] = raw, "application/json"
         try:
-            response = self.opener.open(Request(self.base + path, data=data, headers=headers,
-                                                method=method), timeout=10)
+            response = self.opener.open(
+                Request(self.base + path, data=data, headers=headers, method=method), timeout=10
+            )
         except HTTPError as exc:
             response = exc
         with response:
@@ -84,21 +102,27 @@ class Client:
 
 def metadata_snapshot():
     # Metadata only: never open the production DB or walk/read its work directory.
-    return {name: (PROJECT / name).stat().st_mtime_ns if (PROJECT / name).exists() else None
-            for name in ("reel.db", "work")}
+    return {
+        name: (PROJECT / name).stat().st_mtime_ns if (PROJECT / name).exists() else None
+        for name in ("reel.db", "work")
+    }
 
 
 @pytest.fixture(scope="module", autouse=True)
 def production_metadata_is_unchanged():
     before = metadata_snapshot()
     yield
-    assert metadata_snapshot() == before, "production DB/work metadata changed while isolated tests ran"
+    assert metadata_snapshot() == before, (
+        "production DB/work metadata changed while isolated tests ran"
+    )
 
 
 def new_job(root, *, status="stopped", blur="failed", output=None, publication=None):
     database = DB(root / "reel.db")
     try:
-        job_id = database.create_job(str(root / "archive" / "lesson.mp4"), uuid4().hex, "Group-A", "Python")
+        job_id = database.create_job(
+            str(root / "archive" / "lesson.mp4"), uuid4().hex, "Group-A", "Python"
+        )
         if blur != "pending":
             database.stage_start(job_id, "blur")
             if output is not None or blur == "done":
@@ -116,7 +140,9 @@ def new_job(root, *, status="stopped", blur="failed", output=None, publication=N
 def put_auto(root, job_id, data=None):
     path = root / "work" / str(job_id) / "auto_refs"
     path.mkdir(parents=True, exist_ok=True)
-    (path / "auto.json").write_text(json.dumps(auto_data() if data is None else data), encoding="utf-8")
+    (path / "auto.json").write_text(
+        json.dumps(auto_data() if data is None else data), encoding="utf-8"
+    )
     for name in ("identity_1.jpg", "identity_2.jpg", "ref_0.jpg", "ref_12.jpg"):
         (path / name).write_bytes(JPEG)
     return path
@@ -124,8 +150,15 @@ def put_auto(root, job_id, data=None):
 
 @pytest.fixture
 def web(tmp_path, monkeypatch):
-    protected = [PROJECT / "work", PROJECT / "secrets", PROJECT / "config.yaml", PROJECT / "config.yaml.bak",
-                 PROJECT / "reel.db", PROJECT / "reel.db-wal", PROJECT / "reel.db-shm"]
+    protected = [
+        PROJECT / "work",
+        PROJECT / "secrets",
+        PROJECT / "config.yaml",
+        PROJECT / "config.yaml.bak",
+        PROJECT / "reel.db",
+        PROJECT / "reel.db-wal",
+        PROJECT / "reel.db-shm",
+    ]
     forbidden_accesses = []
 
     def check_path(value):
@@ -141,6 +174,7 @@ def web(tmp_path, monkeypatch):
         def call(path, *args, **kwargs):
             check_path(path)
             return original(path, *args, **kwargs)
+
         return call
 
     def guarded_move(original):
@@ -148,10 +182,20 @@ def web(tmp_path, monkeypatch):
             check_path(source)
             check_path(destination)
             return original(source, destination, *args, **kwargs)
+
         return call
 
-    for owner, name in ((builtins, "open"), (io, "open"), (os, "open"), (os, "mkdir"),
-                        (os, "unlink"), (os, "remove"), (os, "rmdir"), (os, "listdir"), (os, "scandir")):
+    for owner, name in (
+        (builtins, "open"),
+        (io, "open"),
+        (os, "open"),
+        (os, "mkdir"),
+        (os, "unlink"),
+        (os, "remove"),
+        (os, "rmdir"),
+        (os, "listdir"),
+        (os, "scandir"),
+    ):
         monkeypatch.setattr(owner, name, guarded(getattr(owner, name)))
     for name in ("replace", "rename"):
         monkeypatch.setattr(os, name, guarded_move(getattr(os, name)))
@@ -190,6 +234,7 @@ def web(tmp_path, monkeypatch):
     monkeypatch.setitem(sys.modules, module.__name__, module)
     exec(compile(source.read_text(encoding="utf-8"), str(fake), "exec"), module.__dict__)
     from account_fixture import existing_admin
+
     existing_admin(module)
     assert module.ROOT == lecturer_api.ROOT == tmp_path
     job_id = new_job(tmp_path)
@@ -198,7 +243,9 @@ def web(tmp_path, monkeypatch):
     sock = socket.socket()
     sock.bind(("127.0.0.1", 0))
     sock.listen(64)
-    server = uvicorn.Server(uvicorn.Config(module.app, log_level="critical", access_log=False, lifespan="off"))
+    server = uvicorn.Server(
+        uvicorn.Config(module.app, log_level="critical", access_log=False, lifespan="off")
+    )
     thread = threading.Thread(target=server.run, kwargs={"sockets": [sock]}, daemon=True)
     thread.start()
     try:
@@ -211,12 +258,25 @@ def web(tmp_path, monkeypatch):
         def client(role=None):
             result = Client(base)
             if role:
-                code, response = result.call("POST", "/api/login", {"login":"fixture-admin" if role=="admin" else "", "password": PASSWORDS[role]})
+                code, response = result.call(
+                    "POST",
+                    "/api/login",
+                    {
+                        "login": "fixture-admin" if role == "admin" else "",
+                        "password": PASSWORDS[role],
+                    },
+                )
                 assert code == 200 and response["role"] == role
             return result
 
-        yield SimpleNamespace(root=tmp_path, job_id=job_id, auto_refs=auto_refs, client=client,
-                              choice=auto_refs.parent / "lecturer_choice.json", notes=notes)
+        yield SimpleNamespace(
+            root=tmp_path,
+            job_id=job_id,
+            auto_refs=auto_refs,
+            client=client,
+            choice=auto_refs.parent / "lecturer_choice.json",
+            notes=notes,
+        )
     finally:
         server.should_exit = True
         thread.join(5)
@@ -234,16 +294,24 @@ def job_snapshot(web):
 
 
 def job_files(web):
-    return {p.relative_to(web.auto_refs.parent): p.read_bytes()
-            for p in web.auto_refs.parent.rglob("*") if p.is_file()}
+    return {
+        p.relative_to(web.auto_refs.parent): p.read_bytes()
+        for p in web.auto_refs.parent.rglob("*")
+        if p.is_file()
+    }
 
 
 def test_viewer_uploader_and_anonymous_cannot_read_or_choose_lecturer_or_images(web):
     for role, expected in (("viewer", 403), ("uploader", 403), (None, 401)):
         client = web.client(role)
-        for method, name, body in (("GET", None, None), ("POST", None, {"none": True}),
-                                   ("GET", "identity_1.jpg", None)):
-            code, response = client.call(method, endpoint(web.job_id, name), body, csrf=name is None)
+        for method, name, body in (
+            ("GET", None, None),
+            ("POST", None, {"none": True}),
+            ("GET", "identity_1.jpg", None),
+        ):
+            code, response = client.call(
+                method, endpoint(web.job_id, name), body, csrf=name is None
+            )
             assert code == expected, (role, method, name, response)
     assert not web.choice.exists()
 
@@ -259,8 +327,15 @@ def test_json_get_and_post_require_exact_csrf_but_admin_images_do_not(web, csrf)
 
 
 def test_unsure_summary_whitelists_identity_fields_and_never_exposes_nested_embeddings(web):
-    web.choice.write_text(json.dumps({"identity": 2, "centre": auto_data()["centres"][1],
-                                      "extra": {"nested": {"centres": [[999]]}}}))
+    web.choice.write_text(
+        json.dumps(
+            {
+                "identity": 2,
+                "centre": auto_data()["centres"][1],
+                "extra": {"nested": {"centres": [[999]]}},
+            }
+        )
+    )
     code, response = web.client("admin").call("GET", endpoint(web.job_id))
     assert code == 200
     assert response["job_status"] == "stopped" and response["blur_status"] == "failed"
@@ -269,9 +344,13 @@ def test_unsure_summary_whitelists_identity_fields_and_never_exposes_nested_embe
     assert response["lecturer_rank"] is None
     assert response["refs"] == ["ref_0.jpg", "ref_12.jpg"]
     assert [c["rank"] for c in response["identities"]] == [1, 2]
-    assert response["identities"][0]["presence"] == 40 and response["identities"][0]["share"] == 0.57
-    assert all(set(identity) == {"rank", "presence", "share", "face_px", "first_t", "last_t", "image"}
-               for identity in response["identities"])
+    assert (
+        response["identities"][0]["presence"] == 40 and response["identities"][0]["share"] == 0.57
+    )
+    assert all(
+        set(identity) == {"rank", "presence", "share", "face_px", "first_t", "last_t", "image"}
+        for identity in response["identities"]
+    )
     assert response["identities"][1]["image"] == "identity_2.jpg"
 
 
@@ -287,17 +366,30 @@ def test_reads_all_discovery_modes_without_forwarding_private_centres(web, mode)
     data.update(mode=mode, lecturer_rank=2 if mode in ("auto", "chosen") else None)
     (web.auto_refs / "auto.json").write_text(json.dumps(data))
     code, response = web.client("admin").call("GET", endpoint(web.job_id))
-    assert code == 200 and response["mode"] == mode and response["lecturer_rank"] == data["lecturer_rank"]
+    assert (
+        code == 200
+        and response["mode"] == mode
+        and response["lecturer_rank"] == data["lecturer_rank"]
+    )
 
 
-@pytest.mark.parametrize("status,blur,publication,expected", [
-    ("queued", "pending", None, True), ("queued", "running", None, True),
-    ("stopped", "failed", None, True), ("stopped", "failed", "slack", True),
-    ("running", "failed", None, False), ("done", "failed", None, False),
-    ("queued", "done", None, False), ("stopped", "done", None, False),
-    ("stopped", "failed", "youtube", False),
-])
-def test_can_choose_gate_matches_job_stage_and_youtube_publication(web, status, blur, publication, expected):
+@pytest.mark.parametrize(
+    "status,blur,publication,expected",
+    [
+        ("queued", "pending", None, True),
+        ("queued", "running", None, True),
+        ("stopped", "failed", None, True),
+        ("stopped", "failed", "slack", True),
+        ("running", "failed", None, False),
+        ("done", "failed", None, False),
+        ("queued", "done", None, False),
+        ("stopped", "done", None, False),
+        ("stopped", "failed", "youtube", False),
+    ],
+)
+def test_can_choose_gate_matches_job_stage_and_youtube_publication(
+    web, status, blur, publication, expected
+):
     job_id = new_job(web.root, status=status, blur=blur, publication=publication)
     client = web.client("admin")
     code, response = client.call("GET", endpoint(job_id))
@@ -314,7 +406,11 @@ def test_identity_none_and_clear_persist_only_choice_without_retry_or_temporary_
     assert code == 200 and response["ok"] is True and response["choice"] == {"identity": 2}
     saved = json.loads(web.choice.read_text())
     assert set(saved) == {"identity", "centre", "by", "at"}
-    assert saved["identity"] == 2 and saved["centre"] == auto_data()["centres"][1] and saved["by"] == "admin"
+    assert (
+        saved["identity"] == 2
+        and saved["centre"] == auto_data()["centres"][1]
+        and saved["by"] == "admin"
+    )
     assert datetime.fromisoformat(saved["at"].replace("Z", "+00:00")).utcoffset() == timedelta(0)
     assert set(job_files(web)) == set(before_files) | {Path("lecturer_choice.json")}
     assert client.call("GET", endpoint(web.job_id))[1]["choice"] == {"identity": 2}
@@ -349,7 +445,9 @@ def test_identity_choice_is_published_with_same_directory_atomic_replace(web, mo
 
 
 def test_failed_atomic_replace_preserves_previous_choice_and_removes_temp(web, monkeypatch):
-    web.choice.write_text(json.dumps({"none": True, "by": "admin", "at": "2026-01-01T00:00:00+00:00"}))
+    web.choice.write_text(
+        json.dumps({"none": True, "by": "admin", "at": "2026-01-01T00:00:00+00:00"})
+    )
     before, original_replace = job_files(web), os.replace
 
     def cannot_replace(source, destination, *args, **kwargs):
@@ -362,9 +460,15 @@ def test_failed_atomic_replace_preserves_previous_choice_and_removes_temp(web, m
     assert code == 500 and job_files(web) == before
 
 
-def test_choice_reservation_blocks_preopened_worker_until_atomic_choice_is_persisted(web, monkeypatch):
+def test_choice_reservation_blocks_preopened_worker_until_atomic_choice_is_persisted(
+    web, monkeypatch
+):
     before = job_snapshot(web)
-    ready, attempt_write, first_attempt_done = threading.Event(), threading.Event(), threading.Event()
+    ready, attempt_write, first_attempt_done = (
+        threading.Event(),
+        threading.Event(),
+        threading.Event(),
+    )
     paused, allow_replace, retry_write, worker_done = (threading.Event() for _ in range(4))
     locked, worker_errors, post_errors, post_responses = [], [], [], []
     original_replace = os.replace
@@ -419,7 +523,9 @@ def test_choice_reservation_blocks_preopened_worker_until_atomic_choice_is_persi
         assert not web.choice.exists()
         attempt_write.set()
         assert first_attempt_done.wait(5) and worker_errors == []
-        assert len(locked) == 1 and "locked" in locked[0].lower(), "worker changed state during the choice reservation"
+        assert len(locked) == 1 and "locked" in locked[0].lower(), (
+            "worker changed state during the choice reservation"
+        )
         assert not web.choice.exists()
         allow_replace.set()
         post_thread.join(5)
@@ -439,12 +545,29 @@ def test_choice_reservation_blocks_preopened_worker_until_atomic_choice_is_persi
         assert not worker_thread.is_alive() and not post_thread.is_alive()
 
 
-@pytest.mark.parametrize("body", [{"identity": 0}, {"identity": -1}, {"identity": 3}, {"identity": 7},
-                                 {"identity": "x"}, {"identity": "2"}, {"identity": 2.0},
-                                 {"identity": True}, {"identity": False}, {"identity": None},
-                                 {"none": False}, {"clear": False}, {"clear": "true"}, {}, [],
-                                 {"identity": 1, "none": True}, {"none": True, "clear": True},
-                                 {"identity": 1, "centre": [1] * 128}])
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"identity": 0},
+        {"identity": -1},
+        {"identity": 3},
+        {"identity": 7},
+        {"identity": "x"},
+        {"identity": "2"},
+        {"identity": 2.0},
+        {"identity": True},
+        {"identity": False},
+        {"identity": None},
+        {"none": False},
+        {"clear": False},
+        {"clear": "true"},
+        {},
+        [],
+        {"identity": 1, "none": True},
+        {"none": True, "clear": True},
+        {"identity": 1, "centre": [1] * 128},
+    ],
+)
 def test_invalid_selection_bodies_are_400_and_preserve_existing_choice(web, body):
     web.choice.write_text('{"none":true}')
     before = job_files(web)
@@ -453,9 +576,20 @@ def test_invalid_selection_bodies_are_400_and_preserve_existing_choice(web, body
     assert job_files(web) == before
 
 
-@pytest.mark.parametrize("vector", [[0.1] * 127, [0.1] * 129, [True] * 128, ["0.1"] * 128,
-                                    [float("nan")] + [0.1] * 127, [float("inf")] * 128,
-                                    [-float("inf")] * 128, None, {"value": [0.1] * 128}])
+@pytest.mark.parametrize(
+    "vector",
+    [
+        [0.1] * 127,
+        [0.1] * 129,
+        [True] * 128,
+        ["0.1"] * 128,
+        [float("nan")] + [0.1] * 127,
+        [float("inf")] * 128,
+        [-float("inf")] * 128,
+        None,
+        {"value": [0.1] * 128},
+    ],
+)
 def test_corrupt_or_nonfinite_identity_centres_are_409_without_overwriting_choice(web, vector):
     data = auto_data()
     data["centres"][1] = vector
@@ -475,15 +609,29 @@ def test_missing_selected_centre_is_409(web):
     assert not web.choice.exists()
 
 
-@pytest.mark.parametrize("name", ["../outside.jpg", "../../lecturer_choice.json", "identity_1.png", "auto.json",
-                                 "identity_0.jpg", "identity_9.jpg", "ref_100.jpg", "identity_1.jpg/../auto.json"])
+@pytest.mark.parametrize(
+    "name",
+    [
+        "../outside.jpg",
+        "../../lecturer_choice.json",
+        "identity_1.png",
+        "auto.json",
+        "identity_0.jpg",
+        "identity_9.jpg",
+        "ref_100.jpg",
+        "identity_1.jpg/../auto.json",
+    ],
+)
 def test_image_names_and_traversal_are_rejected(web, name):
     code, _ = web.client("admin").call("GET", endpoint(web.job_id, name), csrf=False)
     assert code in (400, 404)
 
 
 def test_valid_reference_image_is_available_to_admin_without_csrf(web):
-    assert web.client("admin").call("GET", endpoint(web.job_id, "ref_12.jpg"), csrf=False) == (200, JPEG)
+    assert web.client("admin").call("GET", endpoint(web.job_id, "ref_12.jpg"), csrf=False) == (
+        200,
+        JPEG,
+    )
 
 
 def test_image_symlink_cannot_expose_file_outside_auto_refs(web):
@@ -492,7 +640,9 @@ def test_image_symlink_cannot_expose_file_outside_auto_refs(web):
     image = web.auto_refs / "identity_1.jpg"
     image.unlink()
     image.symlink_to(outside)
-    code, payload = web.client("admin").call("GET", endpoint(web.job_id, "identity_1.jpg"), csrf=False)
+    code, payload = web.client("admin").call(
+        "GET", endpoint(web.job_id, "identity_1.jpg"), csrf=False
+    )
     assert code in (400, 404) and payload != outside.read_bytes()
 
 
@@ -506,14 +656,25 @@ def test_missing_jobs_are_404_even_if_an_orphan_image_directory_exists(web):
     assert not (web.root / "work" / str(orphan) / "lecturer_choice.json").exists()
 
 
-@pytest.mark.parametrize("mode,lecturers", [("refs", ["lecturer-one", "lecturer-two"]), ("none", [])])
+@pytest.mark.parametrize(
+    "mode,lecturers", [("refs", ["lecturer-one", "lecturer-two"]), ("none", [])]
+)
 def test_stage_output_fallback_when_discovery_json_is_absent(web, mode, lecturers):
-    job_id = new_job(web.root, status="done", blur="done",
-                     output={"lecturer_mode": mode, "lecturers": lecturers,
-                             "lecturer": {"nested": {"centre": [1] * 128}}})
+    job_id = new_job(
+        web.root,
+        status="done",
+        blur="done",
+        output={
+            "lecturer_mode": mode,
+            "lecturers": lecturers,
+            "lecturer": {"nested": {"centre": [1] * 128}},
+        },
+    )
     code, response = web.client("admin").call("GET", endpoint(job_id))
     assert code == 200 and response["mode"] == mode and response["lecturers"] == lecturers
-    assert response["identities"] == [] and response["refs"] == [] and response["can_choose"] is False
+    assert (
+        response["identities"] == [] and response["refs"] == [] and response["can_choose"] is False
+    )
 
 
 def test_pending_job_has_null_mode_and_discovery_file_takes_priority_over_stage_output(web):
@@ -522,7 +683,9 @@ def test_pending_job_has_null_mode_and_discovery_file_takes_priority_over_stage_
     code, response = client.call("GET", endpoint(pending))
     assert code == 200 and response["mode"] is None and response["blur_status"] == "pending"
     assert response["can_choose"] is True
-    completed = new_job(web.root, status="done", blur="done", output={"lecturer_mode": "refs", "lecturers": ["old"]})
+    completed = new_job(
+        web.root, status="done", blur="done", output={"lecturer_mode": "refs", "lecturers": ["old"]}
+    )
     put_auto(web.root, completed, {**auto_data(), "mode": "chosen", "lecturer_rank": 2})
     code, response = client.call("GET", endpoint(completed))
     assert code == 200 and response["mode"] == "chosen" and response["lecturer_rank"] == 2

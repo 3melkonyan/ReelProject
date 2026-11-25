@@ -1,4 +1,5 @@
 """Pipeline guarantees: resume, retry, stop, idempotent publish, inbox dedup."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -19,14 +20,21 @@ class NonRetryable(Exception):
 def mk(tmp_path: Path) -> tuple[DB, int]:
     tmp_path.mkdir(parents=True, exist_ok=True)
     db = DB(tmp_path / "t.db")
-    src = tmp_path / "x.mp4"; src.write_bytes(b"v")
+    src = tmp_path / "x.mp4"
+    src.write_bytes(b"v")
     return db, db.create_job(str(src), "sha", "G")
 
 
 def run(db, jid, stages, tmp_path, notes=None):
-    return run_job(db, jid, stages, CFG, tmp_path,
-                   notify=(notes.append if notes is not None else lambda t: None),
-                   sleep=lambda s: None)
+    return run_job(
+        db,
+        jid,
+        stages,
+        CFG,
+        tmp_path,
+        notify=(notes.append if notes is not None else lambda t: None),
+        sleep=lambda s: None,
+    )
 
 
 def test_resume_skips_done_stages(tmp_path):
@@ -34,7 +42,10 @@ def test_resume_skips_done_stages(tmp_path):
     calls = []
     crash = {"on": True}
 
-    def a(ctx): calls.append("a"); return {"v": 1}
+    def a(ctx):
+        calls.append("a")
+        return {"v": 1}
+
     def b(ctx):
         calls.append("b")
         if crash["on"]:
@@ -43,7 +54,7 @@ def test_resume_skips_done_stages(tmp_path):
 
     with pytest.raises(KeyboardInterrupt):
         run(db, jid, [("a", a), ("b", b)], tmp_path)
-    assert db.next_runnable()["id"] == jid          # left 'running' -> resumed first
+    assert db.next_runnable()["id"] == jid  # left 'running' -> resumed first
     crash["on"] = False
     assert run(db, jid, [("a", a), ("b", b)], tmp_path) == "done"
     assert calls == ["a", "b", "b"]
@@ -85,7 +96,8 @@ def test_publish_once_no_duplicates(tmp_path):
     remote = []
 
     def upload():
-        remote.append("vid"); return ("vid1", "https://youtu.be/vid1")
+        remote.append("vid")
+        return ("vid1", "https://youtu.be/vid1")
 
     def find():
         return ("vid1", "https://youtu.be/vid1") if remote else None
@@ -100,14 +112,15 @@ def test_publish_once_no_duplicates(tmp_path):
         return r
 
     assert run(db, jid, [("yt", stage)], tmp_path) == "done"
-    assert remote == ["vid"]                          # uploaded exactly once
+    assert remote == ["vid"]  # uploaded exactly once
     assert db.publication(jid, "youtube")["external_id"] == "vid1"
 
 
 def test_inbox_dedup_and_stability(tmp_path, monkeypatch):
     db = DB(tmp_path / "t.db")
     (tmp_path / "inbox" / "G").mkdir(parents=True)
-    f = tmp_path / "inbox" / "G" / "lesson.mp4"; f.write_bytes(b"data")
+    f = tmp_path / "inbox" / "G" / "lesson.mp4"
+    f.write_bytes(b"data")
     clock = [1000.0]
     monkeypatch.setattr(pipeline.time, "monotonic", lambda: clock[0])
     seen: dict = {}
@@ -132,12 +145,13 @@ def test_unqueryable_target_stops_instead_of_double_post(tmp_path):
     def stage(ctx):
         def do():
             posts.append(1)
-            raise RuntimeError("crash right after posting")   # posted, but we never learn it
+            raise RuntimeError("crash right after posting")  # posted, but we never learn it
+
         return ctx.publish_once("slack", do)
 
     notes = []
     assert run(db, jid, [("slack", stage)], tmp_path, notes) == "stopped"
-    assert posts == [1]                                  # second attempt did NOT post again
+    assert posts == [1]  # second attempt did NOT post again
     assert "reel resolve" in notes[-1]
 
 
@@ -146,7 +160,12 @@ def test_stage_modules_not_shadowed_by_stage_functions():
     `from reel.stages import segments` return the function, not the module."""
     import subprocess
     import sys
-    code = ("import types; from reel.stages import segments, render, privacy, metadata, transcribe; "
-            "assert all(isinstance(m, types.ModuleType) for m in "
-            "(segments, render, privacy, metadata, transcribe))")
-    subprocess.run([sys.executable, "-c", code], check=True, cwd=Path(__file__).resolve().parents[1])
+
+    code = (
+        "import types; from reel.stages import segments, render, privacy, metadata, transcribe; "
+        "assert all(isinstance(m, types.ModuleType) for m in "
+        "(segments, render, privacy, metadata, transcribe))"
+    )
+    subprocess.run(
+        [sys.executable, "-c", code], check=True, cwd=Path(__file__).resolve().parents[1]
+    )

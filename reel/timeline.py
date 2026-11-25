@@ -1,4 +1,5 @@
 """Interval math + mapping original time -> final (cut) video time."""
+
 from __future__ import annotations
 
 Interval = tuple[float, float]

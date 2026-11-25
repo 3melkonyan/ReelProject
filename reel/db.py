@@ -1,9 +1,10 @@
 """SQLite persistence: jobs, per-stage state, publications (idempotency)."""
+
 from __future__ import annotations
 
 import json
 import sqlite3
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 SCHEMA = """
@@ -171,14 +172,19 @@ def email_identity(value) -> str:
 
 
 def now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return datetime.now(UTC).isoformat(timespec="seconds")
 
 
 class DB:
     def __init__(self, path: str | Path = "reel.db"):
         self.conn = sqlite3.connect(str(path), isolation_level=None)  # autocommit
         self.conn.row_factory = sqlite3.Row
-        self.conn.create_function("casefold", 1, lambda value: value.casefold() if isinstance(value, str) else "", deterministic=True)
+        self.conn.create_function(
+            "casefold",
+            1,
+            lambda value: value.casefold() if isinstance(value, str) else "",
+            deterministic=True,
+        )
         self.conn.create_function("email_identity", 1, email_identity, deterministic=True)
         self.conn.execute("PRAGMA journal_mode=WAL")
         self.conn.execute("PRAGMA foreign_keys=ON")
@@ -188,28 +194,42 @@ class DB:
             if column not in columns:
                 self.conn.execute(f"ALTER TABLE users ADD COLUMN {column} TEXT")
         if "subject" not in {r[1] for r in self.conn.execute("PRAGMA table_info(jobs)")}:
-            self.conn.execute("ALTER TABLE jobs ADD COLUMN subject TEXT")   # reel.db from before subjects
+            self.conn.execute(
+                "ALTER TABLE jobs ADD COLUMN subject TEXT"
+            )  # reel.db from before subjects
 
         if "lesson_date" not in {r[1] for r in self.conn.execute("PRAGMA table_info(jobs)")}:
             try:
                 self.conn.execute("ALTER TABLE jobs ADD COLUMN lesson_date TEXT")
             except sqlite3.OperationalError:
-                if "lesson_date" not in {r[1] for r in self.conn.execute("PRAGMA table_info(jobs)")}:
+                if "lesson_date" not in {
+                    r[1] for r in self.conn.execute("PRAGMA table_info(jobs)")
+                }:
                     raise
 
     # --- jobs -------------------------------------------------------------
     def find_job_by_sha(self, sha: str) -> sqlite3.Row | None:
         return self.conn.execute("SELECT * FROM jobs WHERE sha256=?", (sha,)).fetchone()
 
-    def create_job(self, source_path: str, sha: str, grp: str, subject: str | None = None, lesson_date: str | None = None) -> int | None:
+    def create_job(
+        self,
+        source_path: str,
+        sha: str,
+        grp: str,
+        subject: str | None = None,
+        lesson_date: str | None = None,
+    ) -> int | None:
         """Returns new job id, or None if this file (sha256) was already seen."""
         if lesson_date is not None:
             from reel.lesson_dates import validate
+
             lesson_date = validate(lesson_date)
         try:
             cur = self.conn.execute(
                 "INSERT INTO jobs (source_path, sha256, grp, subject, lesson_date, created_at, updated_at)"
-                " VALUES (?,?,?,?,?,?,?)", (source_path, sha, grp, subject, lesson_date, now(), now()))
+                " VALUES (?,?,?,?,?,?,?)",
+                (source_path, sha, grp, subject, lesson_date, now(), now()),
+            )
             return cur.lastrowid
         except sqlite3.IntegrityError:
             return None
@@ -221,14 +241,14 @@ class DB:
         return row
 
     def jobs(self, limit: int = 50) -> list[sqlite3.Row]:
-        return self.conn.execute(
-            "SELECT * FROM jobs ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
+        return self.conn.execute("SELECT * FROM jobs ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
 
     def next_runnable(self) -> sqlite3.Row | None:
         # 'running' = interrupted by crash/restart; resume it first.
         return self.conn.execute(
             "SELECT * FROM jobs WHERE status IN ('running','queued') AND NOT EXISTS (SELECT 1 FROM lesson_deletions d WHERE d.job_id=jobs.id)"
-            " ORDER BY status='running' DESC, id LIMIT 1").fetchone()
+            " ORDER BY status='running' DESC, id LIMIT 1"
+        ).fetchone()
 
     def set_job(self, job_id: int, **fields) -> None:
         fields["updated_at"] = now()
@@ -237,12 +257,19 @@ class DB:
         if owns_transaction:
             self.conn.execute("BEGIN IMMEDIATE")
         try:
-            previous = self.conn.execute("SELECT status FROM jobs WHERE id=?", (job_id,)).fetchone() if retry_transition else None
+            previous = (
+                self.conn.execute("SELECT status FROM jobs WHERE id=?", (job_id,)).fetchone()
+                if retry_transition
+                else None
+            )
             cols = ", ".join(f"{key}=?" for key in fields)
             self.conn.execute(f"UPDATE jobs SET {cols} WHERE id=?", (*fields.values(), job_id))
             if previous and previous["status"] == "stopped":
                 from reel.audit import write_event
-                write_event(self, actor=None, action="job.retry", target=f"job:{job_id}", details={})
+
+                write_event(
+                    self, actor=None, action="job.retry", target=f"job:{job_id}", details={}
+                )
             if owns_transaction:
                 self.conn.execute("COMMIT")
         except BaseException:
@@ -253,7 +280,8 @@ class DB:
     # --- stages -----------------------------------------------------------
     def stage(self, job_id: int, name: str) -> sqlite3.Row | None:
         return self.conn.execute(
-            "SELECT * FROM stages WHERE job_id=? AND name=?", (job_id, name)).fetchone()
+            "SELECT * FROM stages WHERE job_id=? AND name=?", (job_id, name)
+        ).fetchone()
 
     def stage_output(self, job_id: int, name: str) -> dict | None:
         row = self.stage(job_id, name)
@@ -265,30 +293,36 @@ class DB:
             " VALUES (?,?, 'running', 1, ?)"
             " ON CONFLICT(job_id, name) DO UPDATE SET status='running',"
             " attempts=attempts+1, error=NULL, started_at=excluded.started_at",
-            (job_id, name, now()))
+            (job_id, name, now()),
+        )
         return self.stage(job_id, name)["attempts"]
 
     def stage_done(self, job_id: int, name: str, output: dict | None) -> None:
         self.conn.execute(
             "UPDATE stages SET status='done', output=?, finished_at=? WHERE job_id=? AND name=?",
-            (json.dumps(output or {}, ensure_ascii=False), now(), job_id, name))
+            (json.dumps(output or {}, ensure_ascii=False), now(), job_id, name),
+        )
 
     def stage_failed(self, job_id: int, name: str, error: str) -> None:
         self.conn.execute(
             "UPDATE stages SET status='failed', error=?, finished_at=? WHERE job_id=? AND name=?",
-            (error, now(), job_id, name))
+            (error, now(), job_id, name),
+        )
 
     def stages(self, job_id: int) -> list[sqlite3.Row]:
         return self.conn.execute(
-            "SELECT * FROM stages WHERE job_id=? ORDER BY started_at", (job_id,)).fetchall()
+            "SELECT * FROM stages WHERE job_id=? ORDER BY started_at", (job_id,)
+        ).fetchall()
 
     # --- publications (idempotency) ---------------------------------------
     def publication(self, job_id: int, target: str) -> sqlite3.Row | None:
         return self.conn.execute(
-            "SELECT * FROM publications WHERE job_id=? AND target=?", (job_id, target)).fetchone()
+            "SELECT * FROM publications WHERE job_id=? AND target=?", (job_id, target)
+        ).fetchone()
 
-    def add_publication(self, job_id: int, target: str, external_id: str | None,
-                        url: str | None) -> None:
+    def add_publication(
+        self, job_id: int, target: str, external_id: str | None, url: str | None
+    ) -> None:
         """Raises sqlite3.IntegrityError if (job_id, target) already exists."""
         owns_transaction = not self.conn.in_transaction
         if owns_transaction:
@@ -296,9 +330,18 @@ class DB:
         try:
             self.conn.execute(
                 "INSERT INTO publications (job_id, target, external_id, url, created_at)"
-                " VALUES (?,?,?,?,?)", (job_id, target, external_id, url, now()))
+                " VALUES (?,?,?,?,?)",
+                (job_id, target, external_id, url, now()),
+            )
             from reel.audit import write_event
-            write_event(self, actor=None, action="publication", target=f"job:{job_id}", details={"target":target})
+
+            write_event(
+                self,
+                actor=None,
+                action="publication",
+                target=f"job:{job_id}",
+                details={"target": target},
+            )
             if owns_transaction:
                 self.conn.execute("COMMIT")
         except BaseException:
@@ -307,10 +350,14 @@ class DB:
             raise
 
     def insights(self, job_id: int) -> dict:
-        row = self.conn.execute("SELECT data FROM job_insights WHERE job_id=?", (job_id,)).fetchone()
+        row = self.conn.execute(
+            "SELECT data FROM job_insights WHERE job_id=?", (job_id,)
+        ).fetchone()
         return json.loads(row[0]) if row else {}
 
     def save_insights(self, job_id: int, data: dict) -> None:
-        self.conn.execute("INSERT INTO job_insights(job_id,data) VALUES(?,?) "
-                          "ON CONFLICT(job_id) DO UPDATE SET data=excluded.data",
-                          (job_id, json.dumps(data, ensure_ascii=False, allow_nan=False)))
+        self.conn.execute(
+            "INSERT INTO job_insights(job_id,data) VALUES(?,?) "
+            "ON CONFLICT(job_id) DO UPDATE SET data=excluded.data",
+            (job_id, json.dumps(data, ensure_ascii=False, allow_nan=False)),
+        )

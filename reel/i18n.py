@@ -1,13 +1,14 @@
 """Dependency-free messages shared by the dashboard and email renderers."""
+
 from __future__ import annotations
 
+import json
+from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from contextvars import ContextVar
 from functools import lru_cache
-import json
 from pathlib import Path
 from types import MappingProxyType
-from typing import Iterator, Mapping
 
 LANGUAGES = ("en", "hy")
 DEFAULT_LANGUAGE = "hy"
@@ -39,8 +40,9 @@ def catalog(language: str) -> Mapping[str, str]:
     language = validate_language(language)
     path = Path(__file__).with_name("locales") / f"{language}.json"
     messages = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(messages, dict) or any(not isinstance(k, str) or not isinstance(v, str)
-                                             for k, v in messages.items()):
+    if not isinstance(messages, dict) or any(
+        not isinstance(k, str) or not isinstance(v, str) for k, v in messages.items()
+    ):
         raise ValueError(f"Invalid {language} message catalog")
     return MappingProxyType(messages)
 
@@ -54,8 +56,10 @@ def t(key: str, *, language: str | None = None, **values: object) -> str:
 def localized_message(function):
     """Allow pure email builders to select a language without leaking it to callers."""
     from functools import wraps
+
     @wraps(function)
     def render(*args, language=None, **kwargs):
         with language_context(current_language() if language is None else language):
             return function(*args, **kwargs)
+
     return render
