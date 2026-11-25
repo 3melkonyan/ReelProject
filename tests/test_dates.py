@@ -8,7 +8,7 @@ from reel.db import DB
 from reel.pipeline import Ctx
 from test_web_upload import web, send
 from test_web_dashboard import isolated
-from test_accounts import invite, register, seed_jobs, offline_g39_mail  # noqa: F401 (autouse: no real DNS/SMTP)
+from test_accounts import invite, register, seed_jobs, offline_account_mail  # noqa: F401 (autouse: no real DNS/SMTP)
 
 
 def test_additive_migration_preserves_existing_jobs_and_is_repeatable(tmp_path):

@@ -30,7 +30,7 @@ async function renderLecturerPanel(d) {
   }
   const alive = () => S.lecturerPanel === state && $("#jd-lecturer") === panel && S.role === "admin";
   const endpoint = `/api/jobs/${state.job}/lecturer`;
-  const errorText = (error) => error.net ? "Ծառայության հետ կապը չհաջողվեց։ Փորձիր կրկին։" : String(error.message || error);
+  const errorText = (error) => error.net ? i18nText("ui.lecturer.could_not_connect_to_the_service_try") : String(error.message || error);
   const share = (identity) => identity && Number.isFinite(identity.share) ? `${Math.round(Math.max(0, Math.min(1, identity.share)) * 100)}%` : null;
   const imageURL = (name) => `${endpoint}/${encodeURIComponent(name)}?v=${state.revision}`;
 
@@ -72,38 +72,38 @@ async function renderLecturerPanel(d) {
       if (data.mode === "auto" || data.mode === "chosen") {
         const selected = identities.find((identity) => identity.rank === data.lecturer_rank);
         const percent = share(selected);
-        body = `<div class="row"><span class="pill">${ic("check")} ${data.mode === "auto" ? "Ավտոմատ ընտրված" : "Ընտրել է ադմինը"}</span></div>
-          ${percent ? `<p class="muted" style="margin-top:10px">Երևում է դեմքերով կադրերի ${percent}-ում։</p>` : ""}
-          <div class="lecturer-refs">${(data.refs || []).filter((name) => /^ref_\d{1,2}\.jpg$/.test(name)).slice(0, 8).map((name) => `<img loading="lazy" src="${esc(imageURL(name))}" alt="Ընտրված դասախոսի նմուշ-նկար">`).join("")}</div>`;
+        body = `<div class="row"><span class="pill">${ic("check")} ${data.mode === "auto" ? i18nText("ui.lecturer.selected_automatically") : i18nText("ui.lecturer.selected_by_an_administrator")}</span></div>
+          ${percent ? `<p class="muted" style="margin-top:10px">${i18nText("ui.lecturer.appears_in")} ${percent}${i18nText("ui.lecturer.of_frames_containing_faces")}</p>` : ""}
+          <div class="lecturer-refs">${(data.refs || []).filter((name) => /^ref_\d{1,2}\.jpg$/.test(name)).slice(0, 8).map((name) => `<img loading="lazy" src="${esc(imageURL(name))}" alt="${i18nText("ui.lecturer.selected_lecturer_reference_image")}">`).join("")}</div>`;
       } else if (data.mode === "refs") {
-        body = `<p>Ըստ նմուշ-նկարների՝ <b>${esc((data.lecturers || []).join(", ") || "—")}</b></p>`;
+        body = `<p>${i18nText("ui.lecturer.from_reference_photos")} <b>${esc((data.lecturers || []).join(", ") || "—")}</b></p>`;
       } else if (data.mode === "none") {
-        body = `<p>Դասախոս չի ընտրվել. բոլոր դեմքերը մշուշվում են։</p>`;
+        body = `<p>${i18nText("ui.lecturer.no_lecturer_selected_all_faces_will_be")}</p>`;
       } else if (data.mode === "unsure") {
-        body = `<div class="alert warn">${ic("alert")}<div>Ավտոմատ ճանաչումը վստահ չէ, թե ով է դասախոսը։ ${data.can_choose ? "Ոչինչ չի հրապարակվել։ Ընտրիր։" : "Ընտրությունն այս պահին հասանելի չէ։"}</div></div>`;
+        body = `<div class="alert warn">${ic("alert")}<div>${i18nText("ui.lecturer.automatic_recognition_could_not_confidently_identify_the")} ${data.can_choose ? i18nText("ui.lecturer.nothing_has_been_published_make_a_selection") : i18nText("ui.lecturer.selection_is_currently_unavailable")}</div></div>`;
         if (data.can_choose) {
           body += `<div class="lecturer-identities">${identities.map((identity) => {
             const rank = Number(identity.rank), percent = share(identity);
             const image = /^identity_[1-6]\.jpg$/.test(identity.image || "") ? identity.image : null;
             const count = Number.isFinite(identity.presence) ? Math.max(0, Math.round(identity.presence)) : "—";
             const first = Number.isFinite(identity.first_t) ? clock(identity.first_t) : "—";
-            return `<article class="lecturer-candidate"><div>${image ? `<img loading="lazy" src="${esc(imageURL(image))}" alt="Անձ #${rank}">` : `<div class="lecturer-empty-image muted">Նկարը հասանելի չէ</div>`}
-              <div class="muted lecturer-caption">#${rank} · ${count} կադր${percent ? ` (${percent})` : ""} · առաջին անգամ ${esc(first)}</div></div>
-              <button type="button" class="btn primary" data-lecturer-action="choose" data-rank="${rank}">Սա է դասախոսը</button></article>`;
-          }).join("")}</div><div class="lecturer-actions"><button type="button" class="btn danger" data-lecturer-action="none">Դասախոս չկա — մշուշել բոլորին</button></div>`;
+            return `<article class="lecturer-candidate"><div>${image ? `<img loading="lazy" src="${esc(imageURL(image))}" alt="${i18nText("ui.lecturer.person")}${rank}">` : `<div class="lecturer-empty-image muted">${i18nText("ui.lecturer.image_unavailable")}</div>`}
+              <div class="muted lecturer-caption">#${rank} · ${count} ${i18nText("ui.lecturer.frames")}${percent ? ` (${percent})` : ""} ${i18nText("ui.lecturer.first_appearance")} ${esc(first)}</div></div>
+              <button type="button" class="btn primary" data-lecturer-action="choose" data-rank="${rank}">${i18nText("ui.lecturer.this_is_the_lecturer")}</button></article>`;
+          }).join("")}</div><div class="lecturer-actions"><button type="button" class="btn danger" data-lecturer-action="none">${i18nText("ui.lecturer.no_lecturer_blur_everyone")}</button></div>`;
         }
       } else {
-        body = `<p class="muted">${data.blur_status === "running" ? "Դասախոսի ճանաչումն ընթանում է…" : "Դասախոսի ճանաչման տվյալները դեռ հասանելի չեն։"}</p>`;
+        body = `<p class="muted">${data.blur_status === "running" ? i18nText("ui.lecturer.identifying_the_lecturer") : i18nText("ui.lecturer.lecturer_recognition_data_is_not_available_yet")}</p>`;
       }
       if (data.reason) body += `<div class="mono faint lecturer-reason">${esc(data.reason)}</div>`;
       if (data.choice && data.can_choose) {
-        const choice = data.choice.none ? "Մշուշել բոլորին" : `Դասախոս՝ #${data.choice.identity}`;
-        body += `<div class="lecturer-choice"><span class="grow"><b>Պահպանված ընտրություն՝</b> ${esc(choice)}</span><button type="button" class="btn" data-lecturer-action="clear">Չեղարկել ընտրությունը</button></div>`;
+        const choice = data.choice.none ? i18nText("ui.lecturer.blur_everyone") : `${i18nText("ui.lecturer.lecturer")}${data.choice.identity}`;
+        body += `<div class="lecturer-choice"><span class="grow"><b>${i18nText("ui.lecturer.saved_selection")}</b> ${esc(choice)}</span><button type="button" class="btn" data-lecturer-action="clear">${i18nText("ui.lecturer.clear_selection")}</button></div>`;
       }
     }
     if (state.error) body += `<div class="alert err lecturer-error" role="alert">${ic("alert")}<div>${esc(state.error)}</div></div>
-      <div class="lecturer-actions"><button type="button" class="btn" data-lecturer-action="refresh">${ic("refresh")} Թարմացնել վահանակը</button></div>`;
-    set("#jd-lecturer", `<section class="card lecturer-card" aria-label="Դասախոս"><h2>${ic("users")} Դասախոս</h2>${body}</section>`);
+      <div class="lecturer-actions"><button type="button" class="btn" data-lecturer-action="refresh">${ic("refresh")} ${i18nText("ui.lecturer.refresh_dashboard")}</button></div>`;
+    set("#jd-lecturer", `<section class="card lecturer-card" aria-label="${i18nText("ui.groups.lecturer")}"><h2>${ic("users")} ${i18nText("ui.groups.lecturer")}</h2>${body}</section>`);
     lockControls();
   }
 
@@ -128,10 +128,10 @@ async function renderLecturerPanel(d) {
     if (response.status === 409) return false;
     if (response.status === 401) {
       await api("/api/me"); // Invoke the existing expired-session/login flow.
-      throw new Error("Մուտքի ժամկետն ավարտվել է։ Մուտք գործիր նորից։");
+      throw new Error(i18nText("ui.lecturer.your_session_has_expired_sign_in_again"));
     }
     if (!response.ok) {
-      let detail = `Հնարավոր չեղավ վերսկսել մշակումը (HTTP ${response.status})։`;
+      let detail = `${i18nText("ui.lecturer.could_not_resume_processing_http")} ${response.status}${i18nText("ui.lecturer.punctuation")}`;
       try { detail = String((await response.json()).detail || detail); } catch (_) {}
       const error = new Error(detail);
       if (response.status >= 500) error.net = true;
@@ -152,16 +152,16 @@ async function renderLecturerPanel(d) {
       saved = true;
       state.data.choice = result.choice;
       if (body.clear) {
-        toast("Ընտրությունը չեղարկված է");
+        toast(i18nText("ui.lecturer.selection_cleared"));
       } else {
         const restarted = await retryJob();
         if (!alive()) return;
-        toast(restarted ? "Ընտրությունը պահպանված է. մշակումը վերսկսվում է" : "Կկիրառվի, երբ դասը հասնի մշուշման փուլին");
+        toast(restarted ? i18nText("ui.lecturer.selection_saved_resuming_processing") : i18nText("ui.lecturer.the_choice_will_apply_when_the_lesson"));
       }
       await snapshot();
     } catch (error) {
       if (alive() && error.message !== "auth") {
-        state.error = (saved ? "Ընտրության փոփոխությունը պահպանված է։ " : "") + errorText(error);
+        state.error = (saved ? (`${i18nText("ui.lecturer.selection_change_saved")} `) : "") + errorText(error);
         if (saved) {
           try { await snapshot(); } catch (_) { /* Preserve the saved choice and original error. */ }
         }
@@ -177,7 +177,7 @@ async function renderLecturerPanel(d) {
     if (!button || button.disabled || !alive() || state.busy) return;
     const action = button.dataset.lecturerAction;
     if (action === "choose") choose({ identity: Number(button.dataset.rank) });
-    if (action === "none" && confirm("Դասախոս չի ընտրվի, և բոլոր դեմքերը կմշուշվեն։ Շարունակե՞լ։")) choose({ none: true });
+    if (action === "none" && confirm(i18nText("ui.lecturer.no_lecturer_will_be_selected_and_all"))) choose({ none: true });
     if (action === "clear") choose({ clear: true });
     if (action === "refresh") { state.signature = null; renderLecturerPanel(state.latest); }
   };

@@ -48,10 +48,18 @@ def validate_config(config: object) -> dict:
     "lecturers": [names] (may be empty = automatic lecturer), "classroom_course_id": str (optional)}.
     Legacy 'playlist_id: X' is accepted and becomes one subject named after the group."""
     config = copy.deepcopy(config)
-    _mapping(config, "config", {"groups", "operator_slack_channel", "cut"}, frozenset({"time_savings", "ui_language"}))
+    _mapping(config, "config", {"groups", "operator_slack_channel", "cut"}, frozenset({"time_savings", "ui_language", "transcription_language", "transcription_prompt", "metadata_language"}))
     if "ui_language" in config:
         from reel.i18n import validate_language
         validate_language(config["ui_language"])
+    if "metadata_language" in config and config["metadata_language"] not in ("hy", "en"):
+        raise ValueError("metadata_language must be 'hy' or 'en'")
+    if "transcription_language" in config:
+        value = config["transcription_language"]
+        if not isinstance(value, str) or not re.fullmatch(r"[a-z]{2,3}|auto", value):
+            raise ValueError("transcription_language must be a language code or 'auto'")
+    if "transcription_prompt" in config and config["transcription_prompt"] is not None and not isinstance(config["transcription_prompt"], str):
+        raise ValueError("transcription_prompt must be text or null")
     if "time_savings" in config:
         assumptions = _mapping(config["time_savings"], "time_savings",
                                {"editing_min_per_hour", "publishing_min_per_lesson"})

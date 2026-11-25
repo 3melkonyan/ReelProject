@@ -46,7 +46,7 @@ def test_every_caption_side_effect_is_optional(tmp_path,monkeypatch,failure):
 
 
 @pytest.mark.parametrize('final',[False,True])
-def test_array_transcripts_match_the_g40_processing_contract(tmp_path,final):
+def test_array_transcripts_support_processing_time_map(tmp_path,final):
     db,job,folder=seed(tmp_path)
     with closing(db.conn):
         segments=[{'start':10,'end':20,'text':'Համատեղելի տեքստ'}]

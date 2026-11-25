@@ -85,7 +85,7 @@ const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;
 const context={S:{quality:'preview'},$:get,esc,ic:()=>'',clock:String,fmtDur:String,
   set:(selector,html)=>{get(selector).innerHTML=html;},document:{querySelectorAll:()=>[]},
   badge:String,pct:()=>0,PUB:{youtube:['yt','YouTube'],playlist:['layers','Playlist'],slack:['hash','Slack'],classroom:['cap','Classroom'],library:['book','Library']},CUT_KIND:{},LBL:{}};
-vm.createContext(context);vm.runInContext(source.slice(start,end),context);
+vm.createContext(context);require(require('path').resolve('tests/browser_locale.cjs')).install(context);vm.runInContext(source.slice(start,end),context);
 for(const role of ['viewer','admin']){
  context.S.role=role;
  context.S.detail={id:1,has_video:true,has_preview:true,has_full:true,privacy_passed:true,has_thumbnail:false,

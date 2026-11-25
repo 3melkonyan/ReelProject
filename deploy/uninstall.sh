@@ -6,4 +6,4 @@ if launchctl print "gui/$UID/com.reel.daemon" >/dev/null 2>&1; then
     launchctl bootout "gui/$UID/com.reel.daemon"
 fi
 rm -f "$DEST"
-echo "Reel-ը անջատված է։ Նախագծի տվյալները պահպանված են՝ $ROOT"
+echo "Reel is disabled. Project data is retained at $ROOT"

@@ -155,7 +155,7 @@ const data={email:{configured:true},public_url:'https://reel.example.test',legac
 const c={S:{role:'admin',user:{id:1}},$:selector=>elements[selector.replace('#','')]||null,
  set:(selector,html)=>element(selector.slice(1)).innerHTML=html,esc:x=>String(x).replaceAll('<','&lt;'),
  isDark:()=>dark,toggleTheme:()=>dark=!dark,api:async(path,options)=>{calls.push({path,options});return data},navigator:{clipboard:{writeText:async()=>{}}}};
-vm.createContext(c);vm.runInContext(code,c);
+vm.createContext(c);require(require('path').resolve('tests/browser_locale.cjs')).install(c);vm.runInContext(code,c);
 (async()=>{await c.viewSettings();
  assert.deepEqual(calls.map(x=>x.path),['/api/admin/system-settings']);
  const html=elements['settings-content'].innerHTML;

@@ -1,4 +1,4 @@
-"""G40 audit: temp SQLite/HTTP only, with fake mail and publication dependencies."""
+"""Audit: temp SQLite/HTTP only, with fake mail and publication dependencies."""
 from contextlib import closing
 import json
 import time

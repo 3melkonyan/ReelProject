@@ -5,9 +5,9 @@ function groupMask(value) {
   return text.includes("•••") || text.length <= 6 ? text : text.slice(0,3) + "•••" + text.slice(-3);
 }
 function groupDate(value) {
-  return /^\d{4}-\d{2}-\d{2}$/.test(value || "") ? value.slice(8,10)+"."+value.slice(5,7)+"."+value.slice(0,4) : "Նշված չէ";
+  return /^\d{4}-\d{2}-\d{2}$/.test(value || "") ? value.slice(8,10)+"."+value.slice(5,7)+"."+value.slice(0,4) : i18nText("ui.app.not_set");
 }
-function groupRange(start, end) { return start && end ? groupDate(start) + " – " + groupDate(end) : "Ժամկետը նշված չէ"; }
+function groupRange(start, end) { return start && end ? groupDate(start) + " – " + groupDate(end) : i18nText("ui.groups.no_dates_set"); }
 function groupPerson(person, subjects = []) {
   const initials = String(person.name || "").split(/\s+/).filter(Boolean).slice(0,2).map(part=>Array.from(part)[0]).join("");
   return `<div class="gp-person"><span class="gp-avatar">${person.avatar ? `<img loading="lazy" src="${esc(person.avatar)}" alt="">` : esc(initials || "?")}</span><span><b>${esc(person.name)}</b>${subjects.length ? `<small>${esc(subjects.join(", "))}</small>` : ""}</span></div>`;
@@ -18,8 +18,8 @@ function groupPeople(team) {
     if (!lecturers.has(person.id)) lecturers.set(person.id, {...person,subjects:[]});
     if (person.subject) lecturers.get(person.id).subjects.push(person.subject);
   });
-  return `<h3>Դասախոսներ</h3><div class="gp-people">${[...lecturers.values()].map(person=>groupPerson(person,person.subjects)).join("") || '<p class="muted">Դասախոս դեռ նշանակված չէ։</p>'}</div>
-    <h3>Ուսանող օգնականներ</h3><p class="gp-help">Օգնականը կարող է դիտել իրեն կցված խմբի դիտումների վիճակագրությունը։</p><div class="gp-people">${(team?.tas || []).map(person=>groupPerson(person)).join("") || '<p class="muted">Ուսանող օգնական դեռ նշանակված չէ։</p>'}</div>`;
+  return `<h3>${i18nText("ui.accounts.lecturers")}</h3><div class="gp-people">${[...lecturers.values()].map(person=>groupPerson(person,person.subjects)).join("") || (`<p class="muted">${i18nText("ui.groups.no_lecturer_assigned_yet")}</p>`)}</div>
+    <h3>${i18nText("ui.groups.student_assistants")}</h3><p class="gp-help">${i18nText("ui.groups.assistants_can_view_watch_statistics_for_their")}</p><div class="gp-people">${(team?.tas || []).map(person=>groupPerson(person)).join("") || (`<p class="muted">${i18nText("ui.groups.no_student_assistant_assigned_yet")}</p>`)}</div>`;
 }
 function groupsStyles() {
   if ($("#groups-css")) return;
@@ -39,15 +39,15 @@ async function renderLegacyGroupsPage(initialAction = null) {
   const admin = S.role === "admin";
   const initialStatus = new URLSearchParams(location.hash.split("?")[1] || "").get("status");
   const status = ["active","completed","all"].includes(initialStatus) ? initialStatus : "active";
-  $("#main").innerHTML = `<div id="groups-page"><div class="top"><div><h1>Խմբեր</h1><p>Դասընթացները, առարկաները և թիմերը՝ մեկ տեղում։</p></div>${admin ? '<div class="gp-actions"><a class="btn" href="#/audit">Գործողությունների մատյան</a><button class="btn primary" type="button" data-group-action="new">+ Նոր խումբ</button></div>' : ""}</div>
-    <div class="gp-toolbar"><div class="chips" id="groups-status-filter" aria-label="Խմբերի կարգավիճակ"></div><span class="grow"></span><button class="btn sm" type="button" data-group-action="refresh">${ic("refresh")} Թարմացնել</button></div>
-    <div id="groups-message" role="status" hidden></div><div id="groups-cards" class="gp-cards"><div class="card muted" role="status">Խմբերը բեռնվում են…</div></div>
+  $("#main").innerHTML = `<div id="groups-page"><div class="top"><div><h1>${i18nText("ui.accounts.groups")}</h1><p>${i18nText("ui.groups.courses_subjects_and_teams_in_one_place")}</p></div>${admin ? (`<div class="gp-actions"><a class="btn" href="#/audit">${i18nText("ui.audit.activity_log")}</a><button class="btn primary" type="button" data-group-action="new">${i18nText("ui.groups.new_group")}</button></div>`) : ""}</div>
+    <div class="gp-toolbar"><div class="chips" id="groups-status-filter" aria-label="${i18nText("ui.groups.group_status")}"></div><span class="grow"></span><button class="btn sm" type="button" data-group-action="refresh">${ic("refresh")} ${i18nText("ui.groups.refresh")}</button></div>
+    <div id="groups-message" role="status" hidden></div><div id="groups-cards" class="gp-cards"><div class="card muted" role="status">${i18nText("ui.groups.loading_groups")}</div></div>
     <section id="group-editor" class="card gp-panel" hidden></section><section id="group-team" class="card gp-panel" hidden></section><section id="group-style" class="card gp-panel" hidden></section></div>`;
   const view = $("#groups-page"), find = selector => $(selector, view);
   const alive = () => $("#groups-page") === view && (S.role === "admin") === admin;
   const state = {status,groups:[],config:null,refs:{},playlists:null,styles:null,request:0,panel:0,panelKind:null,panelName:null,dirty:false,busy:false,loadingCards:false,lastFetch:0,serial:0};
   if(initialAction){find('#groups-cards').hidden=true;find('.gp-toolbar').hidden=true;}
-  const errorText = error => error.net ? "Կապը սերվերի հետ չհաջողվեց։ Խնդրում ենք կրկին փորձել։" : String(error.message || error);
+  const errorText = error => error.net ? i18nText("ui.accounts.could_not_connect_to_the_server_try") : String(error.message || error);
   function message(target, text, ok = false) {
     if (!target) return;target.textContent = text || "";target.hidden = !text;target.className = `alert ${ok ? "ok" : "err"} gp-error`;
   }
@@ -60,18 +60,18 @@ async function renderLegacyGroupsPage(initialAction = null) {
     const add=find('#group-add-subject');if(add)add.disabled=state.busy||subjects.length>=5;
   }
   function cards() {
-    find('#groups-status-filter').innerHTML=[['active','Գործող'],['completed','Ավարտված'],['all','Բոլորը']].map(([value,label])=>`<button type="button" class="chip${state.status===value?' on':''}" data-group-action="filter" data-status="${value}" aria-pressed="${state.status===value}">${label}</button>`).join('');
+    find('#groups-status-filter').innerHTML=[['active',i18nText("ui.courses.active")],['completed',i18nText("ui.courses.completed")],['all',i18nText("ui.accounts.all")]].map(([value,label])=>`<button type="button" class="chip${state.status===value?' on':''}" data-group-action="filter" data-status="${value}" aria-pressed="${state.status===value}">${label}</button>`).join('');
     find('#groups-cards').innerHTML=state.groups.length?state.groups.map(group=>{
       const count=group.counts||{},done=Boolean(group.completed),subjects=group.subjects||[];
       const days=Number(group.days_left);
-      const menu=admin?`<details class="gp-menu"><summary aria-label="${esc(group.name)} խմբի գործողություններ">⋯</summary><div class="gp-menu-items"><button class="btn" type="button" data-group-action="edit" data-name="${esc(group.name)}">Խմբագրել</button><button class="btn" type="button" data-group-action="style" data-name="${esc(group.name)}">Շապիկի ոճ</button><button class="btn" type="button" data-group-action="dates" data-name="${esc(group.name)}">Ժամկետներ և թիմ</button><button class="btn" type="button" data-group-action="complete" data-name="${esc(group.name)}" data-completed="${done?'false':'true'}">${done?'Վերակտիվացնել':'Նշել որպես ավարտված'}</button><button class="btn danger" type="button" data-group-action="delete" data-name="${esc(group.name)}">Ջնջել խումբը</button></div></details>`:'';
-      return `<article class="card gp-card"><div class="gp-card-head"><div class="gp-card-title"><h2>${esc(group.name)}</h2></div>${group.thumbnail_url?`<img class="gp-thumbnail" loading="lazy" src="${esc(group.thumbnail_url)}" alt="${esc(group.name)} խմբի շապիկի ոճ">`:'<div class="gp-thumbnail gp-thumbnail-empty">Շապիկ</div>'}${menu}</div>
-        <div class="gp-counts"><span>${Number(group.subject_count??count.classes??subjects.length)||0} առարկա</span><span>${Number(group.student_count??count.students)||0} ուսանող</span><span>${Number(group.lesson_count??count.lessons)||0} դաս</span></div>
-        <div class="gp-status"><span class="gp-state${done?' completed':''}">${done?'Ավարտված':'Գործող'}</span>${group.end_soon?`<span class="gp-state soon">${days===0?'Ավարտվում է այսօր':`Ավարտին՝ ${Math.max(0,days)} օր`}</span>`:''}${group.manual_active?'<span class="pill">Վերակտիվացված</span>':''}</div>
-        <dl class="gp-values"><div class="gp-value"><dt>Դասընթաց</dt><dd${group.course_start&&group.course_end?'':' class="gp-disabled"'}>${esc(groupRange(group.course_start,group.course_end))}</dd></div><div class="gp-value"><dt>Slack</dt><dd class="${group.slack?'mono':'gp-disabled'}">${group.slack?esc(groupMask(group.slack)):'Անջատված'}</dd></div><div class="gp-value"><dt>Classroom</dt><dd class="${group.classroom?'mono':'gp-disabled'}">${group.classroom?esc(groupMask(group.classroom)):'Անջատված'}</dd></div></dl>
-        <div class="gp-subjects">${subjects.map(subject=>`<div class="gp-subject"><div class="gp-subject-head"><span class="gp-subject-name">${esc(subject.name)}</span><span class="gp-playlist${subject.playlist?'':' missing'}">${subject.playlist?`Playlist · <span class="mono">${esc(groupMask(subject.playlist))}</span>`:`Playlist չկա${admin?` <button class="btn sm" type="button" data-group-action="playlist" data-name="${esc(group.name)}" data-subject="${esc(subject.name)}">Ավելացնել</button>`:''}`}</span></div></div>`).join('')}</div>
-        <div class="gp-card-footer"><button class="btn" type="button" data-group-action="team" data-name="${esc(group.name)}">${ic('users')} Թիմ</button>${admin&&done?`<button class="btn sm" type="button" data-group-action="dates" data-name="${esc(group.name)}">Երկարաձգել ժամկետը</button>`:''}</div></article>`;
-    }).join(''):'<div class="card empty">Այս կարգավիճակով խմբեր դեռ չկան։</div>';
+      const menu=admin?`<details class="gp-menu"><summary aria-label="${esc(group.name)} ${i18nText("ui.groups.group_actions")}">⋯</summary><div class="gp-menu-items"><button class="btn" type="button" data-group-action="edit" data-name="${esc(group.name)}">${i18nText("ui.groups.edit")}</button><button class="btn" type="button" data-group-action="style" data-name="${esc(group.name)}">${i18nText("ui.groups.thumbnail_style")}</button><button class="btn" type="button" data-group-action="dates" data-name="${esc(group.name)}">${i18nText("ui.groups.dates_and_team")}</button><button class="btn" type="button" data-group-action="complete" data-name="${esc(group.name)}" data-completed="${done?'false':'true'}">${done?i18nText("ui.groups.reactivate"):i18nText("ui.groups.mark_completed")}</button><button class="btn danger" type="button" data-group-action="delete" data-name="${esc(group.name)}">${i18nText("ui.groups.delete_group")}</button></div></details>`:'';
+      return `<article class="card gp-card"><div class="gp-card-head"><div class="gp-card-title"><h2>${esc(group.name)}</h2></div>${group.thumbnail_url?`<img class="gp-thumbnail" loading="lazy" src="${esc(group.thumbnail_url)}" alt="${esc(group.name)} ${i18nText("ui.groups.group_thumbnail_style")}">`:(`<div class="gp-thumbnail gp-thumbnail-empty">${i18nText("stage.thumbnail")}</div>`)}${menu}</div>
+        <div class="gp-counts"><span>${Number(group.subject_count??count.classes??subjects.length)||0} ${i18nText("ui.courses.subjects_3")}</span><span>${Number(group.student_count??count.students)||0} ${i18nText("ui.courses.students_3")}</span><span>${Number(group.lesson_count??count.lessons)||0} ${i18nText("ui.app.lessons_3")}</span></div>
+        <div class="gp-status"><span class="gp-state${done?' completed':''}">${done?i18nText("ui.courses.completed"):i18nText("ui.courses.active")}</span>${group.end_soon?`<span class="gp-state soon">${days===0?i18nText("ui.groups.ends_today"):`${i18nText("ui.groups.ends_in")} ${Math.max(0,days)} ${i18nText("ui.groups.days")}`}</span>`:''}${group.manual_active?(`<span class="pill">${i18nText("ui.groups.reactivated")}</span>`):''}</div>
+        <dl class="gp-values"><div class="gp-value"><dt>${i18nText("ui.groups.course")}</dt><dd${group.course_start&&group.course_end?'':' class="gp-disabled"'}>${esc(groupRange(group.course_start,group.course_end))}</dd></div><div class="gp-value"><dt>Slack</dt><dd class="${group.slack?'mono':'gp-disabled'}">${group.slack?esc(groupMask(group.slack)):i18nText("ui.accounts.disabled")}</dd></div><div class="gp-value"><dt>Classroom</dt><dd class="${group.classroom?'mono':'gp-disabled'}">${group.classroom?esc(groupMask(group.classroom)):i18nText("ui.accounts.disabled")}</dd></div></dl>
+        <div class="gp-subjects">${subjects.map(subject=>`<div class="gp-subject"><div class="gp-subject-head"><span class="gp-subject-name">${esc(subject.name)}</span><span class="gp-playlist${subject.playlist?'':' missing'}">${subject.playlist?`Playlist · <span class="mono">${esc(groupMask(subject.playlist))}</span>`:`${i18nText("ui.groups.no_playlist")}${admin?` <button class="btn sm" type="button" data-group-action="playlist" data-name="${esc(group.name)}" data-subject="${esc(subject.name)}">${i18nText("ui.groups.add")}</button>`:''}`}</span></div></div>`).join('')}</div>
+        <div class="gp-card-footer"><button class="btn" type="button" data-group-action="team" data-name="${esc(group.name)}">${ic('users')} ${i18nText("ui.courses.team")}</button>${admin&&done?`<button class="btn sm" type="button" data-group-action="dates" data-name="${esc(group.name)}">${i18nText("ui.groups.extend_dates")}</button>`:''}</div></article>`;
+    }).join(''):(`<div class="card empty">${i18nText("ui.groups.no_groups_with_this_status_yet")}</div>`);
     controls();
   }
   async function loadCards() {
@@ -87,19 +87,19 @@ async function renderLegacyGroupsPage(initialAction = null) {
   view.refreshGroups=()=>{if(Date.now()-state.lastFetch>30000&&!state.panelKind&&!state.busy&&!state.loadingCards)return loadCards();};
   function panel(kind,name) {
     if(state.busy)return null;
-    if(state.dirty&&!confirm('Չպահպանված փոփոխությունները կկորչեն։ Շարունակե՞լ։'))return null;
+    if(state.dirty&&!confirm(i18nText("ui.groups.unsaved_changes_will_be_lost_continue")))return null;
     state.dirty=false;state.panelKind=kind;state.panelName=name;const revision=++state.panel;
     ['editor','team','style'].forEach(key=>{find('#group-'+key).hidden=true;});
-    const box=find('#group-'+kind);box.innerHTML='<p class="muted" role="status">Տվյալները բեռնվում են…</p>';box.hidden=false;box.scrollIntoView({block:'start'});
+    const box=find('#group-'+kind);box.innerHTML=(`<p class="muted" role="status">${i18nText("ui.accounts.loading")}</p>`);box.hidden=false;box.scrollIntoView({block:'start'});
     return {revision,box,valid:()=>alive()&&state.panel===revision};
   }
-  function closePanel() {if(state.busy)return;if(state.dirty&&!confirm('Չպահպանված փոփոխությունները կկորչեն։ Փակե՞լ ձևը։'))return;state.panel++;state.panelKind=null;state.panelName=null;state.dirty=false;if(initialAction)location.hash=initialAction.name?'#/groups/'+encodeURIComponent(initialAction.name):'#/groups';['editor','team','style'].forEach(key=>{find('#group-'+key).hidden=true;});}
+  function closePanel() {if(state.busy)return;if(state.dirty&&!confirm(i18nText("ui.groups.unsaved_changes_will_be_lost_close_the")))return;state.panel++;state.panelKind=null;state.panelName=null;state.dirty=false;if(initialAction)location.hash=initialAction.name?'#/groups/'+encodeURIComponent(initialAction.name):'#/groups';['editor','team','style'].forEach(key=>{find('#group-'+key).hidden=true;});}
   function reveal(slot) {
     const scroll=()=>{if(slot.valid())slot.box.scrollIntoView({block:'start',behavior:'auto'});};
     scroll();
     if(typeof requestAnimationFrame==='function')requestAnimationFrame(scroll);
   }
-  const panelHead=(title)=>`<div class="gp-panel-head"><h2>${esc(title)}</h2><button class="btn sm" type="button" data-group-action="close">Փակել</button></div>`;
+  const panelHead=(title)=>`<div class="gp-panel-head"><h2>${esc(title)}</h2><button class="btn sm" type="button" data-group-action="close">${i18nText("ui.accounts.close")}</button></div>`;
   async function openEditor(name=null,focusSubject=null) {
     const slot=panel('editor',name);if(!slot)return;
     try {
@@ -108,24 +108,24 @@ async function renderLegacyGroupsPage(initialAction = null) {
       const courseData=await api('/api/courses');if(!slot.valid())return;
       const linked=courseData.courses.find(c=>c.groups.some(g=>g.name===name))?.id||'';
       const group=name===null?{subjects:[{name:'',playlist:''}],slack_channel:state.config.operator_slack_channel||'',lecturers:[],framing:'off'}:state.config.groups[name];
-      if(!group)throw Error('Խումբը չի գտնվել։ Թարմացրեք ցանկը։');
+      if(!group)throw Error(i18nText("ui.groups.group_not_found_refresh_the_list"));
       try{if(state.playlists===null)state.playlists=await api('/api/admin/youtube/playlists');}catch(error){if(error.message==='auth')throw error;state.playlists=[];}
       if(!slot.valid())return;
-      slot.box.innerHTML=panelHead(name===null?'Նոր խումբ':name+' · Խմբագրում')+`<form class="gp-form" id="group-core-form" novalidate><fieldset class="gp-fields-root"><label class="fld"><span>Դասընթաց</span><select class="input" name="course_id" required><option value="">Ընտրեք դասընթացը</option>${courseData.courses.map(c=>`<option value="${esc(c.id)}"${c.id===linked?' selected':''}>${esc(c.name)}</option>`).join('')}</select></label><label class="fld"><span>Խմբի անուն</span><input class="input" name="name" value="${esc(name||'')}" maxlength="60" placeholder="Օրինակ՝ Python-01" required><span class="gp-help">Տառեր, թվեր, բացատ, գծիկ, կետ կամ ստորագծիկ՝ մինչև 60 նիշ։</span></label><div><h3>Առարկաներ</h3><p class="gp-help">1–5 առարկա։ Տեսացանկը կարող եք ավելացնել նաև հետո։</p><div id="group-subject-fields" class="gp-form"></div><button class="btn sm" type="button" data-group-action="add-subject" id="group-add-subject" style="margin-top:12px">+ Առարկա</button></div>
-        <div class="gp-fields"><label class="fld"><span>Հաղորդագրությունների ալիքի համարը</span><input class="input" name="slack_channel" value="${esc(group.slack_channel)}" placeholder="C0123456789" required><span class="gp-help">Ալիքի կարգավորումներից պատճենեք համարը և ալիքին ավելացրեք Reel օգնականին։</span></label><label class="fld"><span>Առցանց դասարանի համարը՝ ըստ ցանկության</span><input class="input" name="classroom_course_id" value="${esc(group.classroom_course_id||'')}" placeholder="Դատարկ՝ անջատված"></label></div>
-        <label class="fld"><span>Կադրավորում</span><select class="input" name="framing"><option value="auto"${group.framing==='auto'?' selected':''}>Ինքնաշխատ</option><option value="projector"${group.framing==='projector'?' selected':''}>Էկրանով կադր</option><option value="off"${group.framing==='off'||!group.framing?' selected':''}>Ամբողջ կադրը</option><option value="board"${group.framing==='board'?' selected':''}>Գրատախտակով կադր</option></select><span class="gp-help">Կիրառվում է խմբի հաջորդ մշակումների համար։</span></label>
-        <p class="gp-help">Դասընթացի ժամկետներն ու թիմը կարող եք նշանակել խմբի «Թիմ» բաժնում։</p><div id="group-core-error" role="alert" hidden></div><div class="gp-actions"><button class="btn primary" type="submit">Պահպանել խումբը</button><button class="btn" type="button" data-group-action="close">Չեղարկել</button></div></fieldset></form>`;
+      slot.box.innerHTML=panelHead(name===null?i18nText("ui.groups.new_group_2"):name+(` ${i18nText("ui.groups.editing")}`))+`<form class="gp-form" id="group-core-form" novalidate><fieldset class="gp-fields-root"><label class="fld"><span>${i18nText("ui.groups.course")}</span><select class="input" name="course_id" required><option value="">${i18nText("ui.groups.choose_course")}</option>${courseData.courses.map(c=>`<option value="${esc(c.id)}"${c.id===linked?' selected':''}>${esc(c.name)}</option>`).join('')}</select></label><label class="fld"><span>${i18nText("ui.groups.group_name")}</span><input class="input" name="name" value="${esc(name||'')}" maxlength="60" placeholder="${i18nText("ui.groups.for_example_python_01")}" required><span class="gp-help">${i18nText("ui.groups.up_to_60_letters_digits_spaces_hyphens")}</span></label><div><h3>${i18nText("ui.courses.subjects_2")}</h3><p class="gp-help">${i18nText("ui.groups.1_5_subjects_playlists_can_be_added")}</p><div id="group-subject-fields" class="gp-form"></div><button class="btn sm" type="button" data-group-action="add-subject" id="group-add-subject" style="margin-top:12px">${i18nText("ui.groups.subject")}</button></div>
+        <div class="gp-fields"><label class="fld"><span>${i18nText("ui.groups.notification_channel_id")}</span><input class="input" name="slack_channel" value="${esc(group.slack_channel)}" placeholder="C0123456789" required><span class="gp-help">${i18nText("ui.groups.copy_the_id_from_the_channel_settings")}</span></label><label class="fld"><span>${i18nText("ui.groups.classroom_course_id_optional")}</span><input class="input" name="classroom_course_id" value="${esc(group.classroom_course_id||'')}" placeholder="${i18nText("ui.groups.leave_blank_to_disable")}"></label></div>
+        <label class="fld"><span>${i18nText("ui.groups.framing")}</span><select class="input" name="framing"><option value="auto"${group.framing==='auto'?' selected':''}>${i18nText("ui.groups.automatic")}</option><option value="projector"${group.framing==='projector'?' selected':''}>${i18nText("ui.groups.screen_framing")}</option><option value="off"${group.framing==='off'||!group.framing?' selected':''}>${i18nText("ui.groups.full_frame")}</option><option value="board"${group.framing==='board'?' selected':''}>${i18nText("ui.groups.board_framing")}</option></select><span class="gp-help">${i18nText("ui.groups.applies_to_future_processing_for_this_group")}</span></label>
+        <p class="gp-help">${i18nText("ui.groups.set_course_dates_and_team_members_in")}</p><div id="group-core-error" role="alert" hidden></div><div class="gp-actions"><button class="btn primary" type="submit">${i18nText("ui.groups.save_group")}</button><button class="btn" type="button" data-group-action="close">${i18nText("ui.accounts.cancel")}</button></div></fieldset></form>`;
       group.subjects.forEach(addSubject);controls();
       const form=find('#group-core-form');
       form.onsubmit=async event=>{
         event.preventDefault();if(state.busy)return;message(find('#group-core-error'),'');
         const values=new FormData(form),target=String(values.get('name')||'').trim();
         const subjects=[...view.querySelectorAll('.gp-subject-edit')].map(row=>({name:$('.gp-subject-name-input',row).value.trim(),playlist:$('.gp-playlist-select',row).value==='__manual__'?$('.gp-playlist-input',row).value.trim():$('.gp-playlist-select',row).value}));
-        if(!values.get('course_id'))return message(find('#group-core-error'),'Ընտրեք դասընթացը։');
-        if(!target||subjects.some(subject=>!subject.name))return message(find('#group-core-error'),'Լրացրեք խմբի և բոլոր առարկաների անունները։');
-        if(target!==name&&Object.prototype.hasOwnProperty.call(state.config.groups,target))return message(find('#group-core-error'),'Այս անունով խումբ արդեն կա։');
-        if(new Set(subjects.map(subject=>subject.name.toLocaleLowerCase())).size!==subjects.length)return message(find('#group-core-error'),'Առարկաների անունները պետք է լինեն եզակի։');
-        if(!String(values.get('slack_channel')||'').trim())return message(find('#group-core-error'),'Խնդրում ենք նշել Հաղորդագրությունների ալիքի համարը-ն։');
+        if(!values.get('course_id'))return message(find('#group-core-error'),i18nText("courses.choose_a_course"));
+        if(!target||subjects.some(subject=>!subject.name))return message(find('#group-core-error'),i18nText("ui.groups.enter_the_group_name_and_all_subject"));
+        if(target!==name&&Object.prototype.hasOwnProperty.call(state.config.groups,target))return message(find('#group-core-error'),i18nText("ui.groups.a_group_with_this_name_already_exists"));
+        if(new Set(subjects.map(subject=>subject.name.toLocaleLowerCase())).size!==subjects.length)return message(find('#group-core-error'),i18nText("ui.groups.subject_names_must_be_unique"));
+        if(!String(values.get('slack_channel')||'').trim())return message(find('#group-core-error'),i18nText("ui.groups.enter_a_notification_channel_id"));
         const payload={...group,subjects,slack_channel:String(values.get('slack_channel')).trim(),lecturers:group.lecturers||[],framing:values.get('framing')};
         const classroom=String(values.get('classroom_course_id')||'').trim();if(classroom)payload.classroom_course_id=classroom;else delete payload.classroom_course_id;
         if(name!==null&&target!==name)payload.rename_to=target;
@@ -135,20 +135,20 @@ async function renderLegacyGroupsPage(initialAction = null) {
           await api('/api/admin/group-course/'+encodeURIComponent(target),{method:'PUT',body:JSON.stringify({course_id:values.get('course_id')})});
           if(!slot.valid())return;
           state.dirty=false;state.panelKind=null;slot.box.hidden=true;state.config=null;
-          await loadCards();toast('Խմբի տվյալները պահպանված են։');if(initialAction)location.hash='#/groups/'+encodeURIComponent(target)+'?tab=subjects';
+          await loadCards();toast(i18nText("ui.groups.group_saved"));if(initialAction)location.hash='#/groups/'+encodeURIComponent(target)+'?tab=subjects';
         }catch(error){if(slot.valid()&&error.message!=='auth')message(find('#group-core-error'),errorText(error));}
         finally{state.busy=false;if(alive())controls();}
       };
       const row=focusSubject?[...view.querySelectorAll('.gp-subject-edit')].find(item=>$('.gp-subject-name-input',item).value===focusSubject):null;
       if(row){$('.gp-playlist-select',row).value='__manual__';syncPlaylist(row);$('.gp-playlist-input',row).focus({preventScroll:true});}else form.elements.name.focus({preventScroll:true});
       reveal(slot);
-    }catch(error){if(slot.valid()&&error.message!=='auth')slot.box.innerHTML=panelHead('Խմբի խմբագրում')+`<div class="alert err" role="alert">${esc(errorText(error))}</div>`;}
+    }catch(error){if(slot.valid()&&error.message!=='auth')slot.box.innerHTML=panelHead(i18nText("ui.groups.edit_group"))+`<div class="alert err" role="alert">${esc(errorText(error))}</div>`;}
   }
   function addSubject(subject={name:'',playlist:''}) {
     if(view.querySelectorAll('.gp-subject-edit').length>=5)return;
     const row=document.createElement('div');row.className='gp-subject-edit';
     const playlist=subject.playlist||'',selected=playlist===''?'':(state.playlists||[]).some(item=>item.id===playlist)?playlist:'__manual__';
-    row.innerHTML=`<div class="gp-subject-edit-head"><label class="fld"><span>Առարկա</span><input class="input gp-subject-name-input" value="${esc(subject.name)}" maxlength="40" placeholder="Օրինակ՝ Python" required></label><button class="btn danger sm" type="button" data-group-action="remove-subject" aria-label="Հեռացնել առարկան">✕</button></div><label class="fld"><span>Տեսացանկ</span><select class="input gp-playlist-select"><option value=""${selected===''?' selected':''}>Դեռ չկա</option><option value="__manual__"${selected==='__manual__'?' selected':''}>Հղումով</option>${(state.playlists||[]).map(item=>`<option value="${esc(item.id)}"${item.id===selected?' selected':''}>${esc(item.title||item.id)}</option>`).join('')}</select></label><label class="fld gp-playlist-manual"><span>Տեսացանկի հղումը</span><input class="input gp-playlist-input" value="${esc(playlist)}" placeholder="https://www.youtube.com/playlist?list=PL…"></label>`;
+    row.innerHTML=`<div class="gp-subject-edit-head"><label class="fld"><span>${i18nText("ui.app.subject")}</span><input class="input gp-subject-name-input" value="${esc(subject.name)}" maxlength="40" placeholder="${i18nText("ui.groups.for_example_python")}" required></label><button class="btn danger sm" type="button" data-group-action="remove-subject" aria-label="${i18nText("ui.groups.remove_subject")}">✕</button></div><label class="fld"><span>${i18nText("ui.groups.playlist")}</span><select class="input gp-playlist-select"><option value=""${selected===''?' selected':''}>${i18nText("ui.groups.none_yet")}</option><option value="__manual__"${selected==='__manual__'?' selected':''}>${i18nText("ui.groups.use_a_link")}</option>${(state.playlists||[]).map(item=>`<option value="${esc(item.id)}"${item.id===selected?' selected':''}>${esc(item.title||item.id)}</option>`).join('')}</select></label><label class="fld gp-playlist-manual"><span>${i18nText("ui.groups.playlist_link")}</span><input class="input gp-playlist-input" value="${esc(playlist)}" placeholder="https://www.youtube.com/playlist?list=PL…"></label>`;
     find('#group-subject-fields').append(row);syncPlaylist(row);controls();
   }
   function syncPlaylist(row) {$('.gp-playlist-manual',row).hidden=$('.gp-playlist-select',row).value!=='__manual__';}
@@ -159,47 +159,47 @@ async function renderLegacyGroupsPage(initialAction = null) {
       const data=await api((admin?'/api/admin/group-details/':'/api/groups/')+encodeURIComponent(name)+(admin?'':'/team'));
       if(!slot.valid())return;
       const team=data.team||{lecturers:[],tas:[]};
-      slot.box.innerHTML=panelHead(name+' · Թիմ')+`<div class="${admin?'gp-team-grid':''}"><div class="gp-team-section" id="group-team-people">${groupPeople(team)}</div>${admin?'<div id="group-team-editor"></div>':''}</div>`;
+      slot.box.innerHTML=panelHead(name+(` ${i18nText("ui.groups.team")}`))+`<div class="${admin?'gp-team-grid':''}"><div class="gp-team-section" id="group-team-people">${groupPeople(team)}</div>${admin?'<div id="group-team-editor"></div>':''}</div>`;
       if(!admin){reveal(slot);return;}
       const subjectData=data.subjects||[],options=data.options||{lecturers:[],tas:[]};
-      find('#group-team-editor').innerHTML=`<h3>Դասընթացի ժամկետներ և նշանակումներ</h3><form id="group-team-form" class="gp-form" novalidate><fieldset class="gp-fields-root"><div class="gp-fields"><label class="fld"><span>Դասընթացի սկիզբ</span><input class="input" type="date" name="course_start" value="${esc(data.course_start||'')}"></label><label class="fld"><span>Դասընթացի ավարտ</span><input class="input" type="date" name="course_end" value="${esc(data.course_end||'')}"></label></div><p class="gp-help">Ավարտից հետո խումբը կնշվի որպես ավարտված։ Առարկաների ժամկետները պետք է լինեն դասընթացի ներսում։</p>
-        <div class="gp-team-form-subjects">${subjectData.map((subject,index)=>`<div class="gp-team-subject"><h4>${esc(subject.name)}</h4><label class="fld"><span>Դասախոս</span><select class="input" name="lecturer_${index}"><option value="">Նշանակված չէ</option>${options.lecturers.map(person=>`<option value="${person.id}"${person.id===subject.lecturer_id?' selected':''}>${esc(person.name)}</option>`).join('')}</select></label><div class="gp-fields"><label class="fld"><span>Առարկայի սկիզբ</span><input class="input gp-subject-start" type="date" name="subject_start_${index}" value="${esc(subject.start_date||'')}"></label><label class="fld"><span>Առարկայի ավարտ</span><input class="input gp-subject-end" type="date" name="subject_end_${index}" value="${esc(subject.end_date||'')}"></label></div></div>`).join('')}</div>
-        <fieldset class="account-group-checks" hidden><legend>Ուսանող օգնականներ</legend><p class="gp-help">Ընտրեք այս խմբի ուսանողներից։ Օգնականի նշումը դեր կամ լրացուցիչ հասանելիություն չի տալիս։</p><div class="gp-ta-options">${options.tas.map(person=>`<label class="gp-check"><input type="checkbox" name="ta_ids" value="${person.id}"${(data.ta_ids||[]).includes(person.id)?' checked':''}><span>${esc(person.name)}</span></label>`).join('')||'<p class="muted">Այս խմբում ընտրելի ուսանողներ դեռ չկան։</p>'}</div></fieldset>
-        <div id="group-team-error" role="alert" hidden></div><div class="gp-actions"><button class="btn primary" type="submit">Պահպանել ժամկետներն ու թիմը</button></div></fieldset></form>`;
+      find('#group-team-editor').innerHTML=`<h3>${i18nText("ui.groups.course_dates_and_assignments")}</h3><form id="group-team-form" class="gp-form" novalidate><fieldset class="gp-fields-root"><div class="gp-fields"><label class="fld"><span>${i18nText("ui.groups.course_start")}</span><input class="input" type="date" name="course_start" value="${esc(data.course_start||'')}"></label><label class="fld"><span>${i18nText("ui.groups.course_end")}</span><input class="input" type="date" name="course_end" value="${esc(data.course_end||'')}"></label></div><p class="gp-help">${i18nText("ui.groups.the_group_is_marked_completed_after_the")}</p>
+        <div class="gp-team-form-subjects">${subjectData.map((subject,index)=>`<div class="gp-team-subject"><h4>${esc(subject.name)}</h4><label class="fld"><span>${i18nText("ui.groups.lecturer")}</span><select class="input" name="lecturer_${index}"><option value="">${i18nText("ui.groups.not_assigned")}</option>${options.lecturers.map(person=>`<option value="${person.id}"${person.id===subject.lecturer_id?' selected':''}>${esc(person.name)}</option>`).join('')}</select></label><div class="gp-fields"><label class="fld"><span>${i18nText("ui.groups.subject_start")}</span><input class="input gp-subject-start" type="date" name="subject_start_${index}" value="${esc(subject.start_date||'')}"></label><label class="fld"><span>${i18nText("ui.groups.subject_end")}</span><input class="input gp-subject-end" type="date" name="subject_end_${index}" value="${esc(subject.end_date||'')}"></label></div></div>`).join('')}</div>
+        <fieldset class="account-group-checks" hidden><legend>${i18nText("ui.groups.student_assistants")}</legend><p class="gp-help">${i18nText("ui.groups.choose_students_from_this_group_an_assistant")}</p><div class="gp-ta-options">${options.tas.map(person=>`<label class="gp-check"><input type="checkbox" name="ta_ids" value="${person.id}"${(data.ta_ids||[]).includes(person.id)?' checked':''}><span>${esc(person.name)}</span></label>`).join('')||(`<p class="muted">${i18nText("ui.groups.no_eligible_students_in_this_group_yet")}</p>`)}</div></fieldset>
+        <div id="group-team-error" role="alert" hidden></div><div class="gp-actions"><button class="btn primary" type="submit">${i18nText("ui.groups.save_dates_and_team")}</button></div></fieldset></form>`;
       const form=find('#group-team-form');
       const limits=()=>{form.querySelectorAll('.gp-subject-start,.gp-subject-end').forEach(input=>{input.min=form.elements.course_start.value;input.max=form.elements.course_end.value;});};
       form.elements.course_start.onchange=limits;form.elements.course_end.onchange=limits;limits();
       form.onsubmit=async event=>{
         event.preventDefault();if(state.busy)return;message(find('#group-team-error'),'');
         const values=new FormData(form),start=values.get('course_start')||null,end=values.get('course_end')||null;
-        if(Boolean(start)!==Boolean(end)||(start&&start>end))return message(find('#group-team-error'),'Նշեք դասընթացի սկիզբն ու ավարտը ճիշտ հերթականությամբ։');
+        if(Boolean(start)!==Boolean(end)||(start&&start>end))return message(find('#group-team-error'),i18nText("ui.groups.enter_course_start_and_end_dates_in"));
         const subjects=subjectData.map((subject,index)=>({name:subject.name,lecturer_id:values.get('lecturer_'+index)?Number(values.get('lecturer_'+index)):null,start_date:values.get('subject_start_'+index)||null,end_date:values.get('subject_end_'+index)||null}));
-        if(subjects.some(subject=>Boolean(subject.start_date)!==Boolean(subject.end_date)||(subject.start_date&&(!start||subject.start_date<start||subject.end_date>end||subject.start_date>subject.end_date))))return message(find('#group-team-error'),'Առարկայի սկզբի և ավարտի զույգը պետք է լինի դասընթացի նշված ժամկետի ներսում։');
+        if(subjects.some(subject=>Boolean(subject.start_date)!==Boolean(subject.end_date)||(subject.start_date&&(!start||subject.start_date<start||subject.end_date>end||subject.start_date>subject.end_date))))return message(find('#group-team-error'),i18nText("ui.groups.subject_start_and_end_dates_must_fall"));
         state.busy=true;controls();
         try{
           const updated=await api('/api/admin/group-details/'+encodeURIComponent(name),{method:'PUT',body:JSON.stringify({course_start:start,course_end:end,subjects,ta_ids:values.getAll('ta_ids').map(Number)})});
           if(!slot.valid())return;
-          state.dirty=false;find('#group-team-people').innerHTML=groupPeople(updated.team||team);await loadCards();toast('Ժամկետներն ու թիմը պահպանված են։');if(initialAction)location.hash='#/groups/'+encodeURIComponent(name)+'?tab=team';
+          state.dirty=false;find('#group-team-people').innerHTML=groupPeople(updated.team||team);await loadCards();toast(i18nText("ui.groups.dates_and_team_saved"));if(initialAction)location.hash='#/groups/'+encodeURIComponent(name)+'?tab=team';
         }catch(error){if(slot.valid()&&error.message!=='auth')message(find('#group-team-error'),errorText(error));}
         finally{state.busy=false;if(alive())controls();}
       };
       controls();if(focusEnd)form.elements.course_end.focus({preventScroll:true});reveal(slot);
-    }catch(error){if(slot.valid()&&error.message!=='auth')slot.box.innerHTML=panelHead(name+' · Թիմ')+`<div class="alert err" role="alert">${esc(errorText(error))}</div>`;}
+    }catch(error){if(slot.valid()&&error.message!=='auth')slot.box.innerHTML=panelHead(name+(` ${i18nText("ui.groups.team")}`))+`<div class="alert err" role="alert">${esc(errorText(error))}</div>`;}
   }
   async function openStyle(name) {
     const slot=panel('style',name);if(!slot)return;
     try{
       state.styles=await api('/api/admin/thumbnail-styles');if(!slot.valid())return;
       let selected=state.styles.groups[name]?.style??0;
-      function render(){slot.box.innerHTML=panelHead(name+' · Շապիկի ոճ')+`<p class="gp-help">Ընտրությունը կկիրառվի հաջորդ շապիկների վրա։ Նախկին դասերի շապիկները չեն փոխվի։</p><div class="gp-style-grid">${state.styles.styles.map(style=>`<button class="gp-style${style.id===selected?' on':''}" type="button" data-style-id="${style.id}" aria-pressed="${style.id===selected}"><img src="${esc(style.preview)}" loading="lazy" alt="Ոճ ${style.id+1}"><span>Ոճ ${style.id+1}</span></button>`).join('')}</div><div id="group-style-error" role="alert" hidden></div><div class="gp-actions" style="margin-top:16px"><button class="btn primary" id="group-style-save" type="button">Պահպանել ոճը</button></div>`;
+      function render(){slot.box.innerHTML=panelHead(name+(` ${i18nText("ui.groups.thumbnail_style_2")}`))+`<p class="gp-help">${i18nText("ui.groups.applies_to_future_thumbnails_existing_lesson_thumbnails")}</p><div class="gp-style-grid">${state.styles.styles.map(style=>`<button class="gp-style${style.id===selected?' on':''}" type="button" data-style-id="${style.id}" aria-pressed="${style.id===selected}"><img src="${esc(style.preview)}" loading="lazy" alt="${i18nText("ui.groups.style")} ${style.id+1}"><span>${i18nText("ui.groups.style")} ${style.id+1}</span></button>`).join('')}</div><div id="group-style-error" role="alert" hidden></div><div class="gp-actions" style="margin-top:16px"><button class="btn primary" id="group-style-save" type="button">${i18nText("ui.groups.save_style")}</button></div>`;
         slot.box.querySelectorAll('[data-style-id]').forEach(button=>button.onclick=()=>{if(state.busy)return;selected=Number(button.dataset.styleId);state.dirty=true;render();});
         find('#group-style-save').onclick=async()=>{if(state.busy)return;state.busy=true;controls();find('#group-style-save').disabled=true;
-          try{await api('/api/admin/thumbnail-styles/'+encodeURIComponent(name),{method:'PUT',body:JSON.stringify({style:selected})});if(!slot.valid())return;state.dirty=false;state.panelKind=null;slot.box.hidden=true;await loadCards();toast('Շապիկի ոճը պահպանված է։');}
+          try{await api('/api/admin/thumbnail-styles/'+encodeURIComponent(name),{method:'PUT',body:JSON.stringify({style:selected})});if(!slot.valid())return;state.dirty=false;state.panelKind=null;slot.box.hidden=true;await loadCards();toast(i18nText("ui.groups.thumbnail_style_saved"));}
           catch(error){if(slot.valid()&&error.message!=='auth')message(find('#group-style-error'),errorText(error));}
           finally{state.busy=false;if(slot.valid()){controls();const save=find('#group-style-save');if(save)save.disabled=false;}}};
       }
       render();reveal(slot);
-    }catch(error){if(slot.valid()&&error.message!=='auth')slot.box.innerHTML=panelHead(name+' · Շապիկի ոճ')+`<div class="alert err" role="alert">${esc(errorText(error))}</div>`;}
+    }catch(error){if(slot.valid()&&error.message!=='auth')slot.box.innerHTML=panelHead(name+(` ${i18nText("ui.groups.thumbnail_style_2")}`))+`<div class="alert err" role="alert">${esc(errorText(error))}</div>`;}
   }
   view.addEventListener('input',event=>{if(event.target.closest('.gp-form'))state.dirty=true;});
   view.addEventListener('change',event=>{if(event.target.closest('.gp-form'))state.dirty=true;if(event.target.classList.contains('gp-playlist-select'))syncPlaylist(event.target.closest('.gp-subject-edit'));});
@@ -217,20 +217,20 @@ async function renderLegacyGroupsPage(initialAction = null) {
     if(action==='style'){await openStyle(name);return;}
     if(action==='add-subject'){addSubject();state.dirty=true;return;}
     if(action==='remove-subject'&&view.querySelectorAll('.gp-subject-edit').length>1){button.closest('.gp-subject-edit').remove();state.dirty=true;controls();return;}
-    if(action==='delete'&&!confirm(`Ջնջե՞լ «${name}» խմբի կարգավորումները։`))return;
-    if(action==='complete'&&!confirm(button.dataset.completed==='true'?`Նշե՞լ «${name}» խումբը որպես ավարտված։ Պատմությունը կպահպանվի։`:`Վերակտիվացնե՞լ «${name}» խումբը։ Կարող եք նաև երկարաձգել դասընթացի ավարտը։`))return;
+    if(action==='delete'&&!confirm(`${i18nText("ui.groups.delete_settings_for")}${name}${i18nText("ui.groups.punctuation")}`))return;
+    if(action==='complete'&&!confirm(button.dataset.completed==='true'?`${i18nText("ui.app.set")}${name}${i18nText("ui.groups.as_completed_its_history_will_be_retained")}`:`${i18nText("ui.groups.reactivate_2")}${name}${i18nText("ui.groups.you_can_also_extend_the_course_end")}`))return;
     if(!['delete','complete'].includes(action)||state.busy)return;
     state.busy=true;controls();message(find('#groups-message'),'');
     try{
       await api(action==='delete'?'/api/admin/groups/'+encodeURIComponent(name):'/api/admin/group-status/'+encodeURIComponent(name),{method:action==='delete'?'DELETE':'POST',...(action==='complete'?{body:JSON.stringify({completed:button.dataset.completed==='true'})}:{})});
-      if(!alive())return;await loadCards();toast(action==='delete'?'Խումբը ջնջված է։':'Խմբի կարգավիճակը պահպանված է։');
+      if(!alive())return;await loadCards();toast(action==='delete'?i18nText("ui.groups.group_deleted"):i18nText("ui.groups.group_status_saved"));
     }catch(error){if(alive()&&error.message!=='auth')message(find('#groups-message'),errorText(error));}
     finally{state.busy=false;if(alive())controls();}
   };
   await loadCards();
   if(initialAction){
     find('#groups-cards').hidden=true;find('.gp-toolbar').hidden=true;
-    find('.top').innerHTML=`<div><a class="btn" href="#/groups/${encodeURIComponent(initialAction.name||'')}">← Վերադառնալ խմբին</a><h1>${initialAction.kind==='team'?'Ժամկետներ և դասախոսներ':'Առարկաների խմբագրում'}</h1></div>`;
+    find('.top').innerHTML=`<div><a class="btn" href="#/groups/${encodeURIComponent(initialAction.name||'')}">${i18nText("ui.groups.back_to_group")}</a><h1>${initialAction.kind==='team'?i18nText("ui.groups.dates_and_lecturers"):i18nText("ui.groups.edit_subjects")}</h1></div>`;
     if(initialAction.kind==='team')await openTeam(initialAction.name);else await openEditor(initialAction.name??null,initialAction.subject);
   }
 }

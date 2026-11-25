@@ -5,6 +5,8 @@ secrets/token_classroom.json): a YouTube channel is often a brand account, and a
 brand account cannot use Classroom -- Google answers "service unavailable" when
 both scopes are requested in one consent.
 """
+
+from reel.i18n import t as _t
 from pathlib import Path
 import json
 import os
@@ -20,8 +22,8 @@ SERVICES = {
     "classroom": ["https://www.googleapis.com/auth/classroom.announcements"],
 }
 ACCOUNT_HINT = {
-    "youtube": "YouTube — ընտրիր այն ԱԼԻՔԸ, որտեղ Reel-ը պետք է հրապարակի (brand ալիքը նույնպես կարելի է)",
-    "classroom": "Classroom — ընտրիր քո անձնական հաշիվը, որը դասընթացում ՈՒՍՈՒՑԻՉ է (ոչ brand ալիքը)",
+    "youtube": _t('text.google_auth.youtube_choose_the_channel_reel_should_publish'),
+    "classroom": _t('text.google_auth.classroom_choose_your_personal_account_that_is'),
 }
 
 

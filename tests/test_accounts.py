@@ -14,12 +14,12 @@ PASSWORD='Անձնական-password-123'
 
 
 @pytest.fixture(autouse=True)
-def offline_g39_mail(monkeypatch):
+def offline_account_mail(monkeypatch):
     from reel.web import account_mail
     monkeypatch.setattr(account_mail, 'validate_email', lambda email: [])
 
     def no_real_smtp(*args, **kwargs):
-        raise AssertionError('G36 regressions must use fake SMTP')
+        raise AssertionError('Account regressions must use fake SMTP')
 
     monkeypatch.setattr(account_mail.smtplib, 'SMTP', no_real_smtp)
 

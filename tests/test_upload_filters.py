@@ -45,7 +45,7 @@ const context={console,Promise,Date,Math,JSON,Number,String,URLSearchParams,enco
    }
    throw Error('Unexpected fake API path '+path);
  }};
-vm.createContext(context);vm.runInContext(fs.readFileSync(process.argv[1],'utf8'),context);
+vm.createContext(context);require(require('path').resolve('tests/browser_locale.cjs')).install(context);vm.runInContext(fs.readFileSync(process.argv[1],'utf8'),context);
 (async()=>{
  await context.viewUpload();
  const group=elements['#up-group'],subject=elements['#up-subject'],number=elements['#up-number'];
@@ -143,7 +143,7 @@ const context={S:{role:'admin',user:{id:1},libraryFacets:{groups:[own],_t:now}},
    if(path==='/api/library/progress')return {personal:true,items:[]};
    throw Error('Unexpected fake API path '+path);
  }};
-vm.createContext(context);vm.runInContext(fs.readFileSync(process.argv[1],'utf8'),context);
+vm.createContext(context);require(require('path').resolve('tests/browser_locale.cjs')).install(context);vm.runInContext(fs.readFileSync(process.argv[1],'utf8'),context);
 context.renderLibrary=()=>{};
 (async()=>{
  // Returning after configuration changed: the old facets are only one millisecond old.

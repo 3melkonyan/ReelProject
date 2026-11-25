@@ -46,7 +46,7 @@ def test_five_full_word_navigation_entries_and_header_help():
     run_node(r'''
 const fs=require('fs'),vm=require('vm'),assert=require('assert/strict');
 const s=fs.readFileSync(process.argv[1],'utf8'),c={S:{role:'admin'},esc:String,ic:()=>'',isDark:()=>true};
-c.canUpload=()=>['admin','uploader'].includes(c.S.role);vm.createContext(c);
+c.canUpload=()=>['admin','uploader'].includes(c.S.role);vm.createContext(c);require(require('path').resolve('tests/browser_locale.cjs')).install(c);
 vm.runInContext(s.slice(s.indexOf('const navLink ='),s.indexOf('function route()')),c);
 for(const role of ['admin','viewer','uploader','student']){
  c.S.role=role;const nav=c.navigation('jobs');

@@ -6,9 +6,9 @@
 
 **From a classroom recording to a searchable lesson library.**
 
-Reel processes lecture recordings on an Apple Silicon Mac. It combines recording parts, transcribes Armenian speech, prepares conservative edits, adjusts framing and audio, and applies face blurring before publishing lessons to YouTube and sharing them with a class.
+Reel processes lecture recordings on an Apple Silicon Mac. It combines recording parts, transcribes speech (Armenian by default), prepares conservative edits, adjusts framing and audio, and applies face blurring before publishing lessons to YouTube and sharing them with a class.
 
-Designed for schools and training centers, Reel includes an Armenian-language dashboard for administrators, lecturers and students. Processing runs locally with FFmpeg, MLX Whisper, OpenCV and Ollama; YouTube, Slack, Google Classroom and email are external integrations.
+Designed for schools and training centers, Reel includes a dashboard for administrators, lecturers and students. The interface is Armenian by default; English can be selected. Processing runs locally with FFmpeg, MLX Whisper, OpenCV and Ollama; YouTube, Slack, Google Classroom and email are external integrations.
 
 [Service setup](docs/SETUP.md) · [Operator guide](docs/OPERATOR.md) · [Installation](docs/INSTALLATION.md) · [Usage](docs/USAGE.md) · [Architecture](docs/ARCHITECTURE.md)
 
@@ -140,3 +140,17 @@ Maintained by [Gevorg Melkonyan](https://github.com/3melkonyan). For reproducibl
 ## License
 
 Reel is released under the [MIT License](LICENSE). Bundled fonts keep their own licenses; see [third-party notices](THIRD_PARTY_NOTICES.md).
+
+## Languages
+
+The interface is Armenian by default; English can be selected. Use **Հայերեն / English** in the header. Before sign-in, the choice is saved in localStorage on the current browser; after sign-in, it is saved to your account and follows you across devices. Emails use the recipient’s account language, falling back to the deployment default.
+
+Set `ui_language: hy` or `ui_language: en` in your configuration to choose the deployment default. Existing configurations without this option use Armenian.
+
+Lesson content has independent settings:
+
+- `transcription_language: hy`: a two- or three-letter language code, or `auto` to detect the recording’s language.
+- `transcription_prompt`: optional recognition vocabulary; use `null` to disable it. The existing Armenian programming vocabulary is the default for Armenian transcription and is omitted for other languages unless supplied explicitly.
+- `metadata_language: hy`: `hy` or `en` for generated titles, descriptions, study notes, numbered publication titles, and lesson announcements. The English path builds titles and chapters from grounded English topics. Existing content is retained.
+
+Group names, subject names, recordings, transcripts, and existing lesson titles are content and are not translated when the interface language changes. See [the dashboard guide](docs/WEB.md) for account behavior.

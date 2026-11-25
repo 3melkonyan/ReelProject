@@ -1,4 +1,4 @@
-"""Optional G40/1 integration never invents a player or leaks a foreign demo card."""
+"""Optional demo metadata integration never invents a player or leaks a foreign demo card."""
 from contextlib import closing
 from types import ModuleType
 import sys

@@ -8,7 +8,7 @@ const source=fs.readFileSync(process.argv[1].replace('app.js','learning.js'),'ut
 const appSource=fs.readFileSync(process.argv[1],'utf8');
 function context(extra={}) {
  const c={S:{role:'student',user:{id:1}},URLSearchParams,performance:{now:()=>0},console,...extra};
- vm.createContext(c);
+ vm.createContext(c);require(require('path').resolve('tests/browser_locale.cjs')).install(c);
  vm.runInContext(appSource.slice(appSource.indexOf('const esc ='),appSource.indexOf('\n',appSource.indexOf('const esc ='))),c);
  vm.runInContext(source,c);return c;
 }

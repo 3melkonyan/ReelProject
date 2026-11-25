@@ -4,6 +4,8 @@ Tesseract is an optional executable dependency, never installed/downloaded at ru
 Requires both eng.traineddata and hye.traineddata (tessdata_fast, Apache-2.0).
 """
 from __future__ import annotations
+
+from reel.i18n import t as _t
 import csv
 import io
 import json
@@ -22,7 +24,7 @@ def recognize(image,minimum=45):
             import tesserocr
             from PIL import Image
         except ImportError:
-            raise RuntimeError('Tesseract hye+eng-ը տեղադրված չէ') from None
+            raise RuntimeError(_t('text.ocr.tesseract_hye_eng_is_not_installed')) from None
         # Wheel bundles the same native engine. Models come from TESSDATA_PREFIX,
         # set by the operator; runtime never downloads them.
         with tesserocr.PyTessBaseAPI(lang='hye+eng',psm=6) as api:

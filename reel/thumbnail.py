@@ -1,6 +1,8 @@
 """Local ffmpeg thumbnail generation; retry and publication belong to pipeline."""
 from __future__ import annotations
 
+from reel.i18n import t as _t
+
 import argparse
 import fcntl
 import io
@@ -43,7 +45,7 @@ def _font(title: str, size: int):
                     return font  # The same font and point size draw the entire title.
             except OSError:
                 continue
-    raise PublishError("Հայերեն վերնագրի glyph-երը պարունակող font չի գտնվել", False)
+    raise PublishError(_t('thumbnail.font_missing'), False)
 
 
 def _lines(draw, title: str, font, width: int) -> list[str] | None:
@@ -136,7 +138,7 @@ def _group_style(group: str) -> int:
 
 
 def lesson_name(title: str) -> str:
-    """The lesson's main topic: the metadata title without "Դաս՝ " and the extras after a comma."""
+    """The main topic without the lesson prefix or extra topics after a comma."""
     text = " ".join(str(title or "").split())
     if text.startswith("Դաս՝"):
         text = text[len("Դաս՝"):].strip()
@@ -270,14 +272,14 @@ def make_thumbnail(video_path: str, title: str, out_path: str,
         from PIL import Image
 
         if not isinstance(title, str) or not title.strip():
-            raise PublishError("Վերնագիրը դատարկ է", False)
+            raise PublishError(_t('thumbnail.empty_title'), False)
         duration = float(_run(["ffprobe", "-v", "error", "-show_entries",
                                "format=duration", "-of", "default=nw=1:nk=1",
                                str(video_path)]).decode().strip())
         if not math.isfinite(duration) or duration <= 0:
-            raise PublishError("Տեսանյութի տևողությունն անվավեր է", False)
+            raise PublishError(_t('thumbnail.invalid_duration'), False)
         if at_sec is not None and (not math.isfinite(at_sec) or not 0 <= at_sec < duration):
-            raise PublishError("at_sec-ը պետք է լինի տեսանյութի սահմաններում", False)
+            raise PublishError(_t('thumbnail.invalid_frame_time'), False)
         times = [at_sec] if at_sec is not None else [duration * (.1 + .8 * i / 19) for i in range(20)]
         best, best_score = None, -1.0
         for timestamp in times:
@@ -294,7 +296,7 @@ def make_thumbnail(video_path: str, title: str, out_path: str,
             if score > best_score:
                 best, best_score = data, score
         if best is None:
-            raise PublishError("Տեսանյութից կադր չի ստացվել", False)
+            raise PublishError(_t('thumbnail.frame_unavailable'), False)
         with Image.open(io.BytesIO(best)) as source:
             frame = source.convert("RGB")
         rgb = (render_lesson_card(frame, lesson_info, variant) if lesson_info else
@@ -305,13 +307,13 @@ def make_thumbnail(video_path: str, title: str, out_path: str,
             if encoded.tell() < 2_000_000:
                 Path(out_path).write_bytes(encoded.getvalue())
                 return str(out_path)
-        raise PublishError("JPG-ը հնարավոր չէ փոքրացնել մինչև 2 MB", False)
+        raise PublishError(_t('thumbnail.image_too_large'), False)
     except PublishError:
         raise
     except (ImportError, FileNotFoundError) as exc:
-        raise PublishError(f"Thumbnail-ի կախվածությունը բացակայում է՝ {type(exc).__name__}", False) from exc
+        raise PublishError(_t('thumbnail.missing_dependency', error=type(exc).__name__), False) from exc
     except Exception as exc:
-        raise PublishError(f"Thumbnail-ի ստեղծման սխալ՝ {type(exc).__name__}", False) from exc
+        raise PublishError(_t('thumbnail.creation_failed', error=type(exc).__name__), False) from exc
 
 
 def _smoke() -> None:
@@ -363,7 +365,7 @@ def render_lesson_card(frame, info, variant=0):
         for i,line in enumerate(lines):d.text((64,y+i*(font.size+10)),line,font=font,fill=color)
     label(info.get('course','Reel'),48,38)
     label(info.get('group',''),112,32,MAGENTA if variant==2 else MINT)
-    label('Դաս '+str(info.get('lesson',1)),218,100)
+    label(('Lesson ' if info.get('language') == 'en' else 'Դաս ')+str(info.get('lesson',1)),218,100)
     label(info.get('subject',''),370,74)
     label('Reel',638,28,WHITE if variant==2 else MINT)
     return image

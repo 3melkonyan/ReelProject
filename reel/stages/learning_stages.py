@@ -30,7 +30,12 @@ def _captions_stage(ctx: Ctx) -> dict:
     parts = captions.split_cues(cues)
     folder = ctx.workdir / "captions"
     folder.mkdir(parents=True, exist_ok=True)
-    srt, vtt = folder / "captions.hy.srt", folder / "captions.hy.vtt"
+    language = ctx.config.get("transcription_language", "hy")
+    if language == "auto":
+        import json
+        data = json.loads((ctx.workdir / "transcript" / "transcript.json").read_text())
+        language = data.get("language") or "hy"
+    srt, vtt = folder / f"captions.{language}.srt", folder / f"captions.{language}.vtt"
     srt.write_text(captions.to_srt(parts), encoding="utf-8")
     vtt.write_text(captions.to_vtt(parts), encoding="utf-8")
     result = {"cues": len(cues), "caption_cues": len(parts), "source": source, "srt": str(srt), "vtt": str(vtt)}
@@ -40,14 +45,14 @@ def _captions_stage(ctx: Ctx) -> dict:
     youtube = stages._pub("youtube")
 
     def find():
-        found = youtube.find_captions(video, "hy")
+        found = youtube.find_captions(video, language)
         return (found, None) if found else None
 
     error = None
     for wait in CAPTION_RETRY_WAIT:
         time.sleep(wait)
         try:
-            r = ctx.publish_once("captions", lambda: (youtube.upload_captions(video, str(srt), "hy"), None), find)
+            r = ctx.publish_once("captions", lambda: (youtube.upload_captions(video, str(srt), language), None), find)
             return {**result, "uploaded": True, "caption_id": r["external_id"], "reused": r["reused"]}
         except Exception as e:  # noqa: BLE001 - captions must never block the lesson
             error = e
@@ -69,7 +74,7 @@ def summary_stage(ctx: Ctx) -> dict:
         parts = []
     try:
         cues, _ = learning.transcript_cues(ctx.db, ctx.job_id, ctx.workdir.parent)
-        notes = lesson_summary.generate(ctx.out("metadata"), parts, lesson_summary.excerpt(cues))
+        notes = lesson_summary.generate(ctx.out("metadata"), parts, lesson_summary.excerpt(cues), **({"language": "en"} if ctx.config.get("metadata_language", "hy") == "en" else {}))
     except Exception as e:  # noqa: BLE001 - LLMError, unusable text twice, anything else: never stop
         return {"skipped": f"{type(e).__name__}: {str(e)[:200]}",
                 "auto_note": "AI summary skipped — the lesson is published without it"}

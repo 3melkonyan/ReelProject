@@ -61,7 +61,7 @@ def _grounded(term: str, source: str) -> bool:
     return term.casefold() in source or all(w in source for w in words)
 
 
-def validate(data: object, material: str | None = None) -> dict:
+def validate(data: object, material: str | None = None, *, language="hy") -> dict:
     """Clean model output or raise ValueError(reason) for one corrective retry.
     With `material`, key terms that the lesson never mentions are dropped (the model likes to add some)."""
     if not isinstance(data, dict):
@@ -80,14 +80,14 @@ def validate(data: object, material: str | None = None) -> dict:
     for item in data.get("summary") or []:
         # The model sometimes packs a whole paragraph into one item: one sentence per line instead.
         lines += re.split(r"(?<=[։.!?])\s+", item.strip()) if isinstance(item, str) and len(item) > 200 else [item]
-    summary = unique(t for t in map(lambda v: _text(v, 300), lines) if t and len(t) >= 15)
-    questions = unique(t for t in map(lambda v: _text(v, 220), data.get("questions") or []) if t and len(t) >= 10)
+    summary = unique(t for t in map(lambda v: _text(v, 300, armenian=language == "hy"), lines) if t and len(t) >= 15)
+    questions = unique(t for t in map(lambda v: _text(v, 220, armenian=language == "hy"), data.get("questions") or []) if t and len(t) >= 10)
     terms = []
     for item in data.get("terms") or []:
         if isinstance(item, dict):
-            term, meaning = _text(item.get("term"), 60, armenian=False), _text(item.get("meaning"), 200)
+            term, meaning = _text(item.get("term"), 60, armenian=False), _text(item.get("meaning"), 200, armenian=language == "hy")
             if term and meaning:
-                # "closure - ֆունկցիա, որը ..." -> "ֆունկցիա, որը ..."
+                # Remove a repeated term prefix before its explanation.
                 meaning = re.sub(r"^" + re.escape(term) + r"\s*[-–—:]\s*", "", meaning, flags=re.IGNORECASE)
                 if material is None or _grounded(term, material):
                     if _ARMENIAN.match(meaning):          # capitalise Armenian, never code ("makeCounter")
@@ -126,14 +126,20 @@ def material(meta: dict, parts: list, transcript: str) -> str:
                        "transcript_excerpt": "" if len(english) >= 2 else transcript}, ensure_ascii=False)
 
 
-def generate(meta: dict, parts: list, transcript: str, *, chat=None, model: str | None = None) -> dict:
+def generate(meta: dict, parts: list, transcript: str, *, chat=None, model: str | None = None, language="hy") -> dict:
     """Raises llm.LLMError (model unavailable) or ValueError (unusable twice)."""
+    if language not in ("hy", "en"):
+        raise ValueError("Unsupported summary language")
+    system = SYSTEM if language == "hy" else (
+        "Write English study notes using only the supplied lesson material. Preserve technical identifiers. "
+        "Return JSON with summary (5–10 short sentences), terms (3–8 term/meaning objects), "
+        "and questions (3–5 self-check questions). Every term must occur in the material. Do not invent facts.")
     chat = chat or llm.chat_json
     payload, feedback = material(meta, parts, transcript), ""
     for _ in range(2):
-        data = chat(SYSTEM + feedback, payload, model=model or llm.DEFAULT_MODEL, schema=SCHEMA, temperature=0.2)
+        data = chat(system + feedback, payload, model=model or llm.DEFAULT_MODEL, schema=SCHEMA, temperature=0.2)
         try:
-            return validate(data, payload.casefold())
+            return validate(data, payload.casefold(), language=language)
         except ValueError as error:
             feedback = f" Your previous answer was rejected: {error}. Follow the JSON format and rules exactly."
     raise ValueError(f"AI summary unusable: {feedback.strip()}")

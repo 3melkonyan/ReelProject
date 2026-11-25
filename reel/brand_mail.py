@@ -8,6 +8,8 @@ replace it with a fake. Addresses, codes and credentials are never logged.
 """
 from __future__ import annotations
 
+from reel.i18n import t as _t, localized_message, current_language as _language
+
 from email.message import EmailMessage
 from email.policy import SMTP as SMTP_POLICY
 from email.utils import parseaddr
@@ -58,28 +60,10 @@ def _html(subject: str, eyebrow: str, title: str, greeting: str, paragraphs, cod
                          f'<ul style="margin:0;padding-left:20px;font-size:14px;line-height:1.7;">{items}</ul>')
     if note:
         parts.append(f'<p class="mail-muted" style="margin:22px 0 0;color:#626a76;font-size:13px;line-height:1.8;">{e(note)}</p>')
-    return f"""<!doctype html>
-<html lang="hy"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark">
-<style>@media (prefers-color-scheme:dark){{.mail-body{{background:#101214!important}}.mail-card{{background:#1b1e22!important;border-color:#343941!important}}
-.mail-text{{color:#f4f5f7!important}}.mail-muted{{color:#b0b6c0!important}}.mail-block{{background:#252a30!important}}
-.mail-button{{background:#f4f5f7!important;color:#17191d!important}}.mail-link{{color:#f4f5f7!important}}}}</style>
-<title>{e(subject)}</title></head>
-<body class="mail-body" style="margin:0;padding:0;background:#f4f5f7;font-family:Arial,'Noto Sans Armenian',sans-serif;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="mail-body" style="background:#f4f5f7;"><tr><td align="center" style="padding:28px 12px;">
-<table role="presentation" width="600" cellpadding="0" cellspacing="0" class="mail-card" style="width:100%;max-width:600px;background:#ffffff;border:1px solid #e5e8ec;border-radius:16px;">
-<tr><td bgcolor="#000000" style="padding:20px 28px;background:#000000;border-radius:16px 16px 0 0;">
-<img src="cid:reel-logo" width="240" height="77" alt="Reel" style="display:block;width:240px;max-width:100%;height:auto;border:0;background:#000000;"></td></tr>
-<tr><td class="mail-text" style="padding:28px;color:#17191d;">
-<p class="mail-muted" style="margin:0 0 12px;color:#626a76;font-size:11px;font-weight:bold;letter-spacing:1px;">{e(eyebrow)}</p>
-<h1 class="mail-text" style="margin:0 0 22px;color:#17191d;font-size:24px;line-height:1.35;">{e(title)}</h1>
-{''.join(parts)}
-</td></tr><tr><td style="padding:20px 28px;border-top:1px solid #e5e8ec;">
-<p class="mail-text" style="margin:0 0 6px;color:#17191d;font-size:12px;font-weight:bold;">Reel</p>
-<p class="mail-muted" style="margin:0;color:#626a76;font-size:11px;line-height:1.7;">Այս նամակն ուղարկվել է ավտոմատ։ Խնդրում ենք չպատասխանել։</p>
-</td></tr></table></td></tr></table></body></html>"""
+    return f'''<!doctype html>\n<html lang="{_language()}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">\n<meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark">\n<style>@media (prefers-color-scheme:dark){{.mail-body{{background:#101214!important}}.mail-card{{background:#1b1e22!important;border-color:#343941!important}}\n.mail-text{{color:#f4f5f7!important}}.mail-muted{{color:#b0b6c0!important}}.mail-block{{background:#252a30!important}}\n.mail-button{{background:#f4f5f7!important;color:#17191d!important}}.mail-link{{color:#f4f5f7!important}}}}</style>\n<title>{e(subject)}</title></head>\n<body class="mail-body" style="margin:0;padding:0;background:#f4f5f7;font-family:Arial,'Noto Sans Armenian',sans-serif;">\n<table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="mail-body" style="background:#f4f5f7;"><tr><td align="center" style="padding:28px 12px;">\n<table role="presentation" width="600" cellpadding="0" cellspacing="0" class="mail-card" style="width:100%;max-width:600px;background:#ffffff;border:1px solid #e5e8ec;border-radius:16px;">\n<tr><td bgcolor="#000000" style="padding:20px 28px;background:#000000;border-radius:16px 16px 0 0;">\n<img src="cid:reel-logo" width="240" height="77" alt="Reel" style="display:block;width:240px;max-width:100%;height:auto;border:0;background:#000000;"></td></tr>\n<tr><td class="mail-text" style="padding:28px;color:#17191d;">\n<p class="mail-muted" style="margin:0 0 12px;color:#626a76;font-size:11px;font-weight:bold;letter-spacing:1px;">{e(eyebrow)}</p>\n<h1 class="mail-text" style="margin:0 0 22px;color:#17191d;font-size:24px;line-height:1.35;">{e(title)}</h1>\n{''.join(parts)}\n</td></tr><tr><td style="padding:20px 28px;border-top:1px solid #e5e8ec;">\n<p class="mail-text" style="margin:0 0 6px;color:#17191d;font-size:12px;font-weight:bold;">Reel</p>\n<p class="mail-muted" style="margin:0;color:#626a76;font-size:11px;line-height:1.7;">{_t('text.account_mail.this_email_was_sent_automatically_please_do')}</p>\n</td></tr></table></td></tr></table></body></html>'''
 
 
+@localized_message
 def build(to: str, subject: str, *, eyebrow: str, title: str, greeting: str = "", paragraphs=(),
           code: str | None = None, code_label: str = "", cta: tuple[str, str] | None = None, sections=(),
           note: str = "", sender: str | None = None) -> EmailMessage:
@@ -151,7 +135,8 @@ def deliver(root, message: EmailMessage) -> bool:
 
 def send(root, to: str, subject: str, **content) -> bool:
     try:
-        message = build(to, subject, **content)
+        from reel.language import recipient_language
+        message = build(to, subject, language=recipient_language(root, to), **content)
     except (ValueError, OSError) as exc:
         log.warning("email not built (%s)", type(exc).__name__)
         return False

@@ -114,50 +114,52 @@ def _notify(text: str) -> None:
 def run_job(db: DB, job_id: int, stages: list[Stage], config: dict,
             root: Path, notify: Callable[[str], None] = _notify,
             sleep: Callable[[float], None] = time.sleep) -> str:
-    job = db.job(job_id)
-    src = Path(job["source_path"])
-    archived = root / "archive" / str(job_id) / src.name
-    if not src.exists() and archived.exists():    # crash between archive move and DB update
-        db.set_job(job_id, source_path=str(archived))
-        src = archived
-    ctx = Ctx(db, job_id, src, root / "work" / str(job_id),
-              job["grp"], config)
-    ctx.workdir.mkdir(parents=True, exist_ok=True)
-    db.set_job(job_id, status="running", error=None)
+    from reel.i18n import language_context
+    with language_context(config.get('ui_language','hy')):
+        job = db.job(job_id)
+        src = Path(job["source_path"])
+        archived = root / "archive" / str(job_id) / src.name
+        if not src.exists() and archived.exists():    # crash between archive move and DB update
+            db.set_job(job_id, source_path=str(archived))
+            src = archived
+        ctx = Ctx(db, job_id, src, root / "work" / str(job_id),
+                  job["grp"], config)
+        ctx.workdir.mkdir(parents=True, exist_ok=True)
+        db.set_job(job_id, status="running", error=None)
 
-    from reel.progress import Tracker
-    progress = Tracker(db, job_id, [n for n, _ in stages])
-    for name, fn in stages:
-        st = db.stage(job_id, name)
-        if st and st["status"] == "done":
-            continue
-        db.set_job(job_id, current_stage=name)
-        while True:
-            attempt = db.stage_start(job_id, name)
-            log.info("job %s stage %s attempt %s", job_id, name, attempt)
-            try:
-                with progress.scope(name):
-                    output = fn(ctx)
-                db.stage_done(job_id, name, output)
-                ctx._outputs[name] = output or {}
-                progress.observe(1, force=True)
-                break
-            except StopJob as e:
-                db.stage_failed(job_id, name, f"StopJob: {e}")   # never leave a stopped stage 'running'
-                return _stop(db, job_id, name, f"{e}", notify)
-            except Exception as e:  # noqa: BLE001
-                err = f"{type(e).__name__}: {e}"
-                db.stage_failed(job_id, name, err + "\n" + traceback.format_exc()[-2000:])
-                retryable = getattr(e, "retryable", True)
-                if not retryable or attempt >= MAX_ATTEMPTS:
-                    return _stop(db, job_id, name, err, notify)
-                sleep(BACKOFF_SEC[min(attempt, len(BACKOFF_SEC) - 1)])
+        from reel.progress import Tracker
+        progress = Tracker(db, job_id, [n for n, _ in stages])
+        for name, fn in stages:
+            st = db.stage(job_id, name)
+            if st and st["status"] == "done":
+                continue
+            db.set_job(job_id, current_stage=name)
+            while True:
+                attempt = db.stage_start(job_id, name)
+                log.info("job %s stage %s attempt %s", job_id, name, attempt)
+                try:
+                    with progress.scope(name):
+                        output = fn(ctx)
+                    db.stage_done(job_id, name, output)
+                    ctx._outputs[name] = output or {}
+                    progress.observe(1, force=True)
+                    break
+                except StopJob as e:
+                    db.stage_failed(job_id, name, f"StopJob: {e}")   # never leave a stopped stage 'running'
+                    return _stop(db, job_id, name, f"{e}", notify)
+                except Exception as e:  # noqa: BLE001
+                    err = f"{type(e).__name__}: {e}"
+                    db.stage_failed(job_id, name, err + "\n" + traceback.format_exc()[-2000:])
+                    retryable = getattr(e, "retryable", True)
+                    if not retryable or attempt >= MAX_ATTEMPTS:
+                        return _stop(db, job_id, name, err, notify)
+                    sleep(BACKOFF_SEC[min(attempt, len(BACKOFF_SEC) - 1)])
 
-    db.set_job(job_id, status="done", current_stage=None)
-    progress.observe(1, force=True)
-    yt = db.publication(job_id, "youtube")
-    notify(f"✅ Job {job_id} ({job['grp']}) done" + (f": {yt['url']}" if yt else ""))
-    return "done"
+        db.set_job(job_id, status="done", current_stage=None)
+        progress.observe(1, force=True)
+        yt = db.publication(job_id, "youtube")
+        notify(f"✅ Job {job_id} ({job['grp']}) done" + (f": {yt['url']}" if yt else ""))
+        return "done"
 
 
 def _stop(db: DB, job_id: int, stage: str, reason: str, notify) -> str:

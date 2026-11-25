@@ -58,7 +58,7 @@ def release_model() -> None:
 
 
 def transcribe(audio: str | Path, out_dir: str | Path, *, model: str = DEFAULT_MODEL,
-               language: str = "hy", initial_prompt: str | None = DEFAULT_PROMPT,
+               language: str | None = "hy", initial_prompt: str | None = DEFAULT_PROMPT,
                offset: float = 0.0) -> dict:
     """Transcribe audio -> out_dir/transcript.{txt,json}. Returns summary dict.
 
@@ -92,7 +92,7 @@ def transcribe(audio: str | Path, out_dir: str | Path, *, model: str = DEFAULT_M
         for s in result["segments"]
     ]
     (out_dir / "transcript.json").write_text(
-        json.dumps({"language": language, "model": model, "segments": segments},
+        json.dumps({"language": language or result.get("language"), "model": model, "segments": segments},
                    ensure_ascii=False, indent=1), encoding="utf-8")
     (out_dir / "transcript.txt").write_text(
         "\n".join(s["text"] for s in segments if s["text"]) + "\n", encoding="utf-8")

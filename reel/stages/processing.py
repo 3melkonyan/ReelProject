@@ -4,6 +4,8 @@ All temporal edits expose a source/final time map; downstream subtitle/search co
 must use it instead of summing keep intervals when smart pauses are enabled.
 """
 from __future__ import annotations
+
+from reel.i18n import t as _t
 import copy
 import json
 import math
@@ -156,7 +158,7 @@ def pauses(result,video,audio,transcript,framing,options,max_ratio):
         writing=change>=options['change_threshold']
         event=dict(start=start,end=end,operation='speed' if writing else 'pause',
                    speed=options['writing_speed'] if writing else 1.,retain_sec=options['retain_sec'],
-                   why='Լուռ գրել՝ արագացում' if writing else 'Լռության կրճատում',kind='other')
+                   why=_t('text.processing.silent_writing_speed_up') if writing else _t('text.processing.silence_reduction'),kind='other')
         candidate=make_map(keep,events+[event],options['fade_sec'])
         ratio=1-candidate[-1]['final_end']/total
         if ratio<=max_ratio:events.append(event)

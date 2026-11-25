@@ -1,6 +1,12 @@
 # Web dashboard
 
-The interface remains Armenian. This guide uses English descriptions of the controls and documents their behavior without changing on-screen labels.
+The interface is Armenian by default; English can be selected. The **Հայերեն / English** control is visible in the header and on sign-in pages. Changing language reloads the interface; finish recording or uploading before switching.
+
+Before sign-in, the language choice is saved in localStorage in that browser. For a personal account, it is saved to the account and applies on other devices, taking precedence over the browser setting. Shared sign-ins use the browser choice. Email messages use the recipient’s selected account language; accounts without a selection use the deployment default.
+
+Set `ui_language: hy` (default) or `ui_language: en` in the configuration. This setting controls interface messages independently of `transcription_language`, `transcription_prompt`, and `metadata_language`; see [Languages](../README.md#languages). Existing lesson content and user-entered names are not translated.
+
+Both catalogs live under `reel/locales/`. Python uses `reel.i18n.t`, while the browser uses `t` through `i18nText`. Catalog keys and placeholders must match in both languages.
 
 ## Start locally
 

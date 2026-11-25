@@ -1,4 +1,6 @@
 """Shared library cards, with optional nonplayable demo metadata."""
+
+from reel.i18n import t as _t
 from reel.insights import library_records
 
 
@@ -22,7 +24,7 @@ def library_entries(database, legacy=None, *, groups=None):
         if not thumbnail.startswith('/')or thumbnail.startswith('//'):
             thumbnail='/brand/reel-email.png'
         entries.append({'job_id':'demo:'+str(item['id']),'group':item['group'],'subject':item.get('subject'),
-                        'title':str(item.get('title')or'Ցուցադրական դաս'),
+                        'title':str(item.get('title')or _t('text.academy.demo_lesson')),
                         'description':str(item.get('description')or''),'lesson_date':day,
                         'published_at':day+'T00:00:00+00:00','thumbnail':thumbnail,
                         'lesson_no':None,'duration':item.get('duration_sec'),'chapters':[],'url':None,

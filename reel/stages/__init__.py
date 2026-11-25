@@ -1,6 +1,8 @@
 """Ordered stage list = the whole Reel flow. Each stage's output is stored in DB."""
 from __future__ import annotations
 
+from reel.i18n import t as _t
+
 import importlib
 import json
 import os
@@ -66,7 +68,15 @@ def audio(ctx: Ctx) -> dict:
 
 
 def transcribe_stage(ctx: Ctx) -> dict:
-    return tr.transcribe(ctx.out("audio")["wav"], ctx.workdir / "transcript")
+    options = {}
+    if "transcription_language" in ctx.config:
+        language = ctx.config["transcription_language"]
+        options["language"] = None if language == "auto" else language
+        if language != "hy":
+            options["initial_prompt"] = None
+    if "transcription_prompt" in ctx.config:
+        options["initial_prompt"] = ctx.config["transcription_prompt"]
+    return tr.transcribe(ctx.out("audio")["wav"], ctx.workdir / "transcript", **options)
 
 
 def segments_stage(ctx: Ctx) -> dict:
@@ -90,7 +100,7 @@ def segments_stage(ctx: Ctx) -> dict:
                      options['smart_pauses'],ctx.config.get('cut',{}).get('max_cut_ratio',.4))
             (ctx.workdir/'segments.json').write_text(json.dumps(r,ensure_ascii=False,indent=2))
     except Exception as exc:
-        r['processing_note']=f'Դադարների մշակումը բաց թողնվեց՝ {type(exc).__name__}'
+        r['processing_note']=f"{_t('processing.pause_processing_skipped')} {type(exc).__name__}"
     summary = cut_summary(r, transcript, ctx.out("join"))
     if r.get('time_map'):
         for cut in summary['cuts']:
@@ -101,7 +111,7 @@ def segments_stage(ctx: Ctx) -> dict:
             summary['cuts'].append({**event,'kind':'other','duration':saving,
                 'final_boundary':to_final(event['start'],r['time_map']),
                 'first_words':'','last_words':'',
-                'why':event['why']+(f" {event['speed']}× (ոչ հեռացում)" if event['operation']=='speed' else '')})
+                'why':event['why']+(f" {event['speed']}{_t('processing.not_removed')}" if event['operation']=='speed' else '')})
         summary['no_cuts_reason']=None
     summary["min_silence_sec"] = ctx.config.get("cut", {}).get("min_silence_sec", 180)
     return {"cut_summary": summary, "cuts": summary["cuts"],
@@ -171,8 +181,8 @@ def render_stage(ctx: Ctx) -> dict:
                     for row in detected['timeline']:row['matrix']=[[ow/w,0,0],[0,oh/h,0],[0,0,1]]
                 framing=detected
     except Exception as exc:
-        note['auto_note']=f'Գրատախտակի մշակումը բաց թողնվեց՝ {type(exc).__name__}'
-        _notify(f'⚠️ Դաս {ctx.job_id}․ գրատախտակի շրջանը չորոշվեց․ պահպանվել է սկզբնական պատկերը։')
+        note['auto_note']=f"{_t('processing.board_processing_skipped')} {type(exc).__name__}"
+        _notify(f"{_t('processing.lesson')} {ctx.job_id}{_t('processing.the_board_region_could_not_be_detected')}")
     target_framing=framing
     if options['ocr']['enabled'] and not options['board_enhance']['enabled'] and _group(ctx).get('framing','off')=='off':
         framing=None # OCR samples do not require re-encoding an otherwise copyable stream.
@@ -192,8 +202,7 @@ def render_stage(ctx: Ctx) -> dict:
     if abs(lufs - rd.TARGET["I"]) > 1.5:      # publish anyway, note it
         note = {**note, "auto_note": f"loudness {lufs:.1f} LUFS outside target {rd.TARGET['I']}±1.5 — published as is"}
     if _group(ctx).get("framing", "off") != "off" and (not framing or note.get("framing_uncertain_sec", 0) or "framed render failed" in note.get("board", "")):
-        _notify(f"⚠️ Դաս {ctx.job_id} · {ctx.group}․ գրատախտակը կամ էկրանը վստահ չի որոշվել որոշ հատվածներում։ "
-                "Այդ հատվածներում պահպանվել է ամբողջ կադրը։ Ստուգիր կադրավորման հաշվետվությունը։")
+        _notify(f"{_t('processing.lesson')} {ctx.job_id} · {ctx.group}{_t('processing.the_board_or_screen_could_not_be')}")
     return {**r, "lufs": lufs, **note, **({"target_framing":target_framing} if options["ocr"]["enabled"] else {})}
 
 
@@ -309,8 +318,7 @@ def privacy_stage(ctx: Ctx) -> dict:
     refs = b["refs_dirs"] if "refs_dirs" in b else _refs(ctx)     # Compatibility with saved jobs that lack reference metadata.
     r = pv.scan(b["final"], refs, ctx.workdir / "privacy", decisions=b.get("decisions"))
     if r.get("warnings"):   # isolated 1-2 frame cases never stop the job (privacy policy): review them
-        _notify(f"⚠️ Դաս {ctx.job_id}. մշուշումից հետո {r.get('isolated_events', r['warnings'])} կարճ (1–2 կադր) "
-                f"դեմքի դեպք կա, մշակումը շարունակվում է։ Ստուգիր դասի էջում՝ «Գաղտնիություն»։")
+        _notify(f"{_t('processing.lesson')} {ctx.job_id}{_t('processing.after_blurring')} {r.get('isolated_events', r['warnings'])} {_t('processing.brief_face_events_1_2_frames_remain')}")
     return r
 
 
@@ -332,7 +340,7 @@ def metadata_stage(ctx: Ctx) -> dict:
     if rows:
         transcript=remap_transcript(transcript,rows,ctx.workdir/'transcript_final.json')
         keep=[(0,rows[-1]['final_end'])]
-    m = md.generate(transcript, keep, ctx.workdir)
+    m = md.generate(transcript, keep, ctx.workdir, **({"language": "en"} if ctx.config.get("metadata_language", "hy") == "en" else {}))
     if rows:
         from reel.stages.processing import to_source
         for chapter in m['chapters']:chapter['t']=to_source(chapter['final_t'],rows)
@@ -346,13 +354,13 @@ def metadata_stage(ctx: Ctx) -> dict:
             result=ocr.extract(ctx.out('blur')['final'],ctx.out('render').get('target_framing',ctx.out('render').get('framing')),options['ocr'],time_map=ocr_map)
             ocr.save(ctx.db.conn,ctx.job_id,result['segments'])
             if not result['segments']:
-                m['auto_note']=' · '.join(filter(None,[m.get('auto_note'),'OCR՝ վստահ ճանաչված տեքստ չի գտնվել']))
+                m['auto_note']=' · '.join(filter(None,[m.get('auto_note'),_t('processing.ocr_no_text_was_recognized_confidently')]))
             (ctx.workdir/'ocr.json').write_text(json.dumps(result,ensure_ascii=False,indent=2))
             m=ocr.add_chapters(m,result['chapters'],ocr_map)
             existing=json.loads((ctx.workdir/'metadata.json').read_text())
             (ctx.workdir/'metadata.json').write_text(json.dumps({**existing,**m},ensure_ascii=False,indent=2))
         except Exception as e:
-            m['auto_note']=' · '.join(filter(None,[m.get('auto_note'),f'OCR բաց թողնվեց՝ {type(e).__name__}: {str(e)[:120]}']))
+            m['auto_note']=' · '.join(filter(None,[m.get('auto_note'),f"{_t('processing.ocr_skipped')} {type(e).__name__}: {str(e)[:120]}"]))
     return {"title": m["title"], "description": m["youtube_description"], "chapters": m["chapters"],
             **({"auto_note": m["auto_note"]} if m.get("auto_note") else {})}     # Preserve the fallback explanation for the job page.
 
@@ -368,7 +376,7 @@ def thumbnail(ctx: Ctx) -> dict:
         if option['enabled']:
             subject=_subject(ctx)['name']
             extra={'lesson_info':{'course':ctx.group.split()[0], 'group':ctx.group,
-                    'lesson':_lesson_number(ctx,subject),'subject':subject},'variant':option['variant']}
+                    'lesson':_lesson_number(ctx,subject),'subject':subject,'language':ctx.config.get('metadata_language','hy')},'variant':option['variant']}
         path = make_thumbnail(ctx.out("blur")["final"], ctx.out("metadata")["title"],
                               str(ctx.workdir / "thumbnail.jpg"), group=ctx.group, **extra)
         return {"path": path}
@@ -377,12 +385,13 @@ def thumbnail(ctx: Ctx) -> dict:
 
 
 # --- publishing (idempotent via ctx.publish_once) -----------------------------------
-def _youtube_title(subject: str, n: int, topic: str) -> str:
+def _youtube_title(subject: str, n: int, topic: str, *, language: str = "hy") -> str:
     """Keep the first complete topic within 70 characters; preserve the numbered prefix."""
     topic = " ".join(str(topic or "").replace("<", "").replace(">", "").split())
     if topic.startswith("Դաս՝"):
         topic = topic[len("Դաս՝"):].strip()
-    head = " ".join(f"{subject} | Դաս {n}".replace("<", "").replace(">", "").split())
+    label = "Lesson" if language == "en" else "Դաս"
+    head = " ".join(f"{subject} | {label} {n}".replace("<", "").replace(">", "").split())
     if len(head) > 70:                         # Keep the complete course prefix even when it exceeds the title budget.
         return head
     topic = re.split(r",|;|:| - | — ", topic, maxsplit=1)[0].strip()
@@ -417,7 +426,7 @@ def youtube_upload(ctx: Ctx) -> dict:
 
     def do():
         m = ctx.out("metadata")
-        r = youtube.upload(ctx.out("blur")["final"], _youtube_title(subject, n, m["title"]), m["description"],
+        r = youtube.upload(ctx.out("blur")["final"], _youtube_title(subject, n, m["title"], language=ctx.config.get("metadata_language", "hy")), m["description"],
                            [tag, ctx.group], privacy="unlisted")
         return r["video_id"], r["url"]
 
@@ -497,7 +506,7 @@ _LESSON_NO = re.compile(r"(?:դաս|das|lesson)?[\s._-]*0*([1-9]\d{0,2})", re.IG
 
 
 def _name_number(source_path: object) -> int | None:
-    """The number in a lesson's own upload name ("5", "Դաս 5", "das-5"), if it has one.
+    """The number in a lesson's own upload name ("5", "Lesson 5", "das-5"), if it has one.
     Never the parent folder: that is archive/<job id> or the group's inbox folder."""
     source = Path(str(source_path or ""))
     for name in (source.name, source.stem):
@@ -532,7 +541,7 @@ def _next_number(lessons: list[tuple[object, bool]]) -> int:
 
 def _lesson_number(ctx: Ctx, subject: str) -> int:
     """N of "the N-th lesson of the course" (group + subject). The number in the lesson's
-    upload name ("Դաս 5") wins; otherwise 1 + the course's lessons already announced in
+    upload name ("Lesson 5") wins; otherwise 1 + the course's lessons already announced in
     Slack, and never below 1 + the highest number such a lesson was named with."""
     job = ctx.db.job(ctx.job_id)
     own = _name_number(job["source_path"]) if job else None
@@ -557,6 +566,8 @@ def slack_post(ctx: Ctx) -> dict:
     subject = _subject(ctx)["name"]
     n = yt.get("lesson_no") or _lesson_number(ctx, subject)    # the same N as the YouTube title
     line = f"{subject} դասընթացի {n}-{'ին' if n == 1 else 'րդ'} դասի տեսանյութը տեղադրված է YouTube-ում"
+    if ctx.config.get("metadata_language", "hy") == "en":
+        line = f"Lesson {n} of {subject} is available on YouTube"
     _wait_youtube_ready(ctx, yt["external_id"])
     return ctx.publish_once("slack", lambda: (slack.post_link(_group(ctx)["slack_channel"], line, yt["url"]), None))
 

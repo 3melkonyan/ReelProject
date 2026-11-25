@@ -165,7 +165,7 @@ def test_render_blur_privacy_thumbnail_chain_uses_framed_pixels(tmp_path,monkeyp
     assert captured==[ctx.out('blur')['final']]
 
 
-def test_static_g24_widens_tiny_crop_for_scale_cap():
+def test_static_board_widens_tiny_crop_for_scale_cap():
     from reel.board import plan
     result=plan([[.4,.4],[.6,.4],[.6,.6],[.4,.6]],1920,1080)
     assert result['output_size']==[1920,1080]

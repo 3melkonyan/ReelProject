@@ -4,6 +4,8 @@ One delivery per incident/recipient/channel. Delivery is claimed durably BEFORE 
 external call: a timeout/crash is left for operator review rather than sending duplicates.
 """
 from __future__ import annotations
+
+from reel.i18n import t as _t
 import asyncio,json,logging,os,shutil,time
 from contextlib import closing
 from pathlib import Path
@@ -52,12 +54,12 @@ def conditions(conn,root,*,alive=None,free=None):
     alive=worker_alive(root) if alive is None else alive
     free=shutil.disk_usage(root).free if free is None else free
     found={}
-    if free<LOW_DISK_BYTES:found['disk']='Սկավառակի ազատ տեղը 5 ԳԲ-ից քիչ է։ Ստուգեք պահեստը։'
+    if free<LOW_DISK_BYTES:found['disk']=_t('text.notifications.less_than_5_gb_of_free_disk')
     # An idle intentionally stopped worker is not an incident.
     if not alive and conn.execute("SELECT 1 FROM jobs WHERE status='running' LIMIT 1").fetchone():
-        found['worker']='Մշակող գործընթացը չի աշխատում, մինչ դասը նշված է որպես մշակվող։'
+        found['worker']=_t('text.notifications.the_processing_worker_is_not_running_while')
     for row in conn.execute("SELECT job_id,name FROM stages WHERE status='failed' AND (name LIKE 'youtube%' OR name LIKE 'slack%')"):
-        found[f'connection:{row[0]}:{row[1]}']=f'Դաս {row[0]}․ '+('YouTube' if row[1].startswith('youtube') else 'Slack')+' կապի/հրապարակման սխալ։ Ստուգեք վահանակը։'
+        found[f'connection:{row[0]}:{row[1]}']=f"{_t('ui.app.lesson')} {row[0]}․ "+('YouTube' if row[1].startswith('youtube') else 'Slack')+f" {_t('text.notifications.connection_or_publication_error_check_the_dashboard')}"
     return found
 
 
@@ -70,9 +72,13 @@ def poll(conn,root,*,alive=None,free=None,email=None,slack=None):
         conn.execute('INSERT INTO monitor_incidents VALUES(?,1,1) ON CONFLICT(key) DO UPDATE SET generation=generation+CASE WHEN active=0 THEN 1 ELSE 0 END,active=1',(key,))
         gen=conn.execute('SELECT generation FROM monitor_incidents WHERE key=?',(key,)).fetchone()[0]
         for address in brand_mail.admin_emails(conn):
-            event=f'alert:{key}:{gen}'
-            once(conn,event,address,'email',lambda address=address: email(address,text) if email else brand_mail.send(root,address,'Reel․ խնդրի ազդանշան',eyebrow='ՄԻԱՅՆ ԱԴՄԻՆԻՆ',title='Պահանջվում է ուշադրություն',paragraphs=[text],note='Նույն միջադեպի կրկնվող նամակ չի ուղարկվի։ Ստուգեք վահանակի վիճակը։'))
-            once(conn,event,address,'slack',lambda address=address: (slack or slack_admin)(address,'⚠️ Reel · '+text))
+            from reel.language import recipient_language
+            from reel.i18n import language_context
+            with language_context(recipient_language(root,address)):
+                text=conditions(conn,root,alive=alive,free=free).get(key,text)
+                event=f'alert:{key}:{gen}'
+                once(conn,event,address,'email',lambda address=address: email(address,text) if email else brand_mail.send(root,address,_t('text.notifications.reel_issue_alert'),eyebrow=_t('text.notifications.administrators_only'),title=_t('text.notifications.attention_required'),paragraphs=[text],note=_t('text.notifications.duplicate_emails_will_not_be_sent_for')))
+                once(conn,event,address,'slack',lambda address=address: (slack or slack_admin)(address,'⚠️ Reel · '+text))
     return len(active)
 
 

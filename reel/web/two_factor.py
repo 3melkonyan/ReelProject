@@ -41,9 +41,12 @@ def trusted(request,row,conn):
 
 
 async def send(root,address,code):
-    return await run_in_threadpool(brand_mail.send,root,address,_t('two_factor.reel_sign_in_verification_code'),eyebrow=_t('two_factor.sign_in_security'),title=_t('two_factor.confirm_your_sign_in'),
-          paragraphs=[_t('two_factor.enter_the_code_below_to_sign_in')],code=code,code_label=_t('two_factor.your_6_digit_code'),
-          note=_t('two_factor.this_code_is_valid_for_10_minutes'))
+    from reel.language import recipient_language
+    from reel.i18n import language_context
+    with language_context(recipient_language(root,address)):
+        return await run_in_threadpool(brand_mail.send,root,address,_t('two_factor.reel_sign_in_verification_code'),eyebrow=_t('two_factor.sign_in_security'),title=_t('two_factor.confirm_your_sign_in'),
+              paragraphs=[_t('two_factor.enter_the_code_below_to_sign_in')],code=code,code_label=_t('two_factor.your_6_digit_code'),
+              note=_t('two_factor.this_code_is_valid_for_10_minutes'))
 
 
 def finish(request,row,d):

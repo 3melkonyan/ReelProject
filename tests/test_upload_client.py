@@ -39,7 +39,7 @@ context.XMLHttpRequest=class {
    received+=blob.size;this.responseText=JSON.stringify({received});this.onload();
  });}
 };
-vm.createContext(context);vm.runInContext(fs.readFileSync(process.argv[1],'utf8'),context);
+vm.createContext(context);require(require('path').resolve('tests/browser_locale.cjs')).install(context);vm.runInContext(fs.readFileSync(process.argv[1],'utf8'),context);
 (async()=>{
  context.S.upFiles=[{slice:(a,b)=>({size:b-a})}];
  context.S.up={body:{group:'A',subject:'Python',lesson_number:3},id:null,files:[{name:'one.mov',size:20,got:0}],total:20,state:'paused',started:Date.now()};
@@ -69,7 +69,7 @@ def test_known_auto_notes_are_armenian_and_unknown_text_is_escaped():
 const fs=require('fs'),vm=require('vm'),assert=require('assert/strict');
 const source=fs.readFileSync(process.argv[1],'utf8');
 const start=source.indexOf('function autoDecisionLine(info)'),end=source.indexOf('async function viewJob(',start);
-const c={esc:s=>String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;')};vm.createContext(c);vm.runInContext(source.slice(start,end),c);
+const c={esc:s=>String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;')};vm.createContext(c);require(require('path').resolve('tests/browser_locale.cjs')).install(c);vm.runInContext(source.slice(start,end),c);
 const known=['unclear windows','plan cut','planned result too short','grounded chapters unavailable','LLM metadata unavailable','LLM chapter wording unusable','3 transcript segments have broken timestamps','loudness -17 LUFS','the group\'s lecturer photos match','lecturer choice file unreadable','lecturer choice file invalid','the lecturer chosen on the job page','lecturer unclear','only 2 clear photos','the recognised lecturer matches','thumbnail skipped','thumbnail not set after'];
 for(const note of known){const html=c.autoDecisionLine({auto_note:note+' <img src=x onerror=alert(1)>'});assert.match(html,/Ավտոմատ որոշում/);assert.ok(!html.includes(note));assert.ok(!html.includes('<img'));}
 const unknown=c.autoDecisionLine({auto_note:'future <img src=x onerror=alert(1)>'});assert.ok(unknown.includes('&lt;img'));assert.ok(!unknown.includes('<img'));

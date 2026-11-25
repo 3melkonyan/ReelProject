@@ -1,4 +1,6 @@
 """YouTube adapter with chunk retries; job retries belong to the pipeline."""
+
+from reel.i18n import t as _t
 from pathlib import Path
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
@@ -122,7 +124,10 @@ def set_thumbnail(video_id: str, image_path: str) -> None:
         media.stream().close()
 
 
-CAPTION_NAME = "Հայերեն"
+CAPTION_NAME = _t('language.hy_name', language='hy')
+
+def caption_name(language):
+    return CAPTION_NAME if language == 'hy' else 'English' if language == 'en' else language
 
 
 @api_errors
@@ -133,7 +138,7 @@ def find_captions(video_id: str, language: str = "hy") -> str | None:
     for item in response.get("items") or []:
         snippet = item.get("snippet") or {}
         if (snippet.get("language") == language and snippet.get("trackKind", "standard").lower() == "standard"
-                and snippet.get("name") == CAPTION_NAME):
+                and snippet.get("name") == caption_name(language)):
             return _id(item)
     return None
 
@@ -149,7 +154,7 @@ def upload_captions(video_id: str, caption_path: str, language: str = "hy") -> s
     try:
         response = _service().captions().insert(
             part="snippet", media_body=media,
-            body={"snippet": {"videoId": video_id, "language": language, "name": CAPTION_NAME, "isDraft": False}},
+            body={"snippet": {"videoId": video_id, "language": language, "name": caption_name(language), "isDraft": False}},
         ).execute(num_retries=0)
         return _id(response)
     finally:

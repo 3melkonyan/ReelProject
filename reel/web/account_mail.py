@@ -1,6 +1,8 @@
 """Account email validation and multipart messages; no configuration is read at import."""
 from __future__ import annotations
 
+from reel.i18n import t as _t, localized_message, current_language as _language
+
 from email.message import EmailMessage
 from email.policy import SMTP as SMTP_POLICY
 from html import escape
@@ -14,7 +16,8 @@ from fastapi import HTTPException
 
 LOGO = Path(__file__).parent / "static" / "brand" / "reel-email.png"
 DNS_SECONDS = 3.0
-DNS_WARNING = "Էլ․ հասցեի տիրույթի փոստային գրառումները հիմա հնարավոր չէ ստուգել։ DNS ստուգումը բաց է թողնվել։"
+DNS_WARNING_KEY = 'text.account_mail.email_dns_records_could_not_be_checked'
+DNS_WARNING = _t(DNS_WARNING_KEY, language="hy")
 _TYPOS = {
     "gamil.com": "gmail.com", "gmial.com": "gmail.com", "gmai.com": "gmail.com",
     "gmal.com": "gmail.com", "gnail.com": "gmail.com", "gmail.con": "gmail.com",
@@ -25,44 +28,45 @@ _TYPOS = {
     "yhoo.com": "yahoo.com", "yahoo.con": "yahoo.com", "yahoo.co": "yahoo.com", "iclod.com": "icloud.com",
     "icloud.con": "icloud.com", "icloud.co": "icloud.com",
 }
-_CONTENT = {
-    "invite": {
-        "subject": "Reel․ Ձեր հաշվի հրավերը", "eyebrow": "ՀԱՇՎԻ ՀՐԱՎԵՐ",
-        "title": "Բարի գալուստ Reel",
-        "intro": "Ձեզ հրավիրել են միանալ Reel հարթակին։",
-        "detail": "Հաշիվն ակտիվացնելու համար բացեք հրավերը և ստեղծեք Ձեր մուտքանունն ու գաղտնաբառը։",
-        "cta": "Ընդունել հրավերը", "expiry": "Հղումը գործում է 72 ժամ և կարող է օգտագործվել միայն մեկ անգամ։",
-        "ignore": "Եթե դուք չեք խնդրել, պարզապես անտեսեք այս նամակը։",
-    },
-    "reset": {
-        "subject": "Reel․ գաղտնաբառի վերականգնում", "eyebrow": "ՀԱՇՎԻ ԱՆՎՏԱՆԳՈՒԹՅՈՒՆ",
-        "title": "Վերականգնեք Ձեր գաղտնաբառը",
-        "intro": "Ստացվել է Ձեր Reel հաշվի գաղտնաբառը վերականգնելու հարցում։",
-        "detail": "Նոր գաղտնաբառ սահմանելու համար սեղմեք ստորև նշված կոճակը։",
-        "cta": "Վերականգնել գաղտնաբառը", "expiry": "Հղումը գործում է 60 րոպե և կարող է օգտագործվել միայն մեկ անգամ։",
-        "ignore": "Եթե դուք չեք խնդրել, պարզապես անտեսեք այս նամակը։ Ձեր գաղտնաբառը չի փոխվի։",
-    },
-}
+def _content():
+    return {
+        "invite": {
+            "subject": _t('text.account_mail.reel_your_account_invitation'), "eyebrow": _t('text.account_mail.account_invitation'),
+            "title": _t('text.account_mail.welcome_to_reel'),
+            "intro": _t('text.account_mail.you_have_been_invited_to_join_reel'),
+            "detail": _t('text.account_mail.open_the_invitation_and_choose_a_username'),
+            "cta": _t('ui.accounts.accept_invitation'), "expiry": _t('text.account_mail.this_link_is_valid_for_72_hours'),
+            "ignore": _t('text.account_mail.if_you_did_not_request_this_ignore'),
+        },
+        "reset": {
+            "subject": _t('text.account_mail.reel_password_reset'), "eyebrow": _t('text.account_mail.account_security'),
+            "title": _t('text.account_mail.reset_your_password'),
+            "intro": _t('text.account_mail.we_received_a_request_to_reset_your'),
+            "detail": _t('text.account_mail.select_the_button_below_to_choose_a'),
+            "cta": _t('text.account_mail.reset_password'), "expiry": _t('text.account_mail.this_link_is_valid_for_60_minutes'),
+            "ignore": _t('text.account_mail.if_you_did_not_request_this_ignore_2'),
+        },
+    }
 
 
 def _address(email: object) -> tuple[str, str, str]:
     if not isinstance(email, str) or any(ord(c) < 32 or ord(c) == 127 for c in email):
-        raise HTTPException(400, "Խնդրում ենք նշել վավեր էլ․ հասցե։")
+        raise HTTPException(400, _t('ui.accounts.enter_a_valid_email_address'))
     address = email.strip()
     if len(address) > 254 or address.count("@") != 1:
-        raise HTTPException(400, "Խնդրում ենք նշել վավեր էլ․ հասցե։")
+        raise HTTPException(400, _t('ui.accounts.enter_a_valid_email_address'))
     local, raw_domain = address.rsplit("@", 1)
     try:
         domain = raw_domain.encode("idna").decode("ascii").lower()
     except UnicodeError:
-        raise HTTPException(400, "Էլ․ հասցեի տիրույթն անվավեր է։") from None
+        raise HTTPException(400, _t('text.account_mail.invalid_email_domain')) from None
     labels = domain.split(".")
     if (not 1 <= len(local) <= 64 or not re.fullmatch(r"[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+", local)
             or local.startswith(".") or local.endswith(".") or ".." in local
             or len(labels) < 2 or len(domain) > 253 or labels[-1].isdigit()
             or any(not re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", label) for label in labels)
             or len(local + "@" + domain) > 254):
-        raise HTTPException(400, "Խնդրում ենք նշել վավեր էլ․ հասցե։")
+        raise HTTPException(400, _t('ui.accounts.enter_a_valid_email_address'))
     return local + "@" + domain, local, domain
 
 
@@ -77,11 +81,11 @@ def validate_email(email: str) -> list[str]:
     _, local, domain = _address(email)
     if domain in _TYPOS:
         suggestion = local + "@" + _TYPOS[domain]
-        raise HTTPException(400, f"Էլ․ հասցեի տիրույթում կարող է վրիպակ լինել։ Միգուցե՝ {suggestion}։")
+        raise HTTPException(400, _t('account_mail.possible_typo', suggestion=suggestion))
     try:
         resolver_module, dns_error = _dns()
     except ImportError:
-        return [DNS_WARNING]
+        return [_t(DNS_WARNING_KEY)]
     try:
         resolver = resolver_module.Resolver()
         resolver.timeout = DNS_SECONDS
@@ -91,9 +95,9 @@ def validate_email(email: str) -> list[str]:
     except (resolver_module.NXDOMAIN, resolver_module.NoAnswer):
         records = []
     except (dns_error, OSError, TimeoutError):
-        return [DNS_WARNING]
+        return [_t(DNS_WARNING_KEY)]
     if not records or any(str(record.exchange) == "." for record in records):
-        raise HTTPException(400, "Էլ․ հասցեի տիրույթը փոստ չի ընդունում․ MX գրառում չկա։ Խնդրում ենք ստուգել հասցեն։")
+        raise HTTPException(400, _t('text.account_mail.this_email_domain_does_not_accept_mail'))
     return []
 
 
@@ -127,47 +131,21 @@ def _html(content: dict, url: str, greeting: str, theme: str) -> str:
 </style>""" if theme == "auto" else ""
     c = {key: escape(value) for key, value in content.items()}
     link, hello = escape(url, quote=True), escape(greeting)
-    return f"""<!doctype html>
-<html lang="hy"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="color-scheme" content="{scheme}"><meta name="supported-color-schemes" content="{scheme}">{dark_css}
-<title>{c['subject']}</title></head>
-<body class="mail-body" style="margin:0;padding:0;background:{colors['background']};font-family:Arial,'Noto Sans Armenian',sans-serif;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="mail-body" style="background:{colors['background']};"><tr><td align="center" style="padding:28px 12px;">
-<table role="presentation" width="600" cellpadding="0" cellspacing="0" class="mail-card mail-border" style="width:100%;max-width:600px;background:{colors['card']};border:1px solid {colors['border']};border-radius:16px;">
-<tr><td bgcolor="#000000" style="padding:20px 28px;background:#000000;border-radius:16px 16px 0 0;">
-<img src="cid:reel-logo" width="240" height="77" alt="Reel" style="display:block;width:240px;max-width:100%;height:auto;border:0;background:#000000;"></td></tr>
-<tr><td class="mail-text" style="padding:28px;color:{colors['text']};">
-<p class="mail-muted" style="margin:0 0 12px;color:{colors['muted']};font-size:11px;font-weight:bold;letter-spacing:1px;">{c['eyebrow']}</p>
-<h1 class="mail-text" style="margin:0 0 24px;color:{colors['text']};font-size:26px;line-height:1.35;">{c['title']}</h1>
-<p style="margin:0 0 16px;font-size:15px;line-height:1.8;">{hello}</p>
-<p style="margin:0 0 12px;font-size:15px;line-height:1.8;">{c['intro']}</p>
-<p style="margin:0 0 24px;font-size:15px;line-height:1.8;">{c['detail']}</p>
-<table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="padding:0 0 22px;">
-<a class="mail-button" href="{link}" style="display:inline-block;padding:14px 22px;border-radius:8px;background:{colors['button']};color:{colors['button_text']};text-decoration:none;font-size:14px;font-weight:bold;line-height:1.6;">{c['cta']}</a>
-</td></tr></table>
-<p class="mail-muted" style="margin:0 0 24px;color:{colors['muted']};font-size:13px;line-height:1.8;">{c['expiry']}</p>
-<p class="mail-muted" style="margin:0 0 10px;color:{colors['muted']};font-size:12px;line-height:1.8;">Եթե կոճակը չի բացվում, պատճենեք այս հղումը և բացեք դիտարկչում․</p>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td class="mail-block mail-border" style="padding:14px;background:{colors['block']};border:1px solid {colors['border']};border-radius:8px;">
-<a class="mail-link" href="{link}" style="font-family:monospace;font-size:12px;line-height:1.7;word-break:break-all;overflow-wrap:anywhere;color:{colors['text']};text-decoration:none;">{link}</a>
-</td></tr></table>
-<p class="mail-muted" style="margin:24px 0 0;color:{colors['muted']};font-size:13px;line-height:1.8;">{c['ignore']}</p>
-</td></tr><tr><td class="mail-border" style="padding:20px 28px;border-top:1px solid {colors['border']};">
-<p class="mail-text" style="margin:0 0 6px;color:{colors['text']};font-size:12px;font-weight:bold;">Reel</p>
-<p class="mail-muted" style="margin:0;color:{colors['muted']};font-size:11px;line-height:1.7;">Այս նամակն ուղարկվել է ավտոմատ։ Խնդրում ենք չպատասխանել։</p>
-</td></tr></table></td></tr></table></body></html>"""
+    return f'''<!doctype html>\n<html lang="{_language()}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">\n<meta name="color-scheme" content="{scheme}"><meta name="supported-color-schemes" content="{scheme}">{dark_css}\n<title>{c['subject']}</title></head>\n<body class="mail-body" style="margin:0;padding:0;background:{colors['background']};font-family:Arial,'Noto Sans Armenian',sans-serif;">\n<table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="mail-body" style="background:{colors['background']};"><tr><td align="center" style="padding:28px 12px;">\n<table role="presentation" width="600" cellpadding="0" cellspacing="0" class="mail-card mail-border" style="width:100%;max-width:600px;background:{colors['card']};border:1px solid {colors['border']};border-radius:16px;">\n<tr><td bgcolor="#000000" style="padding:20px 28px;background:#000000;border-radius:16px 16px 0 0;">\n<img src="cid:reel-logo" width="240" height="77" alt="Reel" style="display:block;width:240px;max-width:100%;height:auto;border:0;background:#000000;"></td></tr>\n<tr><td class="mail-text" style="padding:28px;color:{colors['text']};">\n<p class="mail-muted" style="margin:0 0 12px;color:{colors['muted']};font-size:11px;font-weight:bold;letter-spacing:1px;">{c['eyebrow']}</p>\n<h1 class="mail-text" style="margin:0 0 24px;color:{colors['text']};font-size:26px;line-height:1.35;">{c['title']}</h1>\n<p style="margin:0 0 16px;font-size:15px;line-height:1.8;">{hello}</p>\n<p style="margin:0 0 12px;font-size:15px;line-height:1.8;">{c['intro']}</p>\n<p style="margin:0 0 24px;font-size:15px;line-height:1.8;">{c['detail']}</p>\n<table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="padding:0 0 22px;">\n<a class="mail-button" href="{link}" style="display:inline-block;padding:14px 22px;border-radius:8px;background:{colors['button']};color:{colors['button_text']};text-decoration:none;font-size:14px;font-weight:bold;line-height:1.6;">{c['cta']}</a>\n</td></tr></table>\n<p class="mail-muted" style="margin:0 0 24px;color:{colors['muted']};font-size:13px;line-height:1.8;">{c['expiry']}</p>\n<p class="mail-muted" style="margin:0 0 10px;color:{colors['muted']};font-size:12px;line-height:1.8;">{_t('text.account_mail.if_the_button_does_not_work_copy')}</p>\n<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td class="mail-block mail-border" style="padding:14px;background:{colors['block']};border:1px solid {colors['border']};border-radius:8px;">\n<a class="mail-link" href="{link}" style="font-family:monospace;font-size:12px;line-height:1.7;word-break:break-all;overflow-wrap:anywhere;color:{colors['text']};text-decoration:none;">{link}</a>\n</td></tr></table>\n<p class="mail-muted" style="margin:24px 0 0;color:{colors['muted']};font-size:13px;line-height:1.8;">{c['ignore']}</p>\n</td></tr><tr><td class="mail-border" style="padding:20px 28px;border-top:1px solid {colors['border']};">\n<p class="mail-text" style="margin:0 0 6px;color:{colors['text']};font-size:12px;font-weight:bold;">Reel</p>\n<p class="mail-muted" style="margin:0;color:{colors['muted']};font-size:11px;line-height:1.7;">{_t('text.account_mail.this_email_was_sent_automatically_please_do')}</p>\n</td></tr></table></td></tr></table></body></html>'''
 
 
+@localized_message
 def build_message(kind: str, email: str, url: str, name: str = "", *, sender: str | None = None,
                   theme: str = "auto") -> EmailMessage:
     """Build without DNS/config/network; theme light/dark is useful for previews."""
     kind = "invite" if kind == "invitation" else kind
-    if kind not in _CONTENT or theme not in ("auto", "light", "dark"):
+    if kind not in _content() or theme not in ("auto", "light", "dark"):
         raise ValueError("Unknown account email kind or theme")
     recipient, _, _ = _address(email)
     url = _url(url)
     clean_name = re.sub(r"[\x00-\x1f\x7f]", " ", str(name or "")).strip()[:120]
-    greeting = f"Հարգելի՛ {clean_name}," if clean_name else "Բարև Ձեզ,"
-    content = _CONTENT[kind]
+    greeting = f"{_t('text.account_mail.dear')} {clean_name}," if clean_name else _t('text.account_mail.hello')
+    content = _content()[kind]
     message = EmailMessage(policy=SMTP_POLICY)
     message["Subject"] = content["subject"]
     message["From"] = sender or "Reel <noreply@example.invalid>"
@@ -193,7 +171,8 @@ def _send(kind: str, root: Path, email: str, url: str, name: str) -> bool:
         port = int(cfg.get("SMTP_PORT") or 587)
         if not 1 <= port <= 65535:
             return False
-        message = build_message(kind, email, url, name, sender=cfg["SMTP_FROM"])
+        from reel.language import recipient_language
+        message = build_message(kind, email, url, name, sender=cfg["SMTP_FROM"], language=recipient_language(root, email))
         with smtplib.SMTP(cfg["SMTP_HOST"], port, timeout=10) as smtp:
             smtp.ehlo()
             smtp.starttls(context=ssl.create_default_context())

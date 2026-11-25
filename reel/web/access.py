@@ -2,6 +2,9 @@
 
 from reel.i18n import t as _t
 import json,re
+from contextlib import ExitStack
+from reel.i18n import language_context, current_language
+from reel.language import user_language
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.datastructures import MutableHeaders
 from fastapi import HTTPException
@@ -26,6 +29,7 @@ def install(app,env):
     @app.middleware('http')
     async def account_boundary(request,call_next):
         token=None
+        languages=ExitStack()
         try:
             path=request.url.path
             if path.startswith('/api/') and request.method in ('POST','PUT','DELETE','PATCH'):
@@ -33,7 +37,10 @@ def install(app,env):
             principal=None;session=request.session
             if session.get('user_id') is not None:
                 d=env['db']()
-                try:row=d.conn.execute('SELECT * FROM users WHERE id=?',(session['user_id'],)).fetchone()
+                try:
+                    row=d.conn.execute('SELECT * FROM users WHERE id=?',(session['user_id'],)).fetchone()
+                    if row and row['active'] and session.get('session_version')==row['session_version']:
+                        languages.enter_context(language_context(user_language(d.conn,row['id'],current_language())))
                 finally:d.conn.close()
                 if not row or not row['active'] or session.get('session_version')!=row['session_version']:
                     session.clear()
@@ -98,6 +105,7 @@ def install(app,env):
             return JSONResponse({'detail':e.detail},status_code=e.status_code,headers={'Cache-Control':'no-store','Referrer-Policy':'no-referrer','X-Content-Type-Options':'nosniff'})
         finally:
             if token is not None:a.PRINCIPAL.reset(token)
+            languages.close()
     # Added last so the existing cookie is available to every request guard above.
     app.add_middleware(SecureSessionMiddleware,secret_key=env['SECRETS']['session_key'],
                        session_cookie='reel_session',max_age=7*24*3600,same_site='lax')

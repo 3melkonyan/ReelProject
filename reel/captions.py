@@ -15,7 +15,7 @@ LINE_CHARS = 42
 MAX_SEC = 7.0
 MIN_KEPT = 0.5          # a sentence that is mostly inside a cut is dropped, not squeezed in
 
-# Armenian emphasis/exclamation/question/abbreviation marks sit INSIDE words (ինչո՞ւ): drop them for search.
+# Armenian emphasis/exclamation/question/abbreviation marks sit INSIDE words (including question marks): drop them for search.
 _MARKS = dict.fromkeys(map(ord, "՛՜՞՟"), None)
 # Phrases Whisper invents on silence or music (not said in a lesson).
 _HALLUCINATIONS = re.compile(
@@ -24,7 +24,7 @@ _HALLUCINATIONS = re.compile(
 
 
 def norm(text: object) -> str:
-    """Search form: case-folded (և -> եւ), Armenian in-word marks removed, single spaces."""
+    """Search form: case-folded Armenian ligatures, Armenian in-word marks removed, single spaces."""
     return " ".join(str(text or "").translate(_MARKS).casefold().split())
 
 

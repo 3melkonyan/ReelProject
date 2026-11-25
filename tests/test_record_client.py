@@ -74,7 +74,7 @@ const context={console,Promise,Date,Math,JSON,Number,String,Boolean,Array,Set,Ma
   indexedDB:undefined,IDBKeyRange:undefined,AbortController,
 };
 context.window.isSecureContext=true;
-vm.createContext(context);
+vm.createContext(context);require(require('path').resolve('tests/browser_locale.cjs')).install(context);
 vm.runInContext(fs.readFileSync(process.argv[1],'utf8'),context);
 const R=vm.runInContext('R',context);
 const settle=async(n=25)=>{for(let i=0;i<n;i++)await new Promise(r=>setTimeout(r,1));};
@@ -157,7 +157,7 @@ function mp4(created){  // ftyp + moov(mvhd v0) with a creation time in QuickTim
 const list={innerHTML:''},fields={'#up-files-list':list};
 const c={S:{role:'uploader'},$:s=>fields[s]||null,esc:String,fmtSize:String,byName:(a,b)=>a.name.localeCompare(b.name),Date,Promise,Math,Number,String,JSON,
   localStorage:{getItem:()=>null,setItem:()=>{},removeItem:()=>{}},document:{addEventListener:(k,fn)=>{if(k==='click')c.click=fn;}},window:{addEventListener:()=>{}},console};
-vm.createContext(c);vm.runInContext(fs.readFileSync(process.argv[1],'utf8'),c);
+vm.createContext(c);require(require('path').resolve('tests/browser_locale.cjs')).install(c);vm.runInContext(fs.readFileSync(process.argv[1],'utf8'),c);
 (async()=>{
   const at=Date.UTC(2026,10,20,9,0,0);
   const later=Object.assign(mp4(at+3600e3),{name:'IMG_0001.MOV',lastModified:1}),earlier=Object.assign(mp4(at),{name:'IMG_0002.MOV',lastModified:2});
@@ -178,9 +178,9 @@ vm.createContext(c);vm.runInContext(fs.readFileSync(process.argv[1],'utf8'),c);
 
 def test_record_page_is_routed_for_uploaders_and_assets_are_loaded():
     app = (STATIC / "app.js").read_text()
-    assert '["record","mic","Ձայնագրել"]' in app and "fn = viewRecord" in app
+    assert '["record","mic",i18nText("ui.app.record")]' in app and "fn = viewRecord" in app
     index = (STATIC / "index.html").read_text()
-    assert '<script src="/record.js"></script>' in index and '/g40.css' in index
+    assert '<script src="/record.js"></script>' in index and '/recording.css' in index
     text = (STATIC / "record.js").read_text()
     assert not any(p in text for p in ("Քո ", "քո ", "կարող ես", "Ընտրիր", "Ստուգիր", "Փորձիր"))
 

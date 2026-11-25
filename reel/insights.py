@@ -1,5 +1,7 @@
 """Compact, cleanup-safe presentation data. Never changes editorial decisions."""
 from __future__ import annotations
+
+from reel.i18n import t as _t
 from collections import Counter, defaultdict
 from datetime import datetime, timezone, timedelta
 import json
@@ -31,9 +33,9 @@ def _no_cut_info(plan):
         elif matched:
             code = matched[0]
     if code == 'none_found':
-        return code, 'Դասից դուրս հատվածներ և երկար դադարներ չեն գտնվել․ ամբողջ դասը պահպանվել է։'
+        return code, _t('text.insights.no_off_topic_sections_or_long_breaks')
     if code == 'broken_timestamps':
-        return code, 'Խոսքի ժամանակագրությունը վնասված էր․ անվտանգության համար ոչինչ չի կտրվել։'
+        return code, _t('text.insights.speech_timestamps_were_invalid_no_content_was')
     if code in ('unclear', 'over_max_ratio'):
         details = plan.get('no_cut_details')
         values = (details.get('percent'), details.get('limit')) if isinstance(details, dict) else (None, None)
@@ -52,9 +54,9 @@ def _no_cut_info(plan):
                 else:
                     percent, limit = map(str, values)  # Keep scientific exponents intact.
             if code == 'unclear':
-                return code, f'Դասի {percent}%-ը հնարավոր չեղավ հստակ դասակարգել (սահմանը՝ {limit}%)․ ոչինչ չի կտրվել։'
-            return code, f'Ծրագրված կտրումը {percent}% էր, թույլատրելին՝ {limit}%․ ոչինչ չի կտրվել։'
-    return code, 'Կտրում չի կատարվել։'
+                return code, f"{_t('text.insights.could_not_clearly_classify')} {percent}{_t('text.insights.of_the_lesson_limit')} {limit}{_t('text.insights.no_content_was_cut_2')}"
+            return code, f"{_t('text.insights.planned_cuts_were')} {percent}{_t('text.insights.the_limit_was')} {limit}{_t('text.insights.no_content_was_cut')}"
+    return code, _t('text.insights.no_cuts_were_made')
 
 
 def cut_summary(plan, transcript=None, parts=None):
@@ -78,7 +80,7 @@ def cut_summary(plan, transcript=None, parts=None):
     return {**compact, 'no_cut_code': no_cut_code if not cuts else None,
             'details_available': 'cuts' in plan, 'cuts': cuts, 'parts': {k:v for k,v in (parts or {}).items() if k in ('parts','part_sec')},
             'cut_seconds': max(0, original-final) if original is not None and final is not None else None,
-            'no_cuts_reason': ('Կտրումների մանրամասները պահպանված չեն։' if 'cuts' not in plan else no_cuts_reason) if not cuts else None}
+            'no_cuts_reason': (_t('text.insights.cut_details_were_not_saved') if 'cuts' not in plan else no_cuts_reason) if not cuts else None}
 
 
 def video_id(url):
@@ -117,7 +119,7 @@ def library_records(db, legacy=None, *, groups=None):
                 clean.append({'title': str(c.get('title', c.get('label', ''))), 'start': int(t),
                               'url': f'https://youtu.be/{vid}?t={int(t)}'})
         records.append({'job_id': j['id'], 'group': j['grp'], 'subject': e.get('subject') or j['subject'],
-                        'title': e.get('title') or m.get('title') or 'Դաս',
+                        'title': e.get('title') or m.get('title') or _t('ui.app.lesson'),
                         'lesson_no': e.get('lesson_no', yt.get('lesson_no')),
                         'duration': e.get('duration', seg.get('final_sec')),
                         'published_at': e.get('published_at') or publication['created_at'],
@@ -170,7 +172,7 @@ def statistics(db, assumptions=None, *, groups=None):
     today = lesson_today()
     return {'demo_count':len(demos),'demo_source_sec':sum(r['duration_sec'] for r in demos),'counts': dict(counts), 'source_sec': source, 'published_sec': published, 'cut_sec': cut,
             'cut_ratio': cut/source if source else None, 'blurred_boxes': blurred if blur_known else None,
-            'blur_unit': 'Կադրերում մշուշի կիրառումներ (նույն դեմքը կրկնվում է)',
+            'blur_unit': _t('text.insights.face_blurs_across_frames_the_same_face'),
             'student_tracks': tracks if track_known else None,
             'avg_processing_sec': process/timed if timed else None,
             'processing_ratio': process/timed_source if timed_source and timed else None,

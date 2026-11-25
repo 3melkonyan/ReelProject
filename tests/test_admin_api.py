@@ -88,7 +88,7 @@ def production_config_is_untouched():
 @pytest.fixture
 def web(tmp_path, monkeypatch):
     config_path = tmp_path / "config.yaml"
-    initial = {"ui_language": "hy", "groups": {"Group-A": group_body(classroom_course_id="123"),
+    initial = {"groups": {"Group-A": group_body(classroom_course_id="123"),
                            "Group-B": group_body(subjects=[{"name": "C++", "playlist": "PLcpp"}],
                                                   slack_channel="Cother", lecturers=["lecturer1"])},
                "operator_slack_channel": "Coperator",

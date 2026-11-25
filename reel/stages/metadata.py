@@ -56,7 +56,7 @@ REDUCE_SYS = (
 
 
 # Free-form Armenian from the local model (gemma3:12b) is unreliable: real run 2026-11-18 produced
-# invented words ("պահարվեստը", "ազդողությունը"). Default = grounded text built from the lesson's
+# invented Armenian words. Default = grounded text built from the lesson's
 # own topics (correct, a bit dry). REEL_LLM_TEXT=1 re-enables model-written title/description/details.
 LLM_TEXT = os.environ.get("REEL_LLM_TEXT") == "1"
 
@@ -324,18 +324,26 @@ def _default_context(out_dir: Path) -> tuple[str, str]:
     return lesson, day
 
 
-def _default_metadata(note: str, summaries, plan, out_dir: Path, extra_footer: str) -> dict:
+def _default_metadata(note: str, summaries, plan, out_dir: Path, extra_footer: str, *, language="hy") -> dict:
     lesson, day = _default_context(out_dir)
     prefix, suffix = "Դաս՝ ", f", {day}"
+    if language == "en":
+        prefix = "Lesson: "
+        if lesson == "Դաս":
+            lesson = "Recording"
     title = prefix + lesson[:100 - len(prefix) - len(suffix)].rstrip() + suffix
     meta = {"title": title,
             "description": "Դասի տեսագրություն։ Ավտոմատ նկարագրությունն ու ժամանակային բաժինները հասանելի չեն։",
             "chapters": [], "auto_note": note}
+    if language == "en":
+        meta["description"] = "Lesson recording. An automatic description and chapters are unavailable."
     return _finish(meta, "default", summaries, plan, Path(out_dir), extra_footer)
 
 
 def generate(transcript_json: str | Path, keep, out_dir: Path, *,
-             model: str = llm.DEFAULT_MODEL, extra_footer: str = "") -> dict:
+             model: str = llm.DEFAULT_MODEL, extra_footer: str = "", language: str = "hy") -> dict:
+    if language not in ("hy", "en"):
+        raise ValueError("Unsupported metadata language")
     segs = _inputs(transcript_json, keep)
     summaries = []
     for p in _parts(segs, keep):
@@ -347,13 +355,21 @@ def generate(transcript_json: str | Path, keep, out_dir: Path, *,
                     or any(not isinstance(change, dict) for change in r["topic_changes"])):
                 raise ValueError("invalid metadata map response")
         except (llm.LLMError, ValueError, KeyError, TypeError):
-            return _default_metadata("LLM metadata unavailable — default metadata", summaries, [], out_dir, extra_footer)
+            return _default_metadata("LLM metadata unavailable — default metadata", summaries, [], out_dir, extra_footer, language=language)
         summaries.append({**r, "start": p[0]["start"], "end": p[-1]["end"]})
 
     try:
         plan = _chapter_plan(summaries, keep)
     except ValueError:
-        return _default_metadata("grounded chapters unavailable — default metadata", summaries, [], out_dir, extra_footer)
+        return _default_metadata("grounded chapters unavailable — default metadata", summaries, [], out_dir, extra_footer, language=language)
+    if language == "en":
+        topics = [entry["topic"] for entry in plan]
+        title = ", ".join(dict.fromkeys(topics[:3]))
+        while len(title) > 100 and ", " in title:
+            title = title.rsplit(", ", 1)[0]
+        meta = _validate({"title": title, "description": "Topics covered: " + "; ".join(dict.fromkeys(topics)) + ".",
+                          "chapters": [{"t": entry["t"], "title": entry["topic"]} for entry in plan]}, keep)
+        return _finish(meta, "grounded", summaries, plan, out_dir, extra_footer)
     if not LLM_TEXT:
         return _finish(_grounded_fallback(plan, keep), "grounded", summaries, plan, out_dir, extra_footer)
     reduce_in = json.dumps({"duration_sec": timeline.duration(keep),
@@ -387,7 +403,7 @@ def generate(transcript_json: str | Path, keep, out_dir: Path, *,
             continue
     if meta is None:
         if not valid_reducer_response:
-            return _default_metadata("LLM metadata unavailable — default metadata", summaries, plan, out_dir, extra_footer)
+            return _default_metadata("LLM metadata unavailable — default metadata", summaries, plan, out_dir, extra_footer, language=language)
         meta = _grounded_fallback(plan, keep)
         generation_mode = "grounded_fallback"
         if last_text is not None:   # grounded chapters + the model's natural title/description
@@ -447,7 +463,7 @@ def _normalize_terms(text: str) -> str:
             return match.group(0)
         if term.endswith("իա"):
             if suffix.startswith("յ"):
-                suffix = suffix[1:]  # ֆունկցիայի -> function-ի, not function-յի
+                suffix = suffix[1:]  # Drop the phonetic linking consonant before a Latin term.
             elif suffix == "ն":
                 suffix = "ը"
         return _TERMS[term] + ("-" + suffix if suffix else "")

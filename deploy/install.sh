@@ -3,12 +3,12 @@ set -euo pipefail
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
 for required in .venv/bin/python config.yaml secrets/token_youtube.json; do
     if [[ ! -f "$ROOT/$required" ]]; then
-        echo "Սխալ․ բացակայում է ${ROOT}/${required}։ Նախ ավարտեք docs/SETUP.md-ի կարգավորումը։" >&2
+        echo "Error: ${ROOT}/${required} is missing. Complete the setup in docs/SETUP.md first." >&2
         exit 1
     fi
 done
 if [[ ! -x "$ROOT/.venv/bin/python" ]]; then
-    echo 'Սխալ․ .venv/bin/python-ը գործարկելի չէ։ Վերաստեղծեք միջավայրը։' >&2
+    echo 'Error: .venv/bin/python is not executable. Recreate the environment.' >&2
     exit 1
 fi
 AGENTS="$HOME/Library/LaunchAgents"
@@ -37,4 +37,4 @@ if launchctl print "gui/$UID/com.reel.daemon" >/dev/null 2>&1; then
     launchctl bootout "gui/$UID" "$DEST"
 fi
 launchctl bootstrap "gui/$UID" "$DEST"
-echo "Reel-ը միացված է։ Լոգեր՝ $ROOT/logs/daemon.log"
+echo "Reel is enabled. Logs: $ROOT/logs/daemon.log"

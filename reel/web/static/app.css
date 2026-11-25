@@ -283,7 +283,7 @@ video { width: 100%; border-radius: var(--radius-md); background: var(--video-bg
 .main{margin:0 auto;width:100%}.upload-fields{grid-template-columns:1fr}.upload-card{max-width:880px}.admin-check{min-height:44px}@media(min-width:700px){.upload-fields{grid-template-columns:repeat(3,minmax(0,1fr))}}
 
 select.input{appearance:none;-webkit-appearance:none;height:48px;padding-right:36px;background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 18px) center,calc(100% - 12px) center;background-size:6px 6px;background-repeat:no-repeat}
-/* Bottom bar: a label never breaks inside a word ("Կարգավորումներ"); an item with a long word
+/* Bottom bar: a label never breaks inside a word (Settings); an item with a long word
    gets wider and the others share the rest equally. Below 360px the old wrapping applies. */
 .nav{padding-left:2px;padding-right:2px}.nav a{min-width:auto}.nav a span{overflow-wrap:normal}
 @media(max-width:359px){.nav a{min-width:0}.nav a span{overflow-wrap:anywhere}}
@@ -456,3 +456,5 @@ button,summary,.btn{min-height:44px}
 
 /* Preserve the complete mark when a lesson uses the bundled cover placeholder. */
 .academy-cover img[src="/brand/reel-email.png"],.library-cover img[src="/brand/reel-email.png"]{object-fit:contain;background:#000}
+
+.language-picker{display:inline-flex;align-items:center;gap:8px;font-size:12px}.language-picker .input{width:auto;min-height:44px;padding:8px}.header-controls{flex-wrap:wrap}

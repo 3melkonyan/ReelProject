@@ -187,7 +187,7 @@ def test_ui_highlight_escapes_html_and_filters_by_selected_group():
 const fs=require('fs'),vm=require('vm'),assert=require('assert/strict');
 const app=fs.readFileSync(process.argv[1],'utf8'),source=fs.readFileSync(process.argv[1].replace('app.js','learning.js'),'utf8');
 const box={innerHTML:'',isConnected:true},els={'#library-text-results':box,'#library-group':{value:'Group-B'},'#library-subject':{value:''}};
-const c={S:{},$:s=>els[s],setTimeout,clearTimeout,clock:s=>String(s)};vm.createContext(c);
+const c={S:{},$:s=>els[s],setTimeout,clearTimeout,clock:s=>String(s)};vm.createContext(c);require(require('path').resolve('tests/browser_locale.cjs')).install(c);
 vm.runInContext(app.slice(app.indexOf('const esc ='),app.indexOf('\n',app.indexOf('const esc ='))),c);vm.runInContext(source,c);
 assert.equal(c.markTerms('<b>closure</b> Closure',['closure']),'&lt;b&gt;<mark>closure</mark>&lt;/b&gt; <mark>Closure</mark>');
 c.S.library=[{job_id:1,group:'Group-A',subject:'Python',title:'A',url:'https://youtu.be/aaaaaaaaaaa'},

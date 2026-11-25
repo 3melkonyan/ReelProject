@@ -1,3 +1,10 @@
+# Interface language: hy (default) or en. Accounts can choose their own language.
+ui_language: hy
+# Lesson content is independent of the interface language.
+transcription_language: hy  # Language code, or auto.
+metadata_language: hy  # Generated titles, descriptions and study notes: hy or en.
+# transcription_prompt: null  # Optional recognition vocabulary; null disables the hint.
+
 # Copy to config.yaml and replace channel IDs before enabling publication.
 # Keep credentials in .env and secrets/, never in this file.
 operator_slack_channel: C_OPERATOR_CHANNEL

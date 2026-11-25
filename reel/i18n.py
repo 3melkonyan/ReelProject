@@ -10,7 +10,7 @@ from types import MappingProxyType
 from typing import Iterator, Mapping
 
 LANGUAGES = ("en", "hy")
-DEFAULT_LANGUAGE = "en"
+DEFAULT_LANGUAGE = "hy"
 _language: ContextVar[str] = ContextVar("reel_ui_language", default=DEFAULT_LANGUAGE)
 
 
@@ -49,3 +49,13 @@ def t(key: str, *, language: str | None = None, **values: object) -> str:
     """Look up a message; missing keys and interpolation values fail visibly."""
     text = catalog(current_language() if language is None else language)[key]
     return text.format_map(values)
+
+
+def localized_message(function):
+    """Allow pure email builders to select a language without leaking it to callers."""
+    from functools import wraps
+    @wraps(function)
+    def render(*args, language=None, **kwargs):
+        with language_context(current_language() if language is None else language):
+            return function(*args, **kwargs)
+    return render

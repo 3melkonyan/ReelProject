@@ -1,5 +1,7 @@
 """Lesson calendar dates, independent of upload/publication timestamps (Asia/Yerevan)."""
 from __future__ import annotations
+
+from reel.i18n import t as _t
 from datetime import date, datetime
 import re
 from zoneinfo import ZoneInfo
@@ -13,13 +15,13 @@ def today() -> date:
 
 def validate(value) -> str:
     if not isinstance(value, str) or not re.fullmatch(r'\d{4}-\d{2}-\d{2}', value):
-        raise ValueError('Նշեք դասի վավեր ամսաթիվը՝ ՏՏՏՏ-ԱԱ-ՕՕ ձևաչափով։')
+        raise ValueError(_t('text.lesson_dates.enter_a_valid_lesson_date_in_yyyy'))
     try:
         parsed = date.fromisoformat(value)
     except ValueError:
-        raise ValueError('Նշեք դասի վավեր ամսաթիվը։') from None
+        raise ValueError(_t('text.lesson_dates.enter_a_valid_lesson_date')) from None
     if parsed > today():
-        raise ValueError('Դասի ամսաթիվը չի կարող ապագայում լինել։')
+        raise ValueError(_t('text.lesson_dates.the_lesson_date_cannot_be_in_the'))
     return parsed.isoformat()
 
 

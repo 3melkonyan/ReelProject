@@ -1,6 +1,6 @@
 # Group, subject and lecturer administration
 
-Sign in as an administrator and open **Settings** (`#/settings`). Viewer and uploader accounts cannot manage this page. English labels in this guide describe the Armenian controls shown in the application; the interface itself remains Armenian. See [Web dashboard](WEB.md).
+Sign in as an administrator and open **Settings** (`#/settings`). Viewer and uploader accounts cannot manage this page. The interface is Armenian by default; English can be selected from the header. This guide uses the English labels. See [Web dashboard](WEB.md).
 
 Save changes explicitly. The worker reloads valid configuration within **30 seconds**. Each save preserves the previous version as `config.yaml.bak`; background page refreshes do not discard the current form.
 

@@ -1,35 +1,35 @@
 "use strict";
 /* presentation only. Source media is never requested. */
 function etaText(j) {
-  if (j.status === "done") return "Ավարտված է";
-  if (j.status === "stopped") return "Կանգնած է";
+  if (j.status === "done") return i18nText("ui.insights.completed");
+  if (j.status === "stopped") return i18nText("ui.insights.stopped");
   const seconds = j.progress?.eta_seconds;
-  if (seconds == null) return "հաշվարկվում է…";
+  if (seconds == null) return i18nText("ui.insights.calculating");
   const minutes = seconds > 900 ? Math.max(5, Math.round(seconds / 300) * 5) : Math.max(1, Math.round(seconds / 60));
-  const finish = new Date(Date.now() + minutes * 60000).toLocaleTimeString("hy-AM", {hour:"2-digit",minute:"2-digit"});
-  return `≈ ${minutes} րոպե (~${finish})`;
+  const finish = new Date(Date.now() + minutes * 60000).toLocaleTimeString((I18N.language === "hy" ? "hy-AM" : "en-US"), {hour:"2-digit",minute:"2-digit"});
+  return `≈ ${minutes} ${i18nText("ui.insights.min")}${finish})`;
 }
-const CUT_LABELS = {before:"Դասից առաջ",break:"Ընդմիջում",silence:"Լռություն",after:"Դասից հետո",other:"Այլ"};
+const CUT_LABELS = {before:i18nText("ui.app.before_the_lesson"),break:i18nText("ui.app.break"),silence:i18nText("ui.insights.silence"),after:i18nText("ui.app.after_the_lesson"),other:i18nText("ui.insights.other")};
 function cutReason(why) {
-  const names = {before_class:"Դասից առաջ",after_class:"Դասից հետո",break:"Ընդմիջում",offtopic:"Դասին չառնչվող երկար զրույց"};
-  return String(why || "Այլ").split("+").map(part=>names[part] || (part.startsWith("silence") ? "Երկար լռություն" : part)).join(" · ");
+  const names = {before_class:i18nText("ui.app.before_the_lesson"),after_class:i18nText("ui.app.after_the_lesson"),break:i18nText("ui.app.break"),offtopic:i18nText("ui.insights.long_off_topic_conversation")};
+  return String(why || i18nText("ui.insights.other")).split("+").map(part=>names[part] || (part.startsWith("silence") ? i18nText("ui.insights.long_silence") : part)).join(" · ");
 }
 async function loadCuts(id) {
   const target = $("#cut-insight"); if (!target || S.role === "uploader") return;
   try {
     const d = await api(`/api/jobs/${id}/cuts`); if (!target.isConnected) return;
-    if (!d.available) {target.textContent = "Այս դասի կտրման տվյալները պահպանված չեն։"; return;}
+    if (!d.available) {target.textContent = i18nText("ui.insights.cut_data_was_not_saved_for_this"); return;}
     const cuts = d.cuts || [], total = d.original_sec || 1;
-    target.innerHTML = `<div class="kv"><div><b>${fmtDur(d.original_sec)}</b><small>Բնօրինակ</small></div><div><b>${fmtDur(d.final_sec)}</b><small>Վերջնական</small></div><div><b>${d.cut_seconds == null ? "—" : (d.cut_seconds / 60).toFixed(1) + " ր"}</b><small>Կտրված · ${d.cut_ratio == null ? "—" : (d.cut_ratio * 100).toFixed(1) + "%"}</small></div><div><b>${d.details_available === false ? "Տվյալ չկա" : cuts.length}</b><small>Կտրում${d.parts?.parts > 1 ? ` · ${d.parts.parts} մասից` : ""}</small></div></div>
-      <p class="muted">Բնօրինակի ժամագիծ · սեղմեք կտրված հատվածը։ Նախադիտումը՝ միայն վերջնական մշուշված տեսանյութից։</p>
-      <div class="cut-track" role="group" aria-label="Բնօրինակի պահված և կտրված հատվածները">${cuts.map((c,i)=>`<span class="cut-marker ${c.kind}" style="left:${c.start/total*100}%;width:${c.duration/total*100}%" aria-hidden="true"></span><button class="cut-hit" data-cut-jump="${i}" style="left:clamp(0px,calc(${(c.start+c.end)/2/total*100}% - 22px),calc(100% - 44px))" aria-label="${esc(CUT_LABELS[c.kind] || "Այլ")}՝ ${clock(c.start)}–${clock(c.end)}"></button>`).join("")}</div>
+    target.innerHTML = `<div class="kv"><div><b>${fmtDur(d.original_sec)}</b><small>${i18nText("ui.insights.source")}</small></div><div><b>${fmtDur(d.final_sec)}</b><small>${i18nText("ui.insights.final")}</small></div><div><b>${d.cut_seconds == null ? "—" : (d.cut_seconds / 60).toFixed(1) + (` ${i18nText("ui.app.min")}`)}</b><small>${i18nText("ui.insights.removed")} ${d.cut_ratio == null ? "—" : (d.cut_ratio * 100).toFixed(1) + "%"}</small></div><div><b>${d.details_available === false ? i18nText("insights.no_data") : cuts.length}</b><small>${i18nText("ui.app.cuts")}${d.parts?.parts > 1 ? ` · ${d.parts.parts} ${i18nText("ui.insights.parts")}` : ""}</small></div></div>
+      <p class="muted">${i18nText("ui.insights.source_timeline_select_a_removed_section_previews")}</p>
+      <div class="cut-track" role="group" aria-label="${i18nText("ui.insights.kept_and_removed_source_sections")}">${cuts.map((c,i)=>`<span class="cut-marker ${c.kind}" style="left:${c.start/total*100}%;width:${c.duration/total*100}%" aria-hidden="true"></span><button class="cut-hit" data-cut-jump="${i}" style="left:clamp(0px,calc(${(c.start+c.end)/2/total*100}% - 22px),calc(100% - 44px))" aria-label="${esc(CUT_LABELS[c.kind] || i18nText("ui.insights.other"))}${i18nText("ui.insights.punctuation")} ${clock(c.start)}–${clock(c.end)}"></button>`).join("")}</div>
       <div class="cut-legend">${Object.entries(CUT_LABELS).map(([k,v])=>`<span class="${k}">${v}</span>`).join("")}</div>
-      ${cuts.length ? `<div class="cut-list">${cuts.map((c,i)=>`<details class="cut-item"><summary><span class="badge ${c.kind}">${esc(CUT_LABELS[c.kind] || "Այլ")}</span> <span class="mono">${clock(c.start)}–${clock(c.end)}</span> · ${fmtDur(c.duration)}</summary><p>${esc(cutReason(c.why))}</p><dl><dt>Առաջին բառերը</dt><dd>${esc(c.first_words || "Տվյալ չկա")}</dd><dt>Վերջին բառերը</dt><dd>${esc(c.last_words || "Տվյալ չկա")}</dd></dl><button class="btn" data-transition="${i}">Դիտել անցումը · 10վ</button><div class="transition-result" aria-live="polite"></div></details>`).join("")}</div>` : `<p>${esc(d.no_cuts_reason || "Մանրամասն տվյալ չկա։")}</p>${d.min_silence_sec != null ? `<p class="muted">Լռության ստուգման շեմը՝ ${esc(d.min_silence_sec)}վ։ Միայն լռությունը բավարար չէ դասի մասը կտրելու համար։</p>` : ""}`}`;
+      ${cuts.length ? `<div class="cut-list">${cuts.map((c,i)=>`<details class="cut-item"><summary><span class="badge ${c.kind}">${esc(CUT_LABELS[c.kind] || i18nText("ui.insights.other"))}</span> <span class="mono">${clock(c.start)}–${clock(c.end)}</span> · ${fmtDur(c.duration)}</summary><p>${esc(cutReason(c.why))}</p><dl><dt>${i18nText("ui.insights.first_words")}</dt><dd>${esc(c.first_words || i18nText("insights.no_data"))}</dd><dt>${i18nText("ui.insights.last_words")}</dt><dd>${esc(c.last_words || i18nText("insights.no_data"))}</dd></dl><button class="btn" data-transition="${i}">${i18nText("ui.insights.preview_transition_10_s")}</button><div class="transition-result" aria-live="polite"></div></details>`).join("")}</div>` : `<p>${esc(d.no_cuts_reason || i18nText("ui.insights.no_details_available"))}</p>${d.min_silence_sec != null ? `<p class="muted">${i18nText("ui.insights.silence_threshold")} ${esc(d.min_silence_sec)}${i18nText("ui.insights.s_silence_alone_is_not_enough_to")}</p>` : ""}`}`;
     target.querySelectorAll("[data-cut-jump]").forEach(button=>button.addEventListener("click",()=>{const detail=target.querySelectorAll(".cut-item")[Number(button.dataset.cutJump)];detail.open=true;detail.querySelector("summary").focus();detail.scrollIntoView({block:"nearest"});}));
     target.querySelectorAll("[data-transition]").forEach(button=>button.addEventListener("click",async()=>{
-      const result = button.nextElementSibling; button.disabled = true; result.textContent = "Պատրաստում ենք անվտանգ preview-ն…";
-      try {const p = await api(`/api/jobs/${id}/cuts/${button.dataset.transition}/preview`,{method:"POST"}); result.innerHTML = `<video controls playsinline preload="metadata" src="${esc(p.url)}" aria-label="Կտրման անցումը վերջնական մշուշված տեսանյութում"></video>`;}
-      catch(error) {result.textContent = error.message === "auth" ? "Մուտք գործեք կրկին։" : error.message;}
+      const result = button.nextElementSibling; button.disabled = true; result.textContent = i18nText("ui.insights.preparing_a_safe_preview");
+      try {const p = await api(`/api/jobs/${id}/cuts/${button.dataset.transition}/preview`,{method:"POST"}); result.innerHTML = `<video controls playsinline preload="metadata" src="${esc(p.url)}" aria-label="${i18nText("ui.insights.cut_transition_in_the_final_blurred_video")}"></video>`;}
+      catch(error) {result.textContent = error.message === "auth" ? i18nText("ui.insights.sign_in_again") : error.message;}
       finally {button.disabled = false;}
     }));
   } catch(error) {target.textContent = error.message;}
@@ -42,7 +42,7 @@ async function viewLibrary() {
   installLearningLifecycle();
   if (!$("#library-grid")) {
     S.libraryFacets = null;
-    $("#main").innerHTML = `<section class="library-page">${pageHeading("Գրադարան", "Ձեր խմբերի դասերը՝ մեկ վայրում։", '<div id="library-tools"></div>')}<div class="library-filters"><label class="fld"><span>Որոնել դասի անունը կամ տեքստը</span><input class="input" id="library-search" type="search" placeholder="Անուն, թեմա կամ բառ…" maxlength="200"></label><label class="fld"><span>Խումբ</span><select class="input" id="library-group"><option value="">Բոլոր խմբերը</option></select></label><label class="fld"><span>Առարկա</span><select class="input" id="library-subject"><option value="">Բոլոր առարկաները</option></select></label></div><div id="library-continue"></div><div id="library-text-results" aria-live="polite"></div><p id="library-count" role="status"></p><div class="job-grid" id="library-grid">${pageSkeleton("Բեռնում ենք դասերը")}</div></section>`;
+    $("#main").innerHTML = `<section class="library-page">${pageHeading(i18nText("ui.app.library"), i18nText("ui.insights.your_groups_lessons_in_one_place"), '<div id="library-tools"></div>')}<div class="library-filters"><label class="fld"><span>${i18nText("ui.insights.search_lesson_titles_or_transcripts")}</span><input class="input" id="library-search" type="search" placeholder="${i18nText("ui.insights.title_topic_or_word")}" maxlength="200"></label><label class="fld"><span>${i18nText("ui.accounts.group")}</span><select class="input" id="library-group"><option value="">${i18nText("ui.accounts.all_groups")}</option></select></label><label class="fld"><span>${i18nText("ui.app.subject")}</span><select class="input" id="library-subject"><option value="">${i18nText("ui.app.all_subjects")}</option></select></label></div><div id="library-continue"></div><div id="library-text-results" aria-live="polite"></div><p id="library-count" role="status"></p><div class="job-grid" id="library-grid">${pageSkeleton(i18nText("ui.app.loading_lessons"))}</div></section>`;
     $("#library-search").addEventListener("input", ()=>{renderLibrary(); scheduleLibraryTextSearch();});
     $("#library-group").addEventListener("change", ()=>{fillLibrarySubjects(); renderLibrary(); renderLibraryText();});
     $("#library-subject").addEventListener("change", ()=>{renderLibrary(); renderLibraryText();});
@@ -63,7 +63,7 @@ async function viewLibrary() {
   if (stale) {facets._t = Date.now(); S.libraryFacets = facets;}
   fillLibraryGroups(); fillLibrarySubjects(); renderLibrary(); renderContinueWatching(); renderLearningLinks();
 }
-const libraryOption = (value, label, count) => `<option value="${esc(value)}">${esc(label)} (${Number(count) || 0} դաս)</option>`;
+const libraryOption = (value, label, count) => `<option value="${esc(value)}">${esc(label)} (${Number(count) || 0} ${i18nText("ui.insights.lessons")}</option>`;
 function fillLibraryOptions(select, options, keep) {
   if (select.dataset.sig === options) return;
   const previous = select.value; select.innerHTML = options; select.dataset.sig = options;
@@ -73,8 +73,8 @@ function fillLibraryGroups() {
   const select = $("#library-group"), groups = S.libraryFacets?.groups || [];
   const locked = S.role === "student" && groups.length === 1;   // a student sees only their own group
   const total = groups.reduce((sum, g) => sum + g.lessons, 0);
-  fillLibraryOptions(select, (locked ? "" : `<option value="">Բոլոր խմբերը (${total} դաս)</option>`) +
-    groups.map(g => libraryOption(g.name, g.archived ? `${g.name} · ավարտված` : g.name, g.lessons)).join(""),
+  fillLibraryOptions(select, (locked ? "" : `<option value="">${i18nText("ui.insights.all_groups")}${total} ${i18nText("ui.insights.lessons")}</option>`) +
+    groups.map(g => libraryOption(g.name, g.archived ? `${g.name} ${i18nText("ui.insights.completed_2")}` : g.name, g.lessons)).join(""),
     value => locked ? value === groups[0].name : !value || groups.some(g => g.name === value));
   select.disabled = locked;
 }
@@ -84,7 +84,7 @@ function fillLibrarySubjects() {
   for (const g of groups) for (const s of g.subjects) counts.set(s.name, (counts.get(s.name) || 0) + s.lessons);
   const names = [...counts.keys()];
   if (!group) names.sort((a, b) => a.localeCompare(b, "hy"));
-  fillLibraryOptions($("#library-subject"), `<option value="">Բոլոր առարկաները (${groups.reduce((sum, g) => sum + g.lessons, 0)} դաս)</option>` +
+  fillLibraryOptions($("#library-subject"), `<option value="">${i18nText("ui.insights.all_subjects")}${groups.reduce((sum, g) => sum + g.lessons, 0)} ${i18nText("ui.insights.lessons")}</option>` +
     names.map(name => libraryOption(name, name, counts.get(name))).join(""), value => !value || counts.has(value));
 }
 function clearLibraryFilters() {
@@ -99,41 +99,41 @@ function renderLibrary() {
   const query = $("#library-search").value.trim().toLocaleLowerCase(), group = $("#library-group").value, subject = $("#library-subject").value;
   const list = (S.library || []).filter(x=>(!group || x.group === group) && (!subject || x.subject === subject) && (!query || [x.title,x.subject,...(x.chapters || []).map(c=>c.title)].join(" ").toLocaleLowerCase().includes(query)));
   const demoCount=list.filter(x=>x.demo || x.playable===false).length;
-  set("#library-count", `${list.length} դաս${demoCount ? ` · ${demoCount} ցուցադրական` : ""}`);
-  set("#library-grid",list.length ? list.map(libraryCardHtml).join("") : '<div class="card empty library-empty"><div class="ic acc">'+ic("book")+'</div><b>Համապատասխան դաս չգտնվեց</b><p>Փորձեք այլ բառ կամ մաքրեք ընտրված ֆիլտրերը։</p><button class="btn" data-library-clear>Մաքրել ֆիլտրերը</button></div>');
+  set("#library-count", `${list.length} ${i18nText("ui.app.lessons_3")}${demoCount ? ` · ${demoCount} ${i18nText("ui.app.demo_2")}` : ""}`);
+  set("#library-grid",list.length ? list.map(libraryCardHtml).join("") : '<div class="card empty library-empty"><div class="ic acc">'+ic("book")+(`</div><b>${i18nText("ui.app.no_matching_lessons")}</b><p>${i18nText("ui.insights.try_another_search_or_clear_the_filters")}</p><button class="btn" data-library-clear>${i18nText("ui.insights.clear_filters")}</button></div>`));
 }
 /* measured publications and explicitly separate demonstration data. */
 function academyStatNumber(value, digits = 1) {
   const number=Number(value);
-  return (Number.isFinite(number) ? Math.max(0,number) : 0).toLocaleString("hy-AM",{maximumFractionDigits:digits});
+  return (Number.isFinite(number) ? Math.max(0,number) : 0).toLocaleString((I18N.language === "hy" ? "hy-AM" : "en-US"),{maximumFractionDigits:digits});
 }
 function academyStatCount(value) {const number=Number(value);return Number.isFinite(number) ? Math.max(0,Math.floor(number)) : 0;}
 function academyStatsChart(data) {
   const days=data.daily || [], total=days.reduce((sum,x)=>sum+academyStatCount(x.actual_lessons)+academyStatCount(x.demo_lessons),0);
-  if (!total) return '<p class="academy-chart-empty muted">Վերջին 30 օրում այս ընտրությամբ դասեր չկան։</p>';
+  if (!total) return (`<p class="academy-chart-empty muted">${i18nText("ui.insights.no_lessons_match_this_selection_in_the")}</p>`);
   const max=Math.max(1,...days.map(x=>academyStatCount(x.actual_lessons)+academyStatCount(x.demo_lessons))), slot=640/Math.max(1,days.length), width=Math.min(16,slot*.65), base=144;
   const bars=days.map((day,i)=>{
     const actual=academyStatCount(day.actual_lessons), demo=academyStatCount(day.demo_lessons), height=actual/max*112, demoHeight=demo/max*112, x=48+i*slot+(slot-width)/2;
-    return `<g><title>${esc(day.date)}՝ ${actual} հրապարակված, ${demo} ցուցադրական դաս</title><rect class="academy-chart-actual" x="${x}" y="${base-height}" width="${width}" height="${height}" rx="2"></rect><rect class="academy-chart-demo" x="${x}" y="${base-height-demoHeight}" width="${width}" height="${demoHeight}" rx="2"></rect></g>`;
+    return `<g><title>${esc(day.date)}${i18nText("ui.insights.punctuation")} ${actual} ${i18nText("ui.insights.published")} ${demo} ${i18nText("ui.insights.demo_lessons")}</title><rect class="academy-chart-actual" x="${x}" y="${base-height}" width="${width}" height="${height}" rx="2"></rect><rect class="academy-chart-demo" x="${x}" y="${base-height-demoHeight}" width="${width}" height="${demoHeight}" rx="2"></rect></g>`;
   }).join("");
-  return `<svg class="stats-chart academy-stats-chart" viewBox="0 0 720 180" role="img" aria-labelledby="academy-chart-title academy-chart-desc"><title id="academy-chart-title">Դասերը՝ վերջին 30 օրում</title><desc id="academy-chart-desc">Ըստ դասի ամսաթվի․ հրապարակված և ցուցադրական դասերը նշված են առանձին գույներով։ Մանրամասն թվերը հասանելի են ստորև։</desc><path class="academy-chart-axis" d="M48 24V144H688"></path><text x="36" y="36" text-anchor="end">${max}</text><text x="36" y="148" text-anchor="end">0</text>${bars}<text x="48" y="170">${esc(days[0]?.date || "")}</text><text x="688" y="170" text-anchor="end">${esc(days[days.length-1]?.date || "")}</text></svg>`;
+  return `<svg class="stats-chart academy-stats-chart" viewBox="0 0 720 180" role="img" aria-labelledby="academy-chart-title academy-chart-desc"><title id="academy-chart-title">${i18nText("ui.insights.lessons_in_the_last_30_days")}</title><desc id="academy-chart-desc">${i18nText("ui.insights.by_lesson_date_published_and_demo_lessons")}</desc><path class="academy-chart-axis" d="M48 24V144H688"></path><text x="36" y="36" text-anchor="end">${max}</text><text x="36" y="148" text-anchor="end">0</text>${bars}<text x="48" y="170">${esc(days[0]?.date || "")}</text><text x="688" y="170" text-anchor="end">${esc(days[days.length-1]?.date || "")}</text></svg>`;
 }
 function academyStatsBreakdown(rows, bySubject = false) {
-  if (!rows?.length) return '<p class="muted">Այս ընտրության համար տվյալներ չկան։</p>';
+  if (!rows?.length) return (`<p class="muted">${i18nText("ui.insights.no_data_for_this_selection")}</p>`);
   return rows.map(row=>{
     const actual=row.actual || {}, demo=row.demo || {};
-    return `<article class="academy-stat-row"><div class="academy-stat-name"><h3>${esc(bySubject ? row.subject : row.group)}</h3>${bySubject ? `<span>${esc(row.group)}</span>` : ""}</div><dl><div><dt>Հրապարակված</dt><dd>${academyStatCount(actual.published_lessons)} դաս</dd></div><div><dt>Տեսանյութ</dt><dd>${academyStatNumber(actual.video_hours)} ժ</dd></div><div><dt>Խնայված</dt><dd>${academyStatNumber(actual.saved_minutes)} ր</dd></div></dl>${demo.lessons ? `<p class="academy-stat-demo"><span class="badge soft">Ցուցադրական</span> ${academyStatCount(demo.lessons)} դաս${Number(demo.video_hours)>0 ? ` · ${academyStatNumber(demo.video_hours)} ժ՝ նշված տևողությամբ` : ""}</p>` : ""}</article>`;
+    return `<article class="academy-stat-row"><div class="academy-stat-name"><h3>${esc(bySubject ? row.subject : row.group)}</h3>${bySubject ? `<span>${esc(row.group)}</span>` : ""}</div><dl><div><dt>${i18nText("ui.app.published")}</dt><dd>${academyStatCount(actual.published_lessons)} ${i18nText("ui.app.lessons_3")}</dd></div><div><dt>${i18nText("ui.insights.video")}</dt><dd>${academyStatNumber(actual.video_hours)} ${i18nText("ui.app.h")}</dd></div><div><dt>${i18nText("ui.insights.saved")}</dt><dd>${academyStatNumber(actual.saved_minutes)} ${i18nText("ui.app.min")}</dd></div></dl>${demo.lessons ? `<p class="academy-stat-demo"><span class="badge soft">${i18nText("ui.app.demo")}</span> ${academyStatCount(demo.lessons)} ${i18nText("ui.app.lessons_3")}${Number(demo.video_hours)>0 ? ` · ${academyStatNumber(demo.video_hours)} ${i18nText("ui.insights.h_with_known_duration")}` : ""}</p>` : ""}</article>`;
   }).join("");
 }
 function academyTechnicalStats(data) {
   if (S.role!=="admin" || !data.technical) return "";
-  const d=data.technical, assumptions=data.assumptions || {}, duration=value=>value==null ? "Տվյալ չկա" : fmtDur(value);
+  const d=data.technical, assumptions=data.assumptions || {}, duration=value=>value==null ? i18nText("insights.no_data") : fmtDur(value);
   const phases=typeof PHASES==="undefined" ? [] : PHASES;
-  return `<details class="card academy-technical" id="academy-technical"><summary>Տեխնիկական տվյալներ</summary><div class="academy-technical-body"><h2>Մշակման մանրամասներ</h2><dl class="metric-list"><dt>Մշակման միջին տևողություն</dt><dd>${duration(d.avg_processing_sec)}</dd><dt>Մշակման և տեսագրության տևողությունների հարաբերություն</dt><dd>${d.processing_ratio==null ? "Տվյալ չկա" : academyStatNumber(d.processing_ratio,2)+"×"}</dd><dt>Ավարտի կանխատեսման միջին շեղում</dt><dd>${duration(d.eta_mean_error_sec)} · ${academyStatCount(d.eta_samples)} չափում</dd><dt>Մշուշի կիրառումներ կադրերում</dt><dd>${d.blurred_boxes==null ? "Տվյալ չկա" : academyStatNumber(d.blurred_boxes,0)}</dd><dt>Դեմքերի հետագծեր</dt><dd>${d.student_tracks==null ? "Տվյալ չկա" : academyStatNumber(d.student_tracks,0)}</dd></dl><p class="muted">Միևնույն դեմքը կարող է հաշվվել մի քանի կադրերում։ Բացակայող չափումները չեն լրացվում ենթադրություններով։</p><h2>Ամենաերկար մշակվող փուլերը</h2><ol class="stage-ranks">${(d.slow_stages || []).slice(0,6).map(x=>`<li><span>${esc(x.label || phases.find(p=>p.stages.includes(x.stage))?.label || "Այլ փուլ")}</span><b>${duration(x.seconds)}</b></li>`).join("") || '<li class="muted">Տվյալ չկա</li>'}</ol><h2>Խնայված ժամանակի գնահատումը</h2><p>${academyStatNumber(assumptions.editing_min_per_hour)} րոպե խմբագրում՝ տեսագրության յուրաքանչյուր ժամի համար, և ${academyStatNumber(assumptions.publishing_min_per_lesson)} րոպե՝ յուրաքանչյուր իրական դասի հրապարակման համար։ Սա աշխատանքի գնահատական է։</p><a class="btn" href="#/settings">Փոխել հաշվարկի կարգավորումները</a></div></details>`;
+  return `<details class="card academy-technical" id="academy-technical"><summary>${i18nText("ui.insights.technical_details")}</summary><div class="academy-technical-body"><h2>${i18nText("ui.insights.processing_details")}</h2><dl class="metric-list"><dt>${i18nText("ui.insights.average_processing_time")}</dt><dd>${duration(d.avg_processing_sec)}</dd><dt>${i18nText("ui.insights.processing_time_recording_duration")}</dt><dd>${d.processing_ratio==null ? i18nText("insights.no_data") : academyStatNumber(d.processing_ratio,2)+"×"}</dd><dt>${i18nText("ui.insights.average_completion_estimate_error")}</dt><dd>${duration(d.eta_mean_error_sec)} · ${academyStatCount(d.eta_samples)} ${i18nText("ui.insights.measurements")}</dd><dt>${i18nText("ui.insights.face_blurs_across_frames")}</dt><dd>${d.blurred_boxes==null ? i18nText("insights.no_data") : academyStatNumber(d.blurred_boxes,0)}</dd><dt>${i18nText("ui.insights.face_tracks")}</dt><dd>${d.student_tracks==null ? i18nText("insights.no_data") : academyStatNumber(d.student_tracks,0)}</dd></dl><p class="muted">${i18nText("ui.insights.the_same_face_may_be_counted_in")}</p><h2>${i18nText("ui.insights.longest_processing_stages")}</h2><ol class="stage-ranks">${(d.slow_stages || []).slice(0,6).map(x=>`<li><span>${esc(x.label || phases.find(p=>p.stages.includes(x.stage))?.label || i18nText("ui.insights.other_stage"))}</span><b>${duration(x.seconds)}</b></li>`).join("") || (`<li class="muted">${i18nText("insights.no_data")}</li>`)}</ol><h2>${i18nText("ui.insights.estimated_time_savings")}</h2><p>${academyStatNumber(assumptions.editing_min_per_hour)} ${i18nText("ui.insights.minutes_of_editing_per_recording_hour_plus")} ${academyStatNumber(assumptions.publishing_min_per_lesson)} ${i18nText("ui.insights.minutes_per_published_real_lesson_this_is")}</p><a class="btn" href="#/settings">${i18nText("ui.insights.change_estimate_settings")}</a></div></details>`;
 }
 function academyStatsHtml(data) {
   const cards=data.cards || data.actual || {}, demo=data.demo || {}, days=data.daily || [];
-  return `<div class="academy-stats-metrics">${stat("check","acc","Հրապարակված դասեր",academyStatNumber(cards.published_lessons,0),"Իրական դասերի հրապարակումներ")}${stat("clock","acc","Տեսանյութի ժամեր",academyStatNumber(cards.video_hours),"Հրապարակված տեսանյութերի տևողությունը")}${stat("scissors","acc","Խնայված ժամանակ",academyStatNumber(cards.saved_minutes)+" ր","Գնահատական՝ խմբագրման և հրապարակման համար")}</div>${demo.lessons ? `<aside class="academy-demo-summary"><span class="badge soft">Ցուցադրական տվյալներ</span><strong>${academyStatCount(demo.lessons)} դաս${Number(demo.video_hours)>0 ? ` · ${academyStatNumber(demo.video_hours)} ժ՝ նշված տևողությամբ` : ""}</strong><p>Այս օրինակները չեն ավելացվում իրական հրապարակումների կամ խնայված ժամանակի թվերին։</p></aside>` : ""}<section class="card academy-stats-trend"><h2>Դասերը՝ վերջին 30 օրում</h2><p class="muted">Համեմատությունը՝ ըստ դասի ամսաթվի։</p><div class="academy-chart-legend"><span><i class="actual" aria-hidden="true"></i>Հրապարակված</span><span><i class="demo" aria-hidden="true"></i>Ցուցադրական</span></div>${academyStatsChart(data)}<details class="academy-chart-data"><summary>Դիտել օրերի տվյալները</summary><table><thead><tr><th scope="col">Օր</th><th scope="col">Հրապարակված</th><th scope="col">Ցուցադրական</th></tr></thead><tbody>${days.map(x=>`<tr><th scope="row">${esc(x.date)}</th><td>${academyStatCount(x.actual_lessons)}</td><td>${academyStatCount(x.demo_lessons)}</td></tr>`).join("")}</tbody></table></details></section><div class="academy-stats-breakdowns"><section class="card"><h2>Ըստ խմբերի</h2>${academyStatsBreakdown(data.by_group)}</section><section class="card"><h2>Ըստ առարկաների</h2>${academyStatsBreakdown(data.by_subject,true)}</section></div>${academyTechnicalStats(data)}`;
+  return `<div class="academy-stats-metrics">${stat("check","acc",i18nText("ui.app.published_lessons"),academyStatNumber(cards.published_lessons,0),i18nText("ui.insights.real_lesson_publications"))}${stat("clock","acc",i18nText("ui.insights.video_hours"),academyStatNumber(cards.video_hours),i18nText("ui.insights.duration_of_published_videos"))}${stat("scissors","acc",i18nText("ui.insights.time_saved"),academyStatNumber(cards.saved_minutes)+(` ${i18nText("ui.app.min")}`),i18nText("ui.insights.estimated_editing_and_publishing_time"))}</div>${demo.lessons ? `<aside class="academy-demo-summary"><span class="badge soft">${i18nText("ui.insights.demo_data")}</span><strong>${academyStatCount(demo.lessons)} ${i18nText("ui.app.lessons_3")}${Number(demo.video_hours)>0 ? ` · ${academyStatNumber(demo.video_hours)} ${i18nText("ui.insights.h_with_known_duration")}` : ""}</strong><p>${i18nText("ui.insights.these_examples_are_excluded_from_real_publication")}</p></aside>` : ""}<section class="card academy-stats-trend"><h2>${i18nText("ui.insights.lessons_in_the_last_30_days")}</h2><p class="muted">${i18nText("ui.insights.comparison_by_lesson_date")}</p><div class="academy-chart-legend"><span><i class="actual" aria-hidden="true"></i>${i18nText("ui.app.published")}</span><span><i class="demo" aria-hidden="true"></i>${i18nText("ui.app.demo")}</span></div>${academyStatsChart(data)}<details class="academy-chart-data"><summary>${i18nText("ui.insights.view_daily_figures")}</summary><table><thead><tr><th scope="col">${i18nText("ui.insights.day")}</th><th scope="col">${i18nText("ui.app.published")}</th><th scope="col">${i18nText("ui.app.demo")}</th></tr></thead><tbody>${days.map(x=>`<tr><th scope="row">${esc(x.date)}</th><td>${academyStatCount(x.actual_lessons)}</td><td>${academyStatCount(x.demo_lessons)}</td></tr>`).join("")}</tbody></table></details></section><div class="academy-stats-breakdowns"><section class="card"><h2>${i18nText("ui.insights.by_group")}</h2>${academyStatsBreakdown(data.by_group)}</section><section class="card"><h2>${i18nText("ui.insights.by_subject")}</h2>${academyStatsBreakdown(data.by_subject,true)}</section></div>${academyTechnicalStats(data)}`;
 }
 function academyStatsFilterOptions(select, options, value) {
   if (select.dataset.options!==options) {select.innerHTML=options;select.dataset.options=options;}
@@ -145,7 +145,7 @@ async function viewStats() {
   let root=$("#academy-stats");
   if (root && root.dataset.hash===hash && root.dataset.identity===identity && (root.academyLoading || Date.now()-Number(root.dataset.loadedAt)<30000)) return;
   if (!root || root.dataset.hash!==hash || root.dataset.identity!==identity) {
-    $("#main").innerHTML=`<section id="academy-stats" class="academy-stats">${pageHeading("Վիճակագրություն","Ձեր խմբերի դասերն ու աշխատանքի արդյունքները՝ թվերով։")}<div class="academy-stats-filters"><label class="fld"><span>Խումբ</span><select class="input" id="stats-group" disabled><option value="">Բոլոր խմբերը</option></select></label><label class="fld"><span>Առարկա</span><select class="input" id="stats-subject" disabled><option value="">Բոլոր առարկաները</option></select></label></div><div id="academy-stats-body">${pageSkeleton("Բեռնում ենք վիճակագրությունը")}</div></section>`;
+    $("#main").innerHTML=`<section id="academy-stats" class="academy-stats">${pageHeading(i18nText("ui.app.statistics"),i18nText("ui.insights.your_groups_lessons_and_results_in_numbers"))}<div class="academy-stats-filters"><label class="fld"><span>${i18nText("ui.accounts.group")}</span><select class="input" id="stats-group" disabled><option value="">${i18nText("ui.accounts.all_groups")}</option></select></label><label class="fld"><span>${i18nText("ui.app.subject")}</span><select class="input" id="stats-subject" disabled><option value="">${i18nText("ui.app.all_subjects")}</option></select></label></div><div id="academy-stats-body">${pageSkeleton(i18nText("ui.insights.loading_statistics"))}</div></section>`;
     root=$("#academy-stats");root.dataset.hash=hash;root.dataset.identity=identity;
     const change=event=>{
       const nextGroup=root.querySelector("#stats-group").value;let nextSubject=root.querySelector("#stats-subject").value;
@@ -165,15 +165,15 @@ async function viewStats() {
     const data=await api("/api/academy/stats"+(params.size ? "?"+params.toString() : ""));
     if (!same()) return;
     root.academyData=data;
-    const groups=data.filters?.groups || [], subjects=data.filters?.subjects || [], option=x=>`<option value="${esc(x.name)}">${esc(x.name)} (${academyStatCount(x.count)} դաս)</option>`;
-    academyStatsFilterOptions(root.querySelector("#stats-group"),'<option value="">Բոլոր խմբերը</option>'+groups.map(option).join(""),group);
-    academyStatsFilterOptions(root.querySelector("#stats-subject"),'<option value="">Բոլոր առարկաները</option>'+subjects.map(option).join("")+(subject && !subjects.some(x=>x.name===subject) ? option({name:subject,count:0}) : ""),subject);
+    const groups=data.filters?.groups || [], subjects=data.filters?.subjects || [], option=x=>`<option value="${esc(x.name)}">${esc(x.name)} (${academyStatCount(x.count)} ${i18nText("ui.insights.lessons")}</option>`;
+    academyStatsFilterOptions(root.querySelector("#stats-group"),(`<option value="">${i18nText("ui.accounts.all_groups")}</option>`)+groups.map(option).join(""),group);
+    academyStatsFilterOptions(root.querySelector("#stats-subject"),(`<option value="">${i18nText("ui.app.all_subjects")}</option>`)+subjects.map(option).join("")+(subject && !subjects.some(x=>x.name===subject) ? option({name:subject,count:0}) : ""),subject);
     const body=root.querySelector("#academy-stats-body"), html=academyStatsHtml(data), technicalOpen=body.querySelector("#academy-technical")?.open;
     if (body.innerHTML!==html) {body.innerHTML=html;if (technicalOpen && body.querySelector("#academy-technical")) body.querySelector("#academy-technical").open=true;}
     root.dataset.loadedAt=String(Date.now());
   } catch(error) {
     if (!same() || error.message==="auth") return;
-    root.querySelector("#academy-stats-body").innerHTML='<div class="alert err" role="alert"><div>Վիճակագրությունը բեռնել չհաջողվեց։ Փորձեք կրկին։</div><button class="btn" id="academy-stats-retry">Կրկին բեռնել</button></div>';
+    root.querySelector("#academy-stats-body").innerHTML=(`<div class="alert err" role="alert"><div>${i18nText("ui.insights.could_not_load_statistics_try_again")}</div><button class="btn" id="academy-stats-retry">${i18nText("ui.admin.reload")}</button></div>`);
     root.querySelector("#academy-stats-retry").addEventListener("click",()=>{root.dataset.loadedAt="0";viewStats();});
     root.dataset.loadedAt=String(Date.now());
   } finally {root.academyLoading=false;}

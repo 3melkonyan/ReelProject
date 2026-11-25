@@ -5,6 +5,8 @@ claim prevents concurrent sends; an ambiguous SMTP outcome is never resent.
 """
 from __future__ import annotations
 
+from reel.i18n import t as _t, localized_message, current_language as _language
+
 import asyncio
 from contextlib import asynccontextmanager, closing
 from datetime import datetime, time, timedelta, timezone
@@ -111,6 +113,7 @@ def _week(now):
     return datetime.combine(start, time(), LOCAL), datetime.combine(end, time(), LOCAL)
 
 
+@localized_message
 def build_message(kind, email, lessons, base_url, name="", *, sender=None, theme="auto", week=None):
     """Pure multipart preview builder; thumbnails are validated remote YouTube images."""
     if kind not in TOPICS or theme not in ("auto", "light", "dark"):
@@ -118,18 +121,18 @@ def build_message(kind, email, lessons, base_url, name="", *, sender=None, theme
     recipient, _, _ = account_mail._address(email)
     base = account_mail._url(base_url).rstrip("/")
     clean_name = " ".join(str(name or "").split())[:120]
-    greeting = f"Հարգելի՛ {clean_name}," if clean_name else "Բարև Ձեզ,"
-    heading = "Նոր դասը հասանելի է" if kind == "new_lessons" else "Շաբաթվա դասերը"
+    greeting = f"{_t('text.account_mail.dear')} {clean_name}," if clean_name else _t('text.account_mail.hello')
+    heading = _t('text.student_mail.a_new_lesson_is_available') if kind == "new_lessons" else _t('text.student_mail.this_week_s_lessons')
     period = ""
     if week:
         period = f"{week[0].date().isoformat()} — {(week[1] - timedelta(days=1)).date().isoformat()}"
-    intro = "Ձեր խմբում հրապարակվել է նոր դաս։" if kind == "new_lessons" else "Ահա շաբաթվա ընթացքում Ձեր խմբերում հրապարակված դասերը։"
+    intro = _t('text.student_mail.a_new_lesson_was_published_in_your') if kind == "new_lessons" else _t('text.student_mail.here_are_the_lessons_published_in_your')
     safe = []
     for lesson in lessons:
         vid = video_id(lesson.get("url"))
         if not vid or lesson.get("demo") or type(lesson.get("job_id")) is not int:
             continue
-        safe.append({"title": str(lesson.get("title") or "Դաս")[:200], "group": str(lesson.get("group") or "")[:120],
+        safe.append({"title": str(lesson.get("title") or _t('ui.app.lesson'))[:200], "group": str(lesson.get("group") or "")[:120],
                      "subject": str(lesson.get("subject") or "")[:200], "url": f"{base}/#/library/{lesson['job_id']}",
                      "thumbnail": f"https://i.ytimg.com/vi/{vid}/hqdefault.jpg"})
     if not safe:
@@ -138,17 +141,17 @@ def build_message(kind, email, lessons, base_url, name="", *, sender=None, theme
     dark = theme == "dark"
     bg, card, text, muted = ("#101214", "#1b1e22", "#f4f5f7", "#b0b6c0") if dark else ("#f4f5f7", "#ffffff", "#17191d", "#626a76")
     button_text = "#17191d" if dark else "#ffffff"
-    cards = "".join(f'''<tr><td style="padding:0 28px 22px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td width="136" valign="top" style="padding-right:16px;"><a href="{escape(item['url'], quote=True)}"><img src="{item['thumbnail']}" width="120" alt="Դասի մանրապատկեր" style="display:block;width:120px;max-width:100%;height:auto;border:0;border-radius:8px;"></a></td><td valign="top"><p class="mail-muted" style="margin:0 0 6px;color:{muted};font-size:12px;line-height:1.6;">{escape(item['group'])} · {escape(item['subject'])}</p><a class="mail-text" href="{escape(item['url'], quote=True)}" style="color:{text};font-size:16px;font-weight:bold;line-height:1.6;text-decoration:none;">{escape(item['title'])}</a><p style="margin:10px 0 0;"><a href="{escape(item['url'], quote=True)}" style="color:{text};font-size:13px;">Բացել դասը →</a></p></td></tr></table></td></tr>''' for item in shown)
+    cards = "".join(f'''<tr><td style="padding:0 28px 22px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td width="136" valign="top" style="padding-right:16px;"><a href="{escape(item['url'], quote=True)}"><img src="{item['thumbnail']}" width="120" alt="{_t('text.student_mail.lesson_thumbnail')}" style="display:block;width:120px;max-width:100%;height:auto;border:0;border-radius:8px;"></a></td><td valign="top"><p class="mail-muted" style="margin:0 0 6px;color:{muted};font-size:12px;line-height:1.6;">{escape(item['group'])} · {escape(item['subject'])}</p><a class="mail-text" href="{escape(item['url'], quote=True)}" style="color:{text};font-size:16px;font-weight:bold;line-height:1.6;text-decoration:none;">{escape(item['title'])}</a><p style="margin:10px 0 0;"><a href="{escape(item['url'], quote=True)}" style="color:{text};font-size:13px;">{_t('ui.record.open_lesson')}</a></p></td></tr></table></td></tr>''' for item in shown)
     prefs = base + "/#/library/settings"
     css = """<style>@media(prefers-color-scheme:dark){.mail-body{background:#101214!important}.mail-card{background:#1b1e22!important}.mail-text{color:#f4f5f7!important}.mail-muted{color:#b0b6c0!important}.mail-button{background:#f4f5f7!important;color:#17191d!important}}</style>""" if theme == "auto" else ""
-    html = f'''<!doctype html><html lang="hy"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="{'light dark' if theme == 'auto' else theme}">{css}<title>{heading}</title></head><body class="mail-body" style="margin:0;background:{bg};font-family:Arial,'Noto Sans Armenian',sans-serif;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:28px 12px;"><table role="presentation" width="600" cellpadding="0" cellspacing="0" class="mail-card" style="width:100%;max-width:600px;background:{card};border-radius:16px;"><tr><td bgcolor="#000000" style="padding:20px 28px;background:#000000;border-radius:16px 16px 0 0;"><img src="cid:reel-logo" width="240" height="77" alt="Reel" style="display:block;width:240px;max-width:100%;height:auto;background:#000000;border:0;"></td></tr><tr><td class="mail-text" style="padding:28px;color:{text};"><h1 style="margin:0 0 12px;font-size:26px;line-height:1.4;">{heading}</h1><p class="mail-muted" style="color:{muted};font-size:13px;">{period}</p><p style="font-size:15px;line-height:1.8;">{escape(greeting)}</p><p style="font-size:15px;line-height:1.8;">{intro}</p></td></tr>{cards}<tr><td class="mail-text" style="padding:0 28px 28px;color:{text};"><p style="font-size:14px;line-height:1.8;"><a class="mail-button" href="{escape(base + '/#/library', quote=True)}" style="display:inline-block;padding:14px 22px;border-radius:8px;background:{text};color:{button_text};font-size:14px;font-weight:bold;line-height:1.6;text-decoration:none;">Բացել բոլոր դասերը ({len(safe)})</a></p><p class="mail-muted" style="font-size:12px;line-height:1.8;color:{muted};">Նամակների տեսակները փոխելու կամ առաքումից հրաժարվելու համար բացեք <a class="mail-text" href="{escape(prefs, quote=True)}" style="color:{text};">ծանուցումների կարգավորումները</a>՝ մուտք գործելով Ձեր հաշիվ։</p></td></tr><tr><td style="padding:20px 28px;border-top:1px solid #626a76;"><p class="mail-text" style="margin:0 0 6px;color:{text};font-size:12px;font-weight:bold;">Reel</p><p class="mail-muted" style="margin:0;color:{muted};font-size:11px;line-height:1.7;">Այս նամակն ուղարկվել է ավտոմատ։ Խնդրում ենք չպատասխանել։</p></td></tr></table></td></tr></table></body></html>'''
+    html = f'''<!doctype html><html lang="{_language()}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="{('light dark' if theme == 'auto' else theme)}">{css}<title>{heading}</title></head><body class="mail-body" style="margin:0;background:{bg};font-family:Arial,'Noto Sans Armenian',sans-serif;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:28px 12px;"><table role="presentation" width="600" cellpadding="0" cellspacing="0" class="mail-card" style="width:100%;max-width:600px;background:{card};border-radius:16px;"><tr><td bgcolor="#000000" style="padding:20px 28px;background:#000000;border-radius:16px 16px 0 0;"><img src="cid:reel-logo" width="240" height="77" alt="Reel" style="display:block;width:240px;max-width:100%;height:auto;background:#000000;border:0;"></td></tr><tr><td class="mail-text" style="padding:28px;color:{text};"><h1 style="margin:0 0 12px;font-size:26px;line-height:1.4;">{heading}</h1><p class="mail-muted" style="color:{muted};font-size:13px;">{period}</p><p style="font-size:15px;line-height:1.8;">{escape(greeting)}</p><p style="font-size:15px;line-height:1.8;">{intro}</p></td></tr>{cards}<tr><td class="mail-text" style="padding:0 28px 28px;color:{text};"><p style="font-size:14px;line-height:1.8;"><a class="mail-button" href="{escape(base + '/#/library', quote=True)}" style="display:inline-block;padding:14px 22px;border-radius:8px;background:{text};color:{button_text};font-size:14px;font-weight:bold;line-height:1.6;text-decoration:none;">{_t('text.student_mail.open_all_lessons')}{len(safe)})</a></p><p class="mail-muted" style="font-size:12px;line-height:1.8;color:{muted};">{_t('text.student_mail.to_change_email_types_or_unsubscribe_open')} <a class="mail-text" href="{escape(prefs, quote=True)}" style="color:{text};">{_t('text.student_mail.notification_settings')}</a>{_t('text.student_mail.after_signing_in_to_your_account')}</p></td></tr><tr><td style="padding:20px 28px;border-top:1px solid #626a76;"><p class="mail-text" style="margin:0 0 6px;color:{text};font-size:12px;font-weight:bold;">Reel</p><p class="mail-muted" style="margin:0;color:{muted};font-size:11px;line-height:1.7;">{_t('text.account_mail.this_email_was_sent_automatically_please_do')}</p></td></tr></table></td></tr></table></body></html>'''
     message = EmailMessage(policy=SMTP_POLICY)
     message["Subject"] = "Reel․ " + heading + (" · " + period if period else "")
     message["From"] = sender or "Reel <noreply@example.invalid>"
     message["To"] = recipient
     lines = [greeting, heading, period, intro]
     lines += [f"{item['group']} · {item['subject']}\n{item['title']}\n{item['url']}" for item in shown]
-    lines += ["Բոլոր դասերը․ " + base + "/#/library", "Ծանուցումների կարգավորումներ (անհրաժեշտ է մուտք գործել)․ " + prefs, "Reel"]
+    lines += [f"{_t('text.student_mail.all_lessons')} " + base + "/#/library", f"{_t('text.student_mail.notification_settings_sign_in_required')} " + prefs, "Reel"]
     message.set_content("\n\n".join(part for part in lines if part))
     message.add_alternative(html, subtype="html")
     message.get_payload()[-1].add_related(account_mail.LOGO.read_bytes(), maintype="image", subtype="png", cid="<reel-logo>", disposition="inline", filename="reel-email.png")
@@ -241,7 +244,9 @@ def run_pending(database, root, now=None, *, max_messages=50):
                 if not _student(fresh) or not preferences(database, user["id"])[kind] or not current:
                     database.conn.execute("DELETE FROM learning_mail_deliveries WHERE user_id=? AND kind=? AND event_key=?", (user["id"], kind, key))
                     continue
-                message = build_message(kind, fresh["email"], current, base, fresh["name"], sender=cfg["SMTP_FROM"], week=week)
+                from reel.language import user_language
+                from reel.web.localization import configured_language
+                message = build_message(kind, fresh["email"], current, base, fresh["name"], sender=cfg["SMTP_FROM"], week=week, language=user_language(database.conn, fresh["id"], configured_language(root)))
                 state = _send(message, cfg, port)
             except Exception:
                 state = "retry"  # No SMTP operation occurred if message construction/validation failed.

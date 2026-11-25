@@ -1,6 +1,8 @@
 """Read-only academy presentation data; real production and illustrative metadata stay separate."""
 from __future__ import annotations
 
+from reel.i18n import t as _t
+
 from collections import Counter
 from datetime import date, datetime, timedelta
 import json
@@ -79,7 +81,7 @@ def _data(database,config,root,principal):
         plan=database.stage_output(ident,'segments') or {};probe=database.stage_output(ident,'probe') or {}
         privacy=database.stage(ident,'privacy')
         passed=bool(privacy and privacy['status']=='done')
-        title=(publication or {}).get('title') or meta.get('title') or Path(job['source_path']).name or 'Դաս'
+        title=(publication or {}).get('title') or meta.get('title') or Path(job['source_path']).name or _t('ui.app.lesson')
         raw=job['status']
         state='processing' if raw=='running' else raw
         if raw=='done' and publication:state='published'
@@ -94,7 +96,7 @@ def _data(database,config,root,principal):
     if _table(database,'demo_lessons'):
         from reel.demo import read_demo_lessons
         for item in read_demo_lessons(database,groups=scope):
-            rows.append({'id':'demo:'+str(item['id']),'job_id':None,'title':str(item.get('title') or 'Ցուցադրական դաս'),
+            rows.append({'id':'demo:'+str(item['id']),'job_id':None,'title':str(item.get('title') or _t('text.academy.demo_lesson')),
                          'group':item['group'],'subject':item.get('subject') or '',
                          'lesson_date':item.get('lesson_date'),'date_inferred':False,'status':'demo','job_status':None,
                          'published':False,'demo':True,'playable':False,'thumbnail':_demo_thumbnail(item.get('thumbnail')),
@@ -161,9 +163,9 @@ def overview(database,config,root,principal,*,now=None):
         unpublished=[row['job_id'] for row in rows if row['job_status']=='done' and not row['published']]
         result['warnings']=[]
         if stopped:result['warnings'].append({'kind':'stopped','count':len(stopped),'job_ids':stopped,
-                                             'message':'Կան ուշադրություն պահանջող դասեր։','href':'#/jobs?status=stopped'})
+                                             'message':_t('text.academy.some_lessons_need_attention'),'href':'#/jobs?status=stopped'})
         if unpublished:result['warnings'].append({'kind':'unpublished','count':len(unpublished),'job_ids':unpublished,
-                                                 'message':'Կան պատրաստ դասեր, որոնց հրապարակումը հաստատված չէ։','href':'#/jobs?status=done'})
+                                                 'message':_t('text.academy.some_finished_lessons_have_unconfirmed_publication_status'),'href':'#/jobs?status=done'})
     return result
 
 

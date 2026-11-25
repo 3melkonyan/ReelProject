@@ -5,7 +5,7 @@ from test_brand import run_node
 SHELL = r'''
 const fs=require('fs'),vm=require('vm'),assert=require('assert/strict');
 const source=fs.readFileSync(process.argv[1],'utf8'),c={S:{role:'admin',user:null},isDark:()=>false,canUpload:()=>false};
-vm.createContext(c);
+vm.createContext(c);require(require('path').resolve('tests/browser_locale.cjs')).install(c);
 vm.runInContext(source.slice(source.indexOf('const ICONS ='),source.indexOf('const STATUS =')),c);
 vm.runInContext(source.slice(source.indexOf('const navLink ='),source.indexOf('function route()')),c);
 '''
@@ -44,7 +44,7 @@ def test_processing_status_never_loads_for_other_roles_or_paints_after_role_chan
 const fs=require('fs'),vm=require('vm'),assert=require('assert/strict');
 const source=fs.readFileSync(process.argv[1],'utf8'),calls=[],c={S:{role:'viewer'},$:()=>({}),set:(s,html)=>calls.push(html)};
 let reads=0,resolve;c.loadSummary=()=>{reads++;return Promise.resolve({worker:{alive:true,dry_run:false}})};
-vm.createContext(c);vm.runInContext(source.slice(source.indexOf('async function updateWorker()'),source.indexOf('async function loadSummary()')),c);
+vm.createContext(c);require(require('path').resolve('tests/browser_locale.cjs')).install(c);vm.runInContext(source.slice(source.indexOf('async function updateWorker()'),source.indexOf('async function loadSummary()')),c);
 (async()=>{
  for(const role of ['viewer','lecturer','uploader','student']){c.S.role=role;await c.updateWorker()}
  assert.equal(reads,0);assert.equal(calls.length,0);
@@ -60,7 +60,7 @@ def test_library_demo_card_has_every_required_field_and_no_playback_action():
     run_node(r'''
 const fs=require('fs'),vm=require('vm'),assert=require('assert/strict');
 const app=fs.readFileSync(process.argv[1],'utf8'),source=fs.readFileSync(process.argv[1].replace('app.js','learning.js'),'utf8');
-const c={S:{},ic:()=>'',formatLessonDate:String,fmtDur:String,clock:String};vm.createContext(c);
+const c={S:{},ic:()=>'',formatLessonDate:String,fmtDur:String,clock:String};vm.createContext(c);require(require('path').resolve('tests/browser_locale.cjs')).install(c);
 vm.runInContext(app.slice(app.indexOf('const esc ='),app.indexOf('\n',app.indexOf('const esc ='))),c);vm.runInContext(source,c);
 const card=c.libraryCardHtml({job_id:'demo-42',demo:true,playable:false,title:'<Անվանում>',subject:'<Առարկա>',group:'<Խումբ>',lesson_date:'2026-11-20',thumbnail:'/fixture/thumbnail.png',description:'<Նկարագրություն>'});
 for(const value of ['/fixture/thumbnail.png','&lt;Անվանում&gt;','&lt;Առարկա&gt;','&lt;Խումբ&gt;','2026-11-20','Ցուցադրական'])assert(card.includes(value),value);

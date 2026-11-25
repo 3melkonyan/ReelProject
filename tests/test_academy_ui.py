@@ -6,7 +6,7 @@ const fs=require('fs'),vm=require('vm'),assert=require('assert/strict');
 const src=fs.readFileSync(process.argv[1],'utf8'),out=[];
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const mainHost={};const c={S:{role:'admin'},$:()=>mainHost,location:{hash:'#/'},esc,ic:()=>'',formatLessonDate:x=>x||'Նշված չէ',pageHeading:(title,desc,action)=>`<h1>${title}</h1><p>${desc}</p>${action}`,canUpload:()=>true,stat:(i,t,k,v,s)=>`<div>${k}:${v}:${s}</div>`,set:(sel,html)=>out.push(html)};
-vm.createContext(c);vm.runInContext(src.slice(src.indexOf('const ACADEMY_STATUS'),src.indexOf('const feedRow')),c);
+vm.createContext(c);require(require('path').resolve('tests/browser_locale.cjs')).install(c);vm.runInContext(src.slice(src.indexOf('const ACADEMY_STATUS'),src.indexOf('const feedRow')),c);
 '''
 
 

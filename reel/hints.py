@@ -1,29 +1,28 @@
 """Armenian "what happened / what to do" hints for a stopped job (operator notifications + web)."""
 from __future__ import annotations
 
-HINTS = {
-    "join": ("Դասի մասերը չհաջողվեց միացնել (մասերից մեկը վնասված է կամ առանց ձայնի/պատկերի)։ "
-             "Ստուգիր թղթապանակի ֆայլերը archive/-ում, ուղղիր և «Կրկնել»։"),
-    "probe": "Ֆայլը չի կարդացվում կամ 30 րոպեից կարճ է։ Ստուգիր, որ սա դասի ամբողջական ձայնագրություն է։",
-    "audio": "Ձայնը չհաջողվեց առանձնացնել։ Սովորաբար օգնում է «Կրկնել»-ը. եթե կրկնվի՝ ստուգիր ֆայլը։",
-    "transcribe": "Տրանսկրիպցիան ձախողվեց։ «Կրկնել». եթե կրկնվի՝ ստուգիր, որ ֆայլում ձայն կա։",
-    "segments": ("Կտրման պլանը կասկածելի է (չափազանց շատ է կտրում կամ շատ անորոշ հատված կա)։ "
-                 "Նայիր «Կտրումներ» բաժինը. եթե պլանը ճիշտ է՝ փոխիր config.yaml-ի cut շեմերը, ապա «Կրկնել»։"),
-    "render": "Մոնտաժի կամ ձայնի մակարդակի խնդիր։ «Կրկնել». եթե կրկնվի՝ ստուգիր բնօրինակ ֆայլը։",
-    "blur": ("Դեմքերի մշուշումը կանգնեց։ Ոչինչ չի հրապարակվել։ Ադմինը թող նայի դասի էջի «Դասախոս» բաժինը "
-             "(ընտրի դասախոսին կամ «մշուշել բոլորին»), ապա «Կրկնել»։"),
-    "privacy": ("Մշուշված տեսանյութում դեռ երևում է օտար դեմք։ Ոչինչ չի հրապարակվել։ "
-                "Ադմինով բաց արա «Գաղտնիություն» բաժինը և նայիր նշված դեմքերը։"),
-    "metadata": "Վերնագիրը կամ գլուխները չստեղծվեցին։ «Կրկնել». եթե կրկնվի՝ ստուգիր, որ Ollama-ն աշխատում է։",
-    "youtube_upload": "YouTube-ի խնդիր (մուտք, quota կամ ցանց)։ Ստուգիր բանալիները, ապա «Կրկնել»։",
-    "playlist": "Playlist-ի խնդիր։ Ստուգիր խմբի playlist-ները «Կարգավորումներ»-ում (կամ config.yaml-ում), ապա «Կրկնել»։",
-    "thumbnail_set": "YouTube-ի շապիկի խնդիր (ալիքը պետք է հաստատված լինի)։ «Կրկնել»։",
-    "slack_post": "Slack-ի խնդիր (token կամ ալիք)։ Ստուգիր .env-ը և որ bot-ը հրավիրված է ալիք, ապա «Կրկնել»։",
-    "classroom_post": "Classroom-ի խնդիր (մուտք կամ կուրսի ID)։ Ստուգիր, ապա «Կրկնել»։",
-    "library_add": "Academy Library-ում գրանցման խնդիր։ «Կրկնել»։",
-}
-AMBIGUOUS = ("Հայտնի չէ՝ հրապարակվե՞լ է (վթար հրապարակման պահին)։ Ստուգիր ձեռքով և վահանակում սեղմիր "
-             "«Հրապարակված է» կամ «Հրապարակված չէ» — Reel-ը կրկնակի չի հրապարակի։")
+from reel.i18n import t as _t
+
+def _hints():
+    return {
+        "join": (_t('text.hints.recording_parts_could_not_be_joined_a')),
+        "probe": _t('text.hints.the_file_cannot_be_read_or_is'),
+        "audio": _t('text.hints.audio_extraction_failed_select_retry_if_it'),
+        "transcribe": _t('text.hints.transcription_failed_select_retry_if_it_fails'),
+        "segments": (_t('text.hints.the_cut_plan_removes_too_much_content')),
+        "render": _t('text.hints.video_editing_or_audio_normalization_failed_select'),
+        "blur": (_t('text.hints.face_blurring_stopped_nothing_was_published_an')),
+        "privacy": (_t('text.hints.a_non_lecturer_face_is_still_visible')),
+        "metadata": _t('text.hints.the_title_or_chapters_could_not_be'),
+        "youtube_upload": _t('text.hints.youtube_authorization_quota_or_network_issue_check'),
+        "playlist": _t('text.hints.playlist_issue_check_the_group_s_playlists'),
+        "thumbnail_set": _t('text.hints.youtube_thumbnail_issue_the_channel_must_be'),
+        "slack_post": _t('text.hints.slack_token_or_channel_issue_check_env'),
+        "classroom_post": _t('text.hints.classroom_authorization_or_course_id_issue_check'),
+        "library_add": _t('text.hints.could_not_add_the_lesson_to_the'),
+    }
+AMBIGUOUS_KEY = 'text.hints.publication_status_is_uncertain_after_a_crash'
+AMBIGUOUS = _t(AMBIGUOUS_KEY, language='hy')
 
 
 def hint(error: str | None) -> str | None:
@@ -31,23 +30,17 @@ def hint(error: str | None) -> str | None:
     if not error or not error.startswith("["):
         return None
     if "may already be posted" in error:
-        return AMBIGUOUS
+        return _t(AMBIGUOUS_KEY)
     if "YouTube is still processing the video" in error:
-        return ("YouTube-ը երկար սպասելուց հետո էլ չավարտեց տեսանյութի մշակումը, ուստի ուսանողներին "
-                "Slack-ով ոչինչ չի ուղարկվել։ Ստուգիր տեսանյութը YouTube Studio-ում. եթե արդեն պատրաստ է, սեղմիր «Կրկնել»։")
+        return (_t('text.hints.youtube_has_not_finished_processing_the_video'))
     if "YouTube did not accept the video" in error:
-        return ("YouTube-ը չընդունեց տեսանյութը (մշակումը ձախողվեց, կամ տեսանյութը ջնջվել է), ուստի Slack-ով "
-                "ոչինչ չի ուղարկվել։ Ստուգիր տեսանյութը YouTube Studio-ում։")
+        return (_t('text.hints.youtube_rejected_the_video_processing_failed_or'))
     if "lecturer recognition" in error or "clear photos of the lecturer" in error:
-        return ("Ավտոմատ ճանաչումը վստահ չէ, թե ով է դասախոսը (մի քանի մարդ է հաճախ երևում կադրում)։ "
-                "Ոչինչ չի հրապարակվել։ Ադմինը դասի էջի «Դասախոս» բաժնում թող ընտրի դասախոսին "
-                "(կամ «մշուշել բոլորին»). մշակումը կշարունակվի։")
+        return (_t('text.hints.automatic_recognition_could_not_confidently_identify_the'))
     if "chosen on the job page was not found" in error or "lecturer choice file" in error:
-        return "Ադմինի ընտրած դասախոսը տեսանյութում նորից չգտնվեց։ Ընտրիր կրկին դասի էջի «Դասախոս» բաժնում։"
+        return _t('text.hints.the_selected_lecturer_was_not_found_again')
     if "is no longer in config.yaml" in error:
-        return ("Այս դասի խումբը ջնջվել կամ վերանվանվել է «Կարգավորումներ»-ում։ Ոչինչ չի հրապարակվել։ "
-                "Վերականգնիր խումբը նույն անունով, ապա «Կրկնել»։")
+        return (_t('text.hints.this_lesson_s_group_was_deleted_or'))
     if "choose the lesson's subject" in error:
-        return ("Պարզ չէ, թե որ առարկայի դասն է (խմբում մի քանի առարկա կա)։ Ոչինչ չի հրապարակվել։ "
-                "Ադմինը դասի էջում թող ընտրի առարկան, ապա «Կրկնել»։")
-    return HINTS.get(error[1:error.find("]")])
+        return (_t('text.hints.the_lesson_s_subject_is_unclear_because'))
+    return _hints().get(error[1:error.find("]")])

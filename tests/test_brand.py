@@ -101,7 +101,7 @@ const button={setAttribute:(k,v)=>attrs[k]=v},c={window:{matchMedia:()=>({matche
  localStorage:{getItem:k=>{if(broken)throw Error();return stored.get(k)},setItem:(k,v)=>{if(broken)throw Error();stored.set(k,v)}},
  getComputedStyle:()=>({getPropertyValue:()=>root.dataset.theme==='dark'?'#241E2E':'#FFFFFF'}),
  route:()=>{throw Error('Theme must not rerender the player/form')}};
-vm.createContext(c);vm.runInContext(source.slice(source.indexOf('function getTheme()'),source.indexOf('/* ---------- shell & routing ---------- */')),c);
+vm.createContext(c);require(require('path').resolve('tests/browser_locale.cjs')).install(c);vm.runInContext(source.slice(source.indexOf('function getTheme()'),source.indexOf('/* ---------- shell & routing ---------- */')),c);
 c.applyTheme();assert.equal(root.dataset.theme,'dark');assert.equal(meta.content,'#241E2E');
 c.window.matchMedia=()=>({matches:false});c.applyTheme();assert.equal(root.dataset.theme,'dark');
 stored.set('reel-theme','light');c.applyTheme();assert.equal(root.dataset.theme,'light');
@@ -116,7 +116,7 @@ def test_navigation_roles_and_current_page_remain_explicit():
 const fs=require('fs'),vm=require('vm'),assert=require('assert/strict');
 const s=fs.readFileSync(process.argv[1],'utf8'),c={S:{role:'admin'},esc:String,ic:()=>'',isDark:()=>false};
 c.canUpload=()=>['admin','uploader'].includes(c.S.role);
-vm.createContext(c);vm.runInContext(s.slice(s.indexOf('const navLink ='),s.indexOf('function route()')),c);
+vm.createContext(c);require(require('path').resolve('tests/browser_locale.cjs')).install(c);vm.runInContext(s.slice(s.indexOf('const navLink ='),s.indexOf('function route()')),c);
 for(const role of ['admin','viewer','uploader']){
  c.S.role=role;const shell=c.shell('jobs'),html=shell.match(/<nav[\s\S]*?<\/nav>/)[0];
  assert.equal(html.includes('href="#/settings"'),role==='admin');
@@ -132,7 +132,7 @@ def test_skip_link_does_not_change_route_and_clear_filters_resets_every_control(
 const fs=require('fs'),vm=require('vm'),assert=require('assert/strict');
 const listeners={},elements={'#app':{},'#main':{focus:()=>{elements.focused=true}},'#search':{value:'old'}};
 const c={document:{querySelector:k=>elements[k],addEventListener:(k,fn)=>listeners[k]=fn},window:{addEventListener:()=>{}},URLSearchParams,history:{replaceState:(a,b,url)=>{c.location.hash=url}},location:{hash:'#/jobs'}};
-vm.createContext(c);vm.runInContext(fs.readFileSync(process.argv[1],'utf8'),c);
+vm.createContext(c);require(require('path').resolve('tests/browser_locale.cjs')).install(c);vm.runInContext(fs.readFileSync(process.argv[1],'utf8'),c);
 vm.runInContext('S.jobFilter="done";S.jobSearch="old";S.jobGroup="A";S.jobSubject="Math";viewJobs=async()=>{}',c);
 (async()=>{
  let prevented=false;

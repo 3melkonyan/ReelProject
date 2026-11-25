@@ -84,7 +84,7 @@ let detail, videoCalls = 0, tabCalls = 0, requests = 0;
 const context = {esc, S:{role:"viewer",sig:null}, $:()=>({}), api:async()=>{requests++;return detail},
  set:(selector,value)=>html.set(selector,value),ic:()=>"",badge:()=>"",rel:()=>"",fmtDur:String,
  renderVideo:()=>videoCalls++,renderTabs:()=>tabCalls++};
-vm.createContext(context);
+vm.createContext(context);require(require('path').resolve('tests/browser_locale.cjs')).install(context);
 // viewJob now also displays stage progress; load its real pure helper, not a mock implementation.
 vm.runInContext(source.slice(source.indexOf("const pct ="),source.indexOf("const badge =")),context);
 vm.runInContext(source.slice(start,end),context);

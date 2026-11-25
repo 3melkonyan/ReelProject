@@ -71,7 +71,7 @@ const els={'#library-group':select(),'#library-subject':select()};
 const c={S:{role:'student',libraryFacets:{groups:[{name:'AI 2.6',lessons:0,archived:false,
  subjects:[{name:'Python',lessons:0},{name:'Math',lessons:0}]}]}},esc:String,$:s=>els[s],
  window:{addEventListener(){}},document:{body:{}},MutationObserver:class{observe(){}}};
-vm.createContext(c);vm.runInContext(source,c);
+vm.createContext(c);require(require('path').resolve('tests/browser_locale.cjs')).install(c);vm.runInContext(source,c);
 c.fillLibraryGroups();c.fillLibrarySubjects();
 assert.deepEqual(els['#library-group'].options.map(o=>o.text),['AI 2.6 (0 դաս)']);
 assert.equal(els['#library-group'].disabled,true);

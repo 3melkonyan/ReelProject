@@ -1,5 +1,7 @@
 """Read-only metadata cards for explicitly tagged demo lessons; never playable media."""
 
+from reel.i18n import t as _t
+
 DEMO_TAG = "g40-demo-v1"
 
 
@@ -29,9 +31,9 @@ def job_cards(database,groups=None):
     result=[]
     for item in read_demo_lessons(database,groups):
         stamp=datetime.fromisoformat(item['lesson_date']).replace(tzinfo=timezone.utc).timestamp()
-        result.append({**item,'id':'demo:'+item['id'],'file':'Ցուցադրական դաս','status':'done',
+        result.append({**item,'id':'demo:'+item['id'],'file':_t('text.academy.demo_lesson'),'status':'done',
                        'created':stamp,'updated':stamp,'duration_sec':item['duration_sec'],'final_sec':item['duration_sec'],
                        'done_stages':0,'total_stages':0,'progress':100,'proc_sec':None,
-                       'has_thumbnail':False,'has_video':False,'current_stage':None,'current_label':'Ցուցադրական',
+                       'has_thumbnail':False,'has_video':False,'current_stage':None,'current_label':_t('ui.app.demo'),
                        'error':None,'dry':False,'youtube':None,'cut_ratio':0})
     return result

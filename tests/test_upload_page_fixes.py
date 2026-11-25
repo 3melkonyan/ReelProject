@@ -44,7 +44,7 @@ const c={console,Promise,Date,Math,JSON,Number,String,encodeURIComponent,S:{role
  fmtSize:String,fmtDur:String,byName:()=>0,ic:()=>'',localStorage:{getItem:()=>null,setItem:()=>{},removeItem:()=>{}},
  navigator:{onLine:true},document:{hidden:false,addEventListener:()=>{}},window:{addEventListener:()=>{}},
  setTimeout:()=>1,clearTimeout:()=>{},confirm:()=>true,api:async()=>({})};
-vm.createContext(c);vm.runInContext(fs.readFileSync(process.argv[1],'utf8'),c);
+vm.createContext(c);require(require('path').resolve('tests/browser_locale.cjs')).install(c);vm.runInContext(fs.readFileSync(process.argv[1],'utf8'),c);
 c.S.up={body:{group:'A',subject:'Python',lesson_number:3,files:[]},id:'x',
  files:[{name:'a.mov',size:100,got:0},{name:'b.mov',size:100,got:0}],
  total:200,state:'sending',message:'',inflight:0,started:Date.now()-1000,base:0};

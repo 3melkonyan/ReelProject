@@ -25,6 +25,10 @@ CREATE TABLE IF NOT EXISTS users (
  deleted_at TEXT,
  demo_tag TEXT
 );
+CREATE TABLE IF NOT EXISTS user_languages (
+ user_id INTEGER PRIMARY KEY REFERENCES users(id),
+ language TEXT NOT NULL CHECK(language IN ('hy','en'))
+);
 CREATE TABLE IF NOT EXISTS account_tokens (
  id INTEGER PRIMARY KEY AUTOINCREMENT,
  digest TEXT NOT NULL UNIQUE,

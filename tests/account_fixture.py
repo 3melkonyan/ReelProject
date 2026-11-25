@@ -1,4 +1,4 @@
-"""Seed an EXISTING personal admin for pre-G36 API regressions, only in pytest temp roots."""
+"""Seed an EXISTING personal admin for account API regressions, only in pytest temp roots."""
 from pathlib import Path
 import tempfile
 from reel.db import DB

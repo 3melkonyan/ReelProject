@@ -107,6 +107,17 @@ def make_router(env):
         d=env['db']()
         try:return a.public_user(d.conn.execute('SELECT * FROM users WHERE id=?',(p['id'],)).fetchone())
         finally:d.conn.close()
+    @router.put('/language')
+    async def language(request:Request,p=Depends(personal)):
+        from reel.i18n import validate_language
+        data=await body(request)
+        try:
+            if set(data)!={'language'}:raise ValueError()
+            chosen=validate_language(data['language'])
+        except (KeyError,ValueError):raise HTTPException(400,_t('language.invalid')) from None
+        with closing(env['db']().conn) as conn:
+            conn.execute('INSERT INTO user_languages(user_id,language) VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET language=excluded.language',(p['id'],chosen))
+        return {'language':chosen}
     @router.post('/profile')
     async def name(request:Request,p=Depends(personal)):
         data=await body(request);name=data.get('name')

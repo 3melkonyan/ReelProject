@@ -224,7 +224,7 @@ def test_ui_progress_observed_ceiling_and_student_navigation():
     run_node(r'''
 const fs=require('fs'),vm=require('vm'),assert=require('assert/strict');
 const source=fs.readFileSync(process.argv[1],'utf8'),c={S:{role:'student'},esc:String,ic:()=>'',isDark:()=>false};
-c.canUpload=()=>false;vm.createContext(c);
+c.canUpload=()=>false;vm.createContext(c);require(require('path').resolve('tests/browser_locale.cjs')).install(c);
 vm.runInContext(source.slice(source.indexOf('const navLink ='),source.indexOf('function route()')),c);
 const html=c.shell('library');assert(html.includes('href="#/library"'));
 for(const forbidden of ['jobs','stats','upload','settings'])assert(!html.includes('href="#/'+forbidden+'"'));
@@ -235,7 +235,7 @@ assert.equal(c.percent({status:'running',done_stages:8,total_stages:10}),0);
 const queue=[], values=[];let observer, reduced=false, el={dataset:{progressJob:'1',progressValue:'37'},isConnected:true};
 const ui={window:{matchMedia:()=>({matches:reduced}),addEventListener:()=>{}},document:{querySelectorAll:()=>[el],body:{}},
  MutationObserver:class {constructor(fn){observer=fn}observe(){}},setTimeout:fn=>queue.push(fn),Map};
-vm.createContext(ui);vm.runInContext(fs.readFileSync(process.argv[1].replace('app.js','insights.js'),'utf8'),ui);
+vm.createContext(ui);require(require('path').resolve('tests/browser_locale.cjs')).install(ui);vm.runInContext(fs.readFileSync(process.argv[1].replace('app.js','insights.js'),'utf8'),ui);
 observer();assert.equal(el.textContent,'37%');el={dataset:{progressJob:'1',progressValue:'45'},isConnected:true};observer();
 values.push(el.textContent);while(queue.length){queue.shift()();values.push(el.textContent)}
 assert.deepEqual(values,['38%','39%','40%','41%','42%','43%','44%','45%']);

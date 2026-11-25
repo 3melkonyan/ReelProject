@@ -360,7 +360,7 @@ def test_idna_email_uniqueness_matches_legacy_unicode_without_rewriting_rows(web
     uid = seed(web, 'legacy-idna', email=unicode_email)
     d = DB(web.root / 'reel.db')
     with closing(d.conn):
-        # Emulate pre-G39 storage; migration and queries must not rewrite it.
+        # Emulate legacy account storage; migration and queries must not rewrite it.
         d.conn.execute('UPDATE users SET email=? WHERE id=?', (unicode_email, uid))
         before = tuple(d.conn.execute('SELECT * FROM users WHERE id=?', (uid,)).fetchone())
         tid, raw = a.issue_token(d, 'invite', {'name':'Նույն անձ', 'email':ascii_email,

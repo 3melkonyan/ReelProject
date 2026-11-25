@@ -128,7 +128,7 @@ def test_admin_all_lecturer_own_scope_and_group_filter_keeps_selector_options(da
 def test_ta_rights_are_exact_group_membership_and_do_not_create_general_staff_rights(database):
     ta = user(database,'assistant');other = user(database,'other',groups=('Group-B',))
     lesson(database,'a');lesson(database,'b',group='Group-B')
-    assert stats.available(database,principal(ta)) is False  # Optional G40/1 metadata not merged yet.
+    assert stats.available(database,principal(ta)) is False  # Optional group metadata is absent.
     assign_ta(database,'Group-B',[ta])
     assert stats.available(database,principal(ta)) is False
     assign_ta(database,'Group-A',[ta])
