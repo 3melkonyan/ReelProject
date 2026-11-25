@@ -69,11 +69,14 @@ def test_browser_catalogs_and_interpolation_match_python():
     script = r'''
 const fs = require("fs"), vm = require("vm"), assert = require("assert/strict");
 const messages = JSON.parse(process.argv[2]);
-const context = {window: {REEL_I18N: {language: "hy", messages}}, document: {},
+const context = {window: {REEL_I18N: {language: "hy", messages}}, document: {documentElement: {}},
                  location: {protocol: "https:", reload() { this.reloaded = true; }}};
 vm.createContext(context);
 vm.runInContext(fs.readFileSync(process.argv[1], "utf8"), context);
-for (const [key, value] of Object.entries(messages)) assert.equal(context.t(key), value);
+for (const [key, value] of Object.entries(messages)) {
+  const values = Object.fromEntries([...value.matchAll(/\{([A-Za-z_][A-Za-z0-9_]*)\}/g)].map(m => [m[1], "sample"]));
+  assert.equal(context.t(key, values), value.replace(/\{([A-Za-z_][A-Za-z0-9_]*)\}/g, "sample"));
+}
 messages["test.values"] = "Hello {name}";
 assert.equal(context.t("test.values", {name: "<Sam>"}), "Hello <Sam>");
 assert.throws(() => context.t("test.values"), /Missing message value/);
@@ -86,3 +89,13 @@ assert(context.location.reloaded);
 '''
     subprocess.run([node, "-e", script, str(ROOT / "reel/web/static/i18n.js"),
                     json.dumps(dict(catalog("hy")), ensure_ascii=False)], check=True)
+
+
+def test_stage_labels_follow_the_active_language():
+    from reel.web.labels import localized_stages, stage_labels
+    assert stage_labels()["join"] == "Join recording parts"
+    with language_context("hy"):
+        assert stage_labels()["join"] == catalog("hy")["stage.join"]
+        assert dict(localized_stages(language="en"))["join"] == "Join recording parts"
+    with pytest.raises(ValueError):
+        t("stage.join", language="")

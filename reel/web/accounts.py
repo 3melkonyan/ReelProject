@@ -1,5 +1,7 @@
 """Personal identities on the existing signed session. Never stores bearer tokens or passwords."""
 from __future__ import annotations
+
+from reel.i18n import t as _t
 from contextvars import ContextVar
 from datetime import datetime, timezone
 import hashlib
@@ -17,8 +19,8 @@ from fastapi import HTTPException
 from reel.db import email_identity
 
 PRINCIPAL = ContextVar('reel_principal', default=None)
-AUTH_ERROR = 'Մուտքանունը կամ գաղտնաբառը սխալ է։'
-TOKEN_ERROR = 'Հղումն անվավեր է կամ այլևս չի գործում։'
+AUTH_ERROR_KEY = 'accounts.incorrect_username_or_password'
+TOKEN_ERROR_KEY = 'accounts.this_link_is_invalid_or_has_expired'
 
 
 def utc(): return datetime.now(timezone.utc).isoformat(timespec='seconds')
@@ -30,12 +32,12 @@ def groups():
 def allowed(group): return groups() is None or group in groups()
 
 def require_group(group):
-    if not allowed(group): raise HTTPException(404, 'Չի գտնվել։')
+    if not allowed(group): raise HTTPException(404, _t('access.not_found'))
 
 
 def hash_password(password):
     if not isinstance(password, str) or not 10 <= len(password) <= 1024:
-        raise HTTPException(400, 'Գաղտնաբառը պետք է ունենա 10–1024 նիշ։')
+        raise HTTPException(400, _t('accounts.the_password_must_contain_10_1024_characters'))
     salt = secrets.token_bytes(16)
     digest = hashlib.scrypt(password.encode(), salt=salt, n=16384, r=8, p=1, dklen=32)
     return f'scrypt$16384$8$1${salt.hex()}${digest.hex()}'
@@ -51,24 +53,24 @@ def verify_password(password, encoded):
 
 
 def identity(value):
-    if not isinstance(value,str): raise HTTPException(400,'Անվավեր մուտքանուն։')
+    if not isinstance(value,str): raise HTTPException(400,_t('accounts.invalid_username'))
     value=value.strip().casefold()
     if not re.fullmatch(r'[a-z0-9][a-z0-9._-]{2,63}',value):
-        raise HTTPException(400,'Մուտքանունը՝3–64 լատինատառ տառ, թիվ, կետ, գծիկ կամ ընդգծում։')
+        raise HTTPException(400,_t('accounts.use_3_64_latin_letters_digits_periods'))
     return value
 
 
 def fields(name,email,role,selected,known):
     if not isinstance(name,str) or not name.strip() or len(name)>120 or any(c in name for c in '\r\n'):
-        raise HTTPException(400,'Գրեք անունը՝մինչև120 նիշ։')
+        raise HTTPException(400,_t('account_api.enter_a_name_of_up_to_120'))
     if not isinstance(email,str) or len(email)>254 or not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+',email.strip()):
-        raise HTTPException(400,'Գրեք վավեր էլ․ հասցե։')
+        raise HTTPException(400,_t('accounts.enter_a_valid_email_address'))
     if role not in ('admin','lecturer','student') or not isinstance(selected,list) or any(not isinstance(g,str) for g in selected):
-        raise HTTPException(400,'Ընտրեք դերը և խմբերը։')
+        raise HTTPException(400,_t('accounts.choose_a_role_and_groups'))
     selected=list(dict.fromkeys(selected))
     if role=='admin': selected=[]
     elif (role=='student' and len(selected)!=1) or (role=='lecturer' and not selected) or any(g not in known for g in selected):
-        raise HTTPException(400,'Ուսանողին անհրաժեշտ է մեկ խումբ, դասախոսին՝առնվազն մեկ։')
+        raise HTTPException(400,_t('accounts.students_need_one_group_lecturers_need_at'))
     return dict(name=name.strip(),email=email_identity(email),role=role,groups=selected)
 
 
@@ -127,11 +129,11 @@ def issue_token(db,kind,payload=None,user_id=None,actor=None):
 
 
 def token_row(db,raw,kind):
-    if not isinstance(raw,str) or not re.fullmatch(r'[A-Za-z0-9_-]{43}',raw): raise HTTPException(400,TOKEN_ERROR)
+    if not isinstance(raw,str) or not re.fullmatch(r'[A-Za-z0-9_-]{43}',raw): raise HTTPException(400,_t(TOKEN_ERROR_KEY))
     row=db.conn.execute('SELECT * FROM account_tokens WHERE digest=? AND kind=?',
                         (hashlib.sha256(raw.encode()).hexdigest(),kind)).fetchone()
     if not row or row['used_at'] is not None or row['revoked_at'] is not None or row['expires_at']<=time.time():
-        raise HTTPException(400,TOKEN_ERROR)
+        raise HTTPException(400,_t(TOKEN_ERROR_KEY))
     return row
 
 
@@ -151,11 +153,11 @@ def redeem(db,raw,kind,*,login=None,password=None,known=(),consent=None):
             from reel.web.group_status import completed_groups
             done=completed_groups(db)
             if any(group in done for group in payload['groups']):
-                raise HTTPException(400,'Հրավերի խումբն ավարտված է։ Նոր հրավերի համար դիմեք ադմինին։')
+                raise HTTPException(400,_t('accounts.the_invitation_s_group_has_completed_contact'))
             if find_user(db,payload['email']):raise sqlite3.IntegrityError('email already exists')
         cur=db.conn.execute('UPDATE account_tokens SET used_at=? WHERE id=? AND used_at IS NULL AND revoked_at IS NULL AND expires_at>?',
                             (time.time(),token['id'],time.time()))
-        if cur.rowcount!=1: raise HTTPException(400,TOKEN_ERROR)
+        if cur.rowcount!=1: raise HTTPException(400,_t(TOKEN_ERROR_KEY))
         if kind=='invite':
             user_id=db.conn.execute('INSERT INTO users(login,email,name,password_hash,role,groups_json,created_at) VALUES(?,?,?,?,?,?,?)',
                 (clean_login,payload['email'],payload['name'],hashed,payload['role'],json.dumps(payload['groups']),utc())).lastrowid
@@ -164,11 +166,11 @@ def redeem(db,raw,kind,*,login=None,password=None,known=(),consent=None):
         else:
             user_id=token['user_id']
             cur=db.conn.execute('UPDATE users SET password_hash=?,session_version=session_version+1 WHERE id=? AND active=1',(hashed,user_id))
-            if cur.rowcount!=1: raise HTTPException(400,TOKEN_ERROR)
+            if cur.rowcount!=1: raise HTTPException(400,_t(TOKEN_ERROR_KEY))
             db.conn.execute("UPDATE account_tokens SET revoked_at=? WHERE user_id=? AND kind='reset' AND used_at IS NULL",(time.time(),user_id))
         db.conn.execute('COMMIT');return user_id
     except sqlite3.IntegrityError:
-        db.conn.execute('ROLLBACK');raise HTTPException(409,'Մուտքանունը կամ էլ․ հասցեն արդեն օգտագործվում է։') from None
+        db.conn.execute('ROLLBACK');raise HTTPException(409,_t('accounts.this_username_or_email_address_is_already')) from None
     except BaseException:
         db.conn.execute('ROLLBACK');raise
 
@@ -177,7 +179,7 @@ def login_limit(db,login,ip,*,failed=None):
     key=hashlib.sha256((email_identity(str(login))+'\0'+ip).encode()).hexdigest()
     now=time.time();row=db.conn.execute('SELECT * FROM account_limits WHERE key=?',(key,)).fetchone()
     if failed is None:
-        if row and row['locked_until']>now: raise HTTPException(429,'Շատ փորձեր են եղել։ Կրկին փորձեք15 րոպեից։')
+        if row and row['locked_until']>now: raise HTTPException(429,_t('accounts.too_many_attempts_try_again_in_15'))
     elif failed:
         count=(row['failures'] if row and (row['locked_until']==0 or row['locked_until']>now) else 0)+1
         db.conn.execute('INSERT INTO account_limits VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET failures=excluded.failures,locked_until=excluded.locked_until',
@@ -219,7 +221,7 @@ def send_reset(root,email,url):
 DUMMY_HASH = hash_password("reel-non-account-timing-value")
 
 
-DELETED_USER_LABEL = 'Ջնջված օգտատեր'
+DELETED_USER_LABEL_KEY = 'accounts.deleted_user'
 
 
 def revoke_user_tokens(db, row, *, anonymize=False):
@@ -230,18 +232,18 @@ def revoke_user_tokens(db, row, *, anonymize=False):
                     (time.time(), *values))
     if anonymize:
         # Do not rewrite invitations created BY this administrator for other people.
-        payload = json.dumps({'name':DELETED_USER_LABEL, 'email':'', 'role':'student', 'groups':[],
+        payload = json.dumps({'name':_t(DELETED_USER_LABEL_KEY), 'email':'', 'role':'student', 'groups':[],
                               'anonymized':True}, ensure_ascii=False)
         db.conn.execute(f'UPDATE account_tokens SET payload=? WHERE {matches}', (payload, *values))
 
 
 def protect_admin(db, row, actor, *, disabling=True):
     if disabling and row['id'] == actor:
-        raise HTTPException(409,'Դուք չեք կարող հեռացնել կամ անջատել Ձեր հաշիվը։')
+        raise HTTPException(409,_t('accounts.you_cannot_remove_or_deactivate_your_own'))
     if disabling and row['role']=='admin' and row['active'] and not row['removed_at'] and not row['deleted_at']:
         count=db.conn.execute("SELECT count(*) FROM users WHERE role='admin' AND active=1 AND removed_at IS NULL AND deleted_at IS NULL").fetchone()[0]
         if count <= 1:
-            raise HTTPException(409,'Վերջին ակտիվ ադմինին հեռացնել, անջատել կամ նրա դերը փոխել չի կարելի։')
+            raise HTTPException(409,_t('accounts.you_cannot_remove_deactivate_or_change_the'))
 
 
 def invitation_status(row, now=None):
@@ -265,13 +267,13 @@ def directory(db, known, query, completed=frozenset()):
     if tab in ('student','lecturer','admin'):role,tab=tab,'users'
     scope=query.get('group_status',query.get('group_scope','active'))
     if tab not in ('users','removed','invitations') or role not in ('','admin','lecturer','student') or scope not in ('active','completed','all'):
-        raise HTTPException(400,'Ընտրեք ցանկի, դերի և խմբերի վավեր զտիչներ։')
+        raise HTTPException(400,_t('accounts.choose_valid_list_role_and_group_filters'))
     try:
         page=int(query.get('page',1));size=int(query.get('page_size',20))
         if not 1 <= page <= 1_000_000_000 or not 1 <= size <= 100:raise ValueError()
-    except (ValueError,TypeError):raise HTTPException(400,'Ընտրեք վավեր էջ և էջի չափ՝1–100։') from None
+    except (ValueError,TypeError):raise HTTPException(400,_t('accounts.choose_a_valid_page_and_a_page')) from None
     search=query.get('q','').strip().casefold();group=query.get('group','')
-    if len(search)>254 or len(group)>200:raise HTTPException(400,'Որոնման արժեքը չափազանց երկար է։')
+    if len(search)>254 or len(group)>200:raise HTTPException(400,_t('accounts.the_search_text_is_too_long'))
     totals=db.conn.execute("SELECT role,count(*) n FROM users WHERE removed_at IS NULL AND deleted_at IS NULL GROUP BY role").fetchall()
     counts={role:0 for role in ('student','lecturer','admin')}
     counts.update({row['role']:row['n'] for row in totals})
@@ -286,7 +288,7 @@ def directory(db, known, query, completed=frozenset()):
         name="json_extract(t.payload,'$.name')";email="json_extract(t.payload,'$.email')"
         role_field="json_extract(t.payload,'$.role')";groups_field="json_extract(t.payload,'$.groups')"
         if status:
-            if status not in ('pending','used','expired','revoked'):raise HTTPException(400,'Ընտրեք հրավերի վավեր կարգավիճակ։')
+            if status not in ('pending','used','expired','revoked'):raise HTTPException(400,_t('accounts.choose_a_valid_invitation_status'))
             where.append("(CASE WHEN t.revoked_at IS NOT NULL THEN 'revoked' WHEN t.used_at IS NOT NULL THEN 'used' WHEN t.expires_at<=? THEN 'expired' ELSE 'pending' END)=?")
             args.extend((time.time(),status))
     else:
@@ -294,7 +296,7 @@ def directory(db, known, query, completed=frozenset()):
         where=['deleted_at IS NULL', 'removed_at IS NOT NULL' if tab=='removed' else 'removed_at IS NULL']
         name='name';email='email';role_field='role';groups_field='groups_json'
         if status:
-            if status not in ('active','inactive'):raise HTTPException(400,'Ընտրեք հաշվի վավեր կարգավիճակ։')
+            if status not in ('active','inactive'):raise HTTPException(400,_t('accounts.choose_a_valid_account_status'))
             where.append('active=?');args.append(int(status=='active'))
     if role:where.append(role_field+'=?');args.append(role)
     if group:where.append(f'EXISTS (SELECT 1 FROM json_each({groups_field}) WHERE value=?)');args.append(group)

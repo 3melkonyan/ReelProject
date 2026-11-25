@@ -1,6 +1,8 @@
 """Admin-only thumbnail style selection. Never calls group_style (GET must not write)."""
 from __future__ import annotations
 
+from reel.i18n import t as _t
+
 import io
 import json
 import os
@@ -98,7 +100,7 @@ def _preview(style: int) -> bytes:
         draw = ImageDraw.Draw(frame)
         for y in range(40, 320, 55):
             draw.line((45, y, 550, y), fill=(100, 125, 115), width=2)
-        image = thumbnail.render_card(frame, "Academy", "Դաս 1 · Նոր գիտելիքներ", style)
+        image = thumbnail.render_card(frame, "Academy", _t('thumbnail_styles.lesson_1_new_knowledge'), style)
         image.thumbnail((640, 360))
         output = io.BytesIO()
         image.convert("RGB").save(output, "PNG", optimize=True)

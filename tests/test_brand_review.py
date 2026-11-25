@@ -18,15 +18,16 @@ def test_brand_button_exact_color_contrast_and_neutral_surfaces():
     assert 'opacity:1' in css and '--light-rays:' in css
 
 
-def test_every_stage_has_one_armenian_label_source():
-    from reel.web.labels import STAGES,STAGE_LABEL
+def test_every_stage_has_one_armenian_label_source(hy_locale):
+    from reel.web.labels import localized_stages, stage_labels
+    STAGES, STAGE_LABEL = localized_stages(), stage_labels()
     from reel.stages import STAGES as pipeline
     assert [n for n,_ in STAGES]==[n for n,_ in pipeline]
     # Learning stages are inserted by name (captions, summary, student e-mails); the 17 original ones stay.
     assert len(STAGE_LABEL)==len(pipeline)>=17
     assert all(re.search('[Ա-Ֆա-ֆև]',label) and not re.search('[A-Za-z_]',label) for label in STAGE_LABEL.values())
     source=(STATIC.parent/'app.py').read_text()
-    assert 'from reel.web.labels import STAGES, STAGE_LABEL' in source
+    assert 'from reel.web.labels import localized_stages, stage_labels' in source
     assert 'STAGES = [' not in source
 
 

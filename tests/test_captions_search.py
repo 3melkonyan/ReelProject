@@ -125,7 +125,8 @@ def test_captions_stage_writes_files_uploads_once_and_never_stops(tmp_path, monk
 
 def test_captions_stage_is_in_the_pipeline_after_the_thumbnail():
     from reel.stages import STAGES
-    from reel.web.labels import STAGE_LABEL
+    from reel.web.labels import stage_labels
+    STAGE_LABEL = stage_labels()
     names = [name for name, _ in STAGES]
     assert names.index("captions") == names.index("thumbnail_set") + 1 and STAGE_LABEL["captions"]
 

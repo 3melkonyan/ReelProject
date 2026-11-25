@@ -1,4 +1,6 @@
 """Group-scoped watch statistics; shared passwords never grant named student analytics."""
+
+from reel.i18n import t as _t
 from contextlib import closing
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -15,7 +17,7 @@ def make_router(env):
         env['authenticated'](request)
         principal = getattr(request.state,'principal',None) or accounts.PRINCIPAL.get()
         if not principal or principal.get('legacy') or type(principal.get('id')) is not int:
-            raise HTTPException(403,'Դիտումների վիճակագրությունը հասանելի է միայն անձնական դասախոսի, օգնականի կամ ադմինի հաշվով։')
+            raise HTTPException(403,_t('watch_statistics_api.viewing_statistics_are_available_only_to_personal'))
         return principal
 
     @router.get('/watch-stats')
@@ -32,10 +34,10 @@ def make_router(env):
                 records = library_records(database,env['ROOT']/'library.jsonl',groups=accounts.groups())
                 return watch_statistics.statistics(database,records,principal,group=group,known_groups=known)
             except PermissionError:
-                raise HTTPException(403,'Դուք այս խմբերի դիտումների վիճակագրությունը տեսնելու իրավունք չունեք։') from None
+                raise HTTPException(403,_t('watch_statistics_api.you_do_not_have_permission_to_view')) from None
             except LookupError:
-                raise HTTPException(404,'Խումբը չի գտնվել։') from None
+                raise HTTPException(404,_t('academy_api.group_not_found')) from None
             except ValueError:
-                raise HTTPException(400,'Խմբի զտիչն անվավեր է։') from None
+                raise HTTPException(400,_t('watch_statistics_api.invalid_group_filter')) from None
 
     return router

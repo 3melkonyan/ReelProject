@@ -6,7 +6,7 @@ from reel.web.courses import course_id,short_group,catalog
 from test_web_upload import web
 
 
-def test_catalog_and_short_names():
+def test_catalog_and_short_names(hy_locale):
     assert len(catalog())==8
     assert course_id('AI 2.6')=='ai-modern'
     assert short_group('Ծրագրավորում զինակոչիկների համար ԱՏՄԿ 2.5')=='ԱՏՄԿ 2.5'

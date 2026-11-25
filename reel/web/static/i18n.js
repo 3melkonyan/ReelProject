@@ -1,6 +1,7 @@
 "use strict";
 /* Messages arrive before application scripts so startup labels use the selected language. */
 const I18N = window.REEL_I18N || {language: "en", messages: {}};
+document.documentElement.lang = I18N.language;
 function t(key, values = {}) {
   if (!Object.prototype.hasOwnProperty.call(I18N.messages, key)) {
     throw new Error(`Unknown message: ${key}`);

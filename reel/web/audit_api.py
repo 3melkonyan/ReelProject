@@ -1,4 +1,6 @@
 """Admin-only audit listing and request events; no passwords or request bodies are logged."""
+
+from reel.i18n import t as _t
 from datetime import date, datetime, time, timedelta, timezone
 import json
 import re
@@ -16,17 +18,17 @@ def make_router(env):
     def listing(actor: int | None = None, action: str = '', page: int = 1, page_size: int = 30,
                 request: Request = None):
         if page < 1 or page > 1_000_000 or not 1 <= page_size <= 100:
-            raise HTTPException(400, 'Ընտրեք վավեր էջ և էջի չափ։')
+            raise HTTPException(400, _t('audit_api.choose_a_valid_page_and_page_size'))
         conditions, args = [], []
         if actor is not None:
             if actor < 0 or actor > 9223372036854775807:
-                raise HTTPException(400, 'Ընտրեք վավեր օգտատեր։')
+                raise HTTPException(400, _t('audit_api.choose_a_valid_user'))
             conditions.append('e.actor IS NULL' if actor == 0 else 'e.actor=?')
             if actor:
                 args.append(actor)
         if action:
             if not re.fullmatch(r'[a-z][a-z0-9_.-]{0,59}', action):
-                raise HTTPException(400, 'Ընտրեք վավեր գործողություն։')
+                raise HTTPException(400, _t('audit_api.choose_a_valid_action'))
             conditions.append('e.action=?');args.append(action)
         bounds = []
         for key, operator in (('from', '>='), ('to', '<')):
@@ -42,19 +44,19 @@ def make_router(env):
                     parsed += timedelta(days=1)
                 boundary = datetime.combine(parsed, time(), ZoneInfo('Asia/Yerevan')).astimezone(timezone.utc)
             except (ValueError, OverflowError):
-                raise HTTPException(400, 'Ամսաթիվը նշեք ՏՏՏՏ-ԱԱ-ՕՕ ձևաչափով։') from None
+                raise HTTPException(400, _t('audit_api.enter_the_date_in_yyyy_mm_dd')) from None
             conditions.append('e.created_at' + operator + '?');args.append(boundary.isoformat(timespec='seconds'))
         if len(bounds) == 2 and bounds[0][1] > bounds[1][1]:
-            raise HTTPException(400, 'Ավարտի ամսաթիվը չի կարող սկզբից շուտ լինել։')
+            raise HTTPException(400, _t('audit_api.the_end_date_cannot_be_before_the'))
         where = ' WHERE ' + ' AND '.join(conditions) if conditions else ''
         database = env['db']()
         try:
             total = database.conn.execute('SELECT count(*) FROM audit_events e' + where, args).fetchone()[0]
-            rows = database.conn.execute("SELECT e.*,coalesce(u.name,'Համակարգ') actor_name FROM audit_events e "
+            rows = database.conn.execute("SELECT e.*,coalesce(u.name,?) actor_name FROM audit_events e "
                 'LEFT JOIN users u ON u.id=e.actor' + where + ' ORDER BY e.id DESC LIMIT ? OFFSET ?',
-                (*args, page_size, (page - 1) * page_size)).fetchall()
-            actors = database.conn.execute("SELECT DISTINCT e.actor id,coalesce(u.name,'Համակարգ') name "
-                'FROM audit_events e LEFT JOIN users u ON u.id=e.actor ORDER BY name').fetchall()
+                (_t('audit_api.system'), *args, page_size, (page - 1) * page_size)).fetchall()
+            actors = database.conn.execute("SELECT DISTINCT e.actor id,coalesce(u.name,?) name "
+                'FROM audit_events e LEFT JOIN users u ON u.id=e.actor ORDER BY name', (_t('audit_api.system'),)).fetchall()
             actions = [row[0] for row in database.conn.execute('SELECT DISTINCT action FROM audit_events ORDER BY action')]
             return {'items': [dict(row) | {'details': json.loads(row['details'])} for row in rows],
                     'actors': [dict(row) for row in actors], 'actions': actions,

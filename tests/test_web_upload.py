@@ -53,7 +53,7 @@ def web(tmp_path, monkeypatch):
     (fake.parent / "static").mkdir(parents=True)
     (fake.parent / "static" / "index.html").write_text("fixture")
     (tmp_path / "config.yaml").write_text(
-        'groups:\n  Group-A:\n    playlist_id: "PL1"\n    slack_channel: "C1"\n    classroom_course_id: "1"\n'
+        'ui_language: hy\ngroups:\n  Group-A:\n    playlist_id: "PL1"\n    slack_channel: "C1"\n    classroom_course_id: "1"\n'
         '    lecturers: [l1]\n  Group-B:\n    slack_channel: "C2"\n    subjects:\n'
         '    - {name: Python, playlist: PLpy}\n    - {name: JavaScript, playlist: PLjs}\n'
         'operator_slack_channel: "C1"\ncut:\n  min_silence_sec: 120\n  max_cut_ratio: 0.4\n',

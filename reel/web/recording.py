@@ -14,6 +14,8 @@ The module also holds the multi-file upload ordering helper used by ``POST /api/
 """
 from __future__ import annotations
 
+from reel.i18n import t as _t
+
 import asyncio
 import json
 import logging
@@ -132,7 +134,7 @@ def make_router(env):
         try:
             return load(str(root() / "config.yaml"))
         except Exception:  # noqa: BLE001
-            raise HTTPException(503, "Կարգավորումները (config.yaml) հնարավոր չէ կարդալ։") from None
+            raise HTTPException(503, _t('recording.settings_config_yaml_cannot_be_read')) from None
 
     def read_only(query: str, args: tuple):
         path = root() / "reel.db"
@@ -152,24 +154,24 @@ def make_router(env):
     def open_group(config: dict, group) -> dict:
         account_auth.require_group(group)
         if not isinstance(group, str) or group not in config["groups"]:
-            raise HTTPException(400, "Ընտրեք Ձեր խմբերից մեկը։")
+            raise HTTPException(400, _t('recording.choose_one_of_your_groups'))
         env["_require_open_group"](group)
         return config["groups"][group]
 
     def disk_ok() -> None:
         if shutil.disk_usage(root()).free < MIN_FREE:
-            raise HTTPException(507, "Սերվերում բավարար ազատ տեղ չկա։ Դիմեք ադմինին։")
+            raise HTTPException(507, _t('recording.the_server_does_not_have_enough_free'))
 
     async def body(request: Request) -> dict:
         raw = await request.body()
         if len(raw) > 4096:
-            raise HTTPException(413, "Հարցումը չափազանց մեծ է։")
+            raise HTTPException(413, _t('account_api.request_too_large'))
         try:
             value = json.loads(raw or b"{}")
         except (ValueError, UnicodeError):
             value = None
         if not isinstance(value, dict):
-            raise HTTPException(400, "Անվավեր հարցում։")
+            raise HTTPException(400, _t('access.invalid_request'))
         return value
 
     def lock(uid: str) -> asyncio.Lock:
@@ -181,7 +183,7 @@ def make_router(env):
     def load_meta(uid: str) -> dict:
         meta = env["_upload_meta"](uid)               # 404 for unknown ids and symlinked folders
         if meta.get("kind") != "recording":
-            raise HTTPException(404, "Ձայնագրությունը չի գտնվել։")
+            raise HTTPException(404, _t('recording.recording_not_found'))
         account_auth.require_group(meta.get("group"))
         return meta
 
@@ -190,7 +192,7 @@ def make_router(env):
 
     def part(meta: dict, index: int) -> dict:
         if not 0 <= index < len(meta["files"]) or meta["files"][index].get("deleted"):
-            raise HTTPException(404, "Մասը չի գտնվել։")
+            raise HTTPException(404, _t('recording.part_not_found'))
         return meta["files"][index]
 
     def received(uid: str, item: dict) -> int:
@@ -240,19 +242,19 @@ def make_router(env):
         subjects = {s["name"].casefold(): s["name"] for s in group_cfg["subjects"]}
         subject = subjects.get(str(data.get("subject") or "").casefold())
         if subject is None:
-            raise HTTPException(400, "Ընտրեք խմբի առարկաներից մեկը։")
+            raise HTTPException(400, _t('recording.choose_one_of_the_group_s_subjects'))
         number = data.get("lesson_number")
         if type(number) is not int or not 1 <= number <= 999:
-            raise HTTPException(400, "Դասի համարը պետք է լինի 1-ից 999։")
+            raise HTTPException(400, _t('recording.the_lesson_number_must_be_between_1'))
         mime = str(data.get("mime") or "").lower()[:120]
         ext = ".mp4" if mime.startswith("video/mp4") else ".webm" if mime.startswith("video/webm") else None
         if ext is None:
-            raise HTTPException(400, "Բրաուզերը պետք է ձայնագրի MP4 կամ WebM ձևաչափով։")
+            raise HTTPException(400, _t('recording.the_browser_must_record_in_mp4_or'))
         disk_ok()
         env["_prune_uploads"]()
         uid = secrets.token_hex(10)                    # 20 hex chars, the upload id format
         (folder(uid) / "parts").mkdir(parents=True)
-        meta = {"kind": "recording", "group": group, "subject": subject, "lesson": f"Դաս {number}",
+        meta = {"kind": "recording", "group": group, "subject": subject, "lesson": _t('app.lesson_number', number=number),
                 "lesson_number": number, "lesson_date": lesson_dates.today().isoformat(),
                 "lesson_date_changed": True, "files": [], "ext": ext, "mime": mime, "by": who,
                 "created": time.time()}
@@ -271,7 +273,7 @@ def make_router(env):
         async with lock(uid):
             meta = load_meta(uid)
             if len(meta["files"]) >= MAX_PARTS:
-                raise HTTPException(409, f"Մեկ դասում կարելի է ունենալ առավելագույնը {MAX_PARTS} մաս։")
+                raise HTTPException(409, _t('recording.a_lesson_can_contain_at_most_count', count=MAX_PARTS))
             disk_ok()
             index = len(meta["files"])
             name = f"part-{index + 1:02d}{meta['ext']}"
@@ -284,7 +286,7 @@ def make_router(env):
         data = await body(request)
         size, duration = data.get("size"), data.get("duration")
         if type(size) is not int or size < 0:
-            raise HTTPException(400, "Նշեք մասի վերջնական չափը։")
+            raise HTTPException(400, _t('recording.specify_the_final_part_size'))
         async with lock(uid):
             meta = load_meta(uid)
             item = part(meta, index)
@@ -292,7 +294,7 @@ def make_router(env):
             if not item.get("open"):
                 if item["size"] == size:
                     return {"ok": True, "size": size}  # a retried close
-                raise HTTPException(409, "Մասն արդեն փակված է։")
+                raise HTTPException(409, _t('recording.this_part_is_already_closed'))
             if size != have:                           # the phone still holds unsent bytes
                 return JSONResponse({"received": have}, status_code=409)
             if size == 0:
@@ -349,19 +351,19 @@ def make_router(env):
             if not meta.get("confirmed"):
                 live = [f for f in meta["files"] if not f.get("deleted")]
                 if not live:
-                    raise HTTPException(409, "Ձայնագրված մաս չկա։")
+                    raise HTTPException(409, _t('recording.no_recording_parts_are_available'))
                 if any(f.get("open") for f in live):
-                    raise HTTPException(409, "Մասերը դեռ ուղարկվում են։ Սպասեք, մինչև բոլորը ուղարկվեն։")
+                    raise HTTPException(409, _t('recording.parts_are_still_uploading_wait_until_all'))
                 for f in live:
                     if received(uid, f) != f["size"]:
-                        raise HTTPException(409, "Մասերից մեկն ամբողջությամբ չի ստացվել։")
+                        raise HTTPException(409, _t('recording.one_part_has_not_been_received_in'))
             return await run_in_threadpool(finish, uid, meta, who)
 
     @router.delete("/{uid}")
     async def cancel(uid: str, _: str = Depends(uploader)):
         async with lock(uid):
             if env["_upload_receipt"](uid):
-                raise HTTPException(409, "Դասն արդեն ուղարկված է մշակման։")
+                raise HTTPException(409, _t('recording.this_lesson_has_already_been_submitted_for'))
             load_meta(uid)
             shutil.rmtree(folder(uid), ignore_errors=True)
             return {"ok": True}

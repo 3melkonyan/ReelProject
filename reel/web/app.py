@@ -8,6 +8,8 @@ See reel.web.accounts/access/account_api and docs/WEB.md. No worker starts with 
 """
 from __future__ import annotations
 
+from reel.i18n import t as _t
+
 import asyncio
 import hashlib
 import json
@@ -43,7 +45,7 @@ STATIC = Path(__file__).parent / "static"
 WORK = ROOT / "work"
 SECRETS_FILE = ROOT / "secrets" / "web.json"
 
-from reel.web.labels import STAGES, STAGE_LABEL
+from reel.web.labels import localized_stages, stage_labels
 PUB_TARGETS = ["youtube", "playlist", "slack", "classroom", "library"]
 
 
@@ -215,7 +217,7 @@ def _dry(yt) -> bool:
 
 def _job_brief(d: DB, j) -> dict:
     st = {s["name"]: s for s in d.stages(j["id"])}
-    names = [n for n, _ in STAGES if not (n == "join" and "join" not in st and "probe" in st)]  # jobs before 'join'
+    names = [n for n, _ in localized_stages() if not (n == "join" and "join" not in st and "probe" in st)]  # jobs before 'join'
     done = sum(1 for n in names if st.get(n) is not None and st[n]["status"] == "done")
     meta = _read_json(WORK / str(j["id"]) / "metadata.json") or {}
     seg = d.stage_output(j["id"], "segments") or {}
@@ -230,7 +232,7 @@ def _job_brief(d: DB, j) -> dict:
     return {
         "id": j["id"], "status": j["status"], "group": j["grp"],
         "file": Path(j["source_path"]).name, "title": meta.get("title"), "subject": j["subject"],
-        "current_stage": j["current_stage"], "current_label": STAGE_LABEL.get(j["current_stage"] or ""),
+        "current_stage": j["current_stage"], "current_label": stage_labels().get(j["current_stage"] or ""),
         "error": j["error"], "hint": _hint(j["error"]) if j["status"] == "stopped" else None,
         "created": created, "updated": updated,
         "lesson_date": lesson_dates.job_date(j), "lesson_date_inferred": not bool(j["lesson_date"]),
@@ -300,7 +302,7 @@ async def login(request: Request):
         body = await request.json()
         if not isinstance(body, dict): raise ValueError()
     except ValueError:
-        raise HTTPException(400, "Անվավեր հարցում։") from None
+        raise HTTPException(400, _t('access.invalid_request')) from None
     password = body.get("password", "")
     identity = str(body.get("login") or "").strip()[:254]
     ip = request.client.host if request.client else "?"
@@ -331,7 +333,7 @@ async def login(request: Request):
                         request.session.clear(); request.session.update(role=who, legacy=True)
                         return {"role": who}
         account_auth.login_limit(d, identity or "shared", ip, failed=True)
-        raise HTTPException(401, account_auth.AUTH_ERROR)
+        raise HTTPException(401, _t(account_auth.AUTH_ERROR_KEY))
     finally:
         d.conn.close()
 
@@ -375,7 +377,7 @@ def summary(who: str = Depends(role)):
         "hours_processed": round(sum(j["duration_sec"] or 0 for j in done) / 3600, 1),
         "running": running, "recent": sorted(jobs+demos,key=lambda j:j["updated"] or 0,reverse=True)[:6], "worker": _worker(), "inbox": [x for x in _inbox() if account_auth.allowed(x["group"])],
         "disk_free_gb": round(shutil.disk_usage(ROOT).free / 1e9),
-        "stages": [{"name": n, "label": l} for n, l in STAGES],
+        "stages": [{"name": n, "label": l} for n, l in localized_stages()],
     }
 
 
@@ -403,7 +405,7 @@ def activity(_: str = Depends(role)):
             t = en or (st if s["status"] == "running" else None)
             if not t:
                 continue
-            ev.append({"t": t, "job": j["id"], "title": title, "label": STAGE_LABEL.get(s["name"], s["name"]),
+            ev.append({"t": t, "job": j["id"], "title": title, "label": stage_labels().get(s["name"], s["name"]),
                        "status": s["status"], "dur": (en - st) if (st and en and en >= st) else None})
     ev.sort(key=lambda e: e["t"], reverse=True)
     return ev[:12]
@@ -421,7 +423,7 @@ async def job_lesson_date(job_id: int, request: Request, _: str = Depends(admin)
         try:
             database.job(job_id)
         except KeyError:
-            raise HTTPException(404, "Դասը չի գտնվել։") from None
+            raise HTTPException(404, _t('app.lesson_not_found')) from None
         database.set_job(job_id, lesson_date=day)
     finally:
         database.conn.close()
@@ -441,7 +443,7 @@ def job_detail(job_id: int, who: str = Depends(role)):
         meta = lesson_dates.dated_metadata(meta, j["lesson_date"])
     st = {s["name"]: s for s in d.stages(job_id)}
     stages = []
-    for name, label in STAGES:
+    for name, label in localized_stages():
         s = st.get(name)
         out = json.loads(s["output"]) if s is not None and s["output"] else {}
         # Older metadata wrappers retain only title/description/chapters in the DB.
@@ -655,7 +657,7 @@ def _upload_receipt(uid: str) -> dict | None:
             database = db()
             try:
                 try: account_auth.require_group(database.job(jid)["grp"])
-                except KeyError: raise HTTPException(404, "Չի գտնվել։") from None
+                except KeyError: raise HTTPException(404, _t('access.not_found')) from None
             finally: database.conn.close()
     return receipt
 
@@ -741,7 +743,7 @@ def _require_open_group(group: str) -> None:
     database = db()
     try:
         if group in completed_groups(database):
-            raise HTTPException(409, "Խումբն ավարտված է։ Նոր դաս վերբեռնելու համար դիմեք ադմինին։")
+            raise HTTPException(409, _t('app.this_group_has_completed_contact_your_administrator'))
     finally:
         database.conn.close()
 
@@ -772,17 +774,17 @@ async def upload_start(request: Request, who: str = Depends(uploader)):
         raise HTTPException(400, "choose the subject")
     changed = body.get("lesson_date_changed", False)
     if type(changed) is not bool:
-        raise HTTPException(400, "Ամսաթվի ընտրության նշումը պետք է լինի true կամ false։")
+        raise HTTPException(400, _t('app.the_date_selection_flag_must_be_true'))
     try:
         day = lesson_dates.validate(body.get("lesson_date", lesson_dates.today().isoformat()))
         if changed and "lesson_date" not in body:
-            raise ValueError("Նշեք ընտրված դասի ամսաթիվը։")
+            raise ValueError(_t('app.enter_the_selected_lesson_date'))
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from None
     number = body.get("lesson_number")
     if number is not None and (type(number) is not int or not 1 <= number <= 999):
         raise HTTPException(400, "lesson number must be between 1 and 999")
-    lesson = f"Դաս {number}" if number is not None else (_clean_name(body.get("lesson") or "") or datetime.now().strftime("das-%Y-%m-%d-%H%M"))
+    lesson = _t('app.lesson_number', number=number) if number is not None else (_clean_name(body.get("lesson") or "") or datetime.now().strftime("das-%Y-%m-%d-%H%M"))
     files = body.get("files")
     if not isinstance(files, list) or not 1 <= len(files) <= UPLOAD_MAX_FILES:
         raise HTTPException(400, f"choose 1-{UPLOAD_MAX_FILES} video files")
@@ -928,9 +930,8 @@ def _finish_upload(uid: str, who: str):
     if dup:
         return receipt
     gb = sum(f["size"] for f in meta["files"]) / 1e9
-    how = "Հեռախոսով ձայնագրվեց" if meta.get("kind") == "recording" else "Վեբով վերբեռնվեց"
-    pipeline._notify(f"📥 {how} «{meta['lesson']}» ({len(parts)} ֆայլ, {gb:.1f} ԳԲ, {who}) "
-                     f"→ job {job_id}, խումբ {meta['group']}, առարկա {meta.get('subject')}")
+    how = _t('app.recorded_on_a_phone') if meta.get("kind") == "recording" else _t('app.uploaded_from_the_dashboard')
+    pipeline._notify(_t('app.method_lesson_count_files_size_gb_user', method=how, lesson=meta['lesson'], count=len(parts), size=f"{gb:.1f}", user=who, job=job_id, group=meta['group'], subject=meta.get('subject')))
     return {"job_id": job_id}
 
 
@@ -1001,5 +1002,8 @@ _install_student_mail(app, globals())
 
 from reel.notifications import install as _install_monitor
 _install_monitor(app, globals())
+
+from reel.web.localization import install as _install_localization
+_install_localization(app, ROOT, STATIC)
 
 app.mount("/", StaticFiles(directory=STATIC, html=True), name="static")

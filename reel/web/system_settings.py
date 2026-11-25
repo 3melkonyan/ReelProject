@@ -1,4 +1,6 @@
 """General administrator settings; no configuration, database or secret reads at import."""
+
+from reel.i18n import t as _t
 from contextlib import closing
 import json
 
@@ -22,7 +24,7 @@ def _style(database):
 def _check_admin(database, principal):
     row = database.conn.execute("SELECT role,active,removed_at,deleted_at FROM users WHERE id=?", (principal["id"],)).fetchone()
     if not row or row["role"] != "admin" or not row["active"] or row["removed_at"] or row["deleted_at"]:
-        raise HTTPException(403, "Կարգավորումները հասանելի են միայն ադմինիստրատորին։")
+        raise HTTPException(403, _t('system_settings.only_administrators_can_access_settings'))
 
 
 def _snapshot(database, root):
@@ -57,7 +59,7 @@ def make_router(env):
         env["admin"](request)
         principal = getattr(request.state, "principal", None)
         if not principal or type(principal.get("id")) is not int or principal.get("legacy"):
-            raise HTTPException(401, "Խնդրում ենք մուտք գործել անձնական հաշվով։")
+            raise HTTPException(401, _t('system_settings.sign_in_with_a_personal_account'))
         return principal
 
     @router.get("/system-settings")
@@ -73,15 +75,15 @@ def make_router(env):
         async for chunk in request.stream():
             raw.extend(chunk)
             if len(raw) > 4096:
-                raise HTTPException(413, "Հարցումը չափազանց մեծ է։")
+                raise HTTPException(413, _t('account_api.request_too_large'))
         try:
             values = json.loads(raw)
         except (ValueError, UnicodeError):
-            raise HTTPException(400, "Անվավեր հարցում։") from None
+            raise HTTPException(400, _t('access.invalid_request')) from None
         if (not isinstance(values, dict) or set(values) != {"default_thumbnail_style"}
                 or type(values["default_thumbnail_style"]) is not int
                 or not 0 <= values["default_thumbnail_style"] < len(thumbnail.STYLES)):
-            raise HTTPException(400, "Խնդրում ենք ընտրել շապիկի առաջարկվող ձևավորումներից մեկը։")
+            raise HTTPException(400, _t('system_settings.choose_one_of_the_available_thumbnail_designs'))
         database = env["db"]()
         with closing(database.conn):
             database.conn.execute("BEGIN IMMEDIATE")

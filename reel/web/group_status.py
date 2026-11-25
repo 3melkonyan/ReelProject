@@ -1,4 +1,6 @@
 """Calendar-based completion with manual overrides and no background scheduler."""
+
+from reel.i18n import t as _t
 from contextlib import closing
 from datetime import date, datetime
 import json
@@ -82,15 +84,15 @@ def make_router(env):
         async for chunk in request.stream():
             raw.extend(chunk)
             if len(raw) > 1024:
-                raise HTTPException(413, 'Հարցումը չափազանց մեծ է։')
+                raise HTTPException(413, _t('account_api.request_too_large'))
         try:
             data = json.loads(raw)
         except (ValueError, UnicodeError):
-            raise HTTPException(400, 'Անվավեր հարցում։') from None
+            raise HTTPException(400, _t('access.invalid_request')) from None
         if not isinstance(data, dict) or set(data) != {'completed'} or type(data['completed']) is not bool:
-            raise HTTPException(400, 'Ընտրեք խմբի «Ավարտված» վիճակը։')
+            raise HTTPException(400, _t('group_status.choose_completed_for_the_group_status'))
         if name not in known():
-            raise HTTPException(404, 'Խումբը չի գտնվել։')
+            raise HTTPException(404, _t('academy_api.group_not_found'))
         database = env['db']()
         with closing(database.conn):
             principal = getattr(request.state, 'principal', None) or {}

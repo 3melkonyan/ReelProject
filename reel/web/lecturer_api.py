@@ -1,6 +1,8 @@
 """Admin-only lecturer inspection and atomic per-job choices."""
 from __future__ import annotations
 
+from reel.i18n import t as _t
+
 import json
 import math
 import os
@@ -37,14 +39,14 @@ def _workdir(job_id: int) -> Path:
     base = ROOT / "work"
     directory = base / str(job_id)
     if base.is_symlink() or directory.is_symlink():
-        raise HTTPException(409, "Դասի աշխատանքային պանակը սովորական պանակ չէ։")
+        raise HTTPException(409, _t('lecturer_api.the_lesson_work_path_is_not_a'))
     return directory
 
 
 def _auto_dir(directory: Path) -> Path:
     auto = directory / "auto_refs"
     if auto.is_symlink():
-        raise HTTPException(409, "Դասախոսի նկարների պանակը սովորական պանակ չէ։")
+        raise HTTPException(409, _t('lecturer_api.the_lecturer_images_path_is_not_a'))
     return auto
 
 
@@ -97,7 +99,7 @@ def _job(database: DB, job_id: int):
     try:
         return database.job(job_id)
     except KeyError:
-        raise HTTPException(404, "Դասը չի գտնվել։") from None
+        raise HTTPException(404, _t('app.lesson_not_found')) from None
 
 
 def _can_choose(database: DB, job_id: int, job, stage) -> bool:
@@ -164,7 +166,7 @@ def lecturer(job_id: int, response: Response, _: str = Depends(require_admin)) -
 @router.get("/api/jobs/{job_id}/lecturer/{name:path}")
 def image(job_id: int, name: str, _: str = Depends(_image_admin)) -> Response:
     if not _IMAGE.fullmatch(name):
-        raise HTTPException(400, "Նկարի անունը սխալ է։")
+        raise HTTPException(400, _t('lecturer_api.invalid_image_name'))
     database = DB(ROOT / "reel.db")
     try:
         _job(database, job_id)
@@ -172,21 +174,21 @@ def image(job_id: int, name: str, _: str = Depends(_image_admin)) -> Response:
         database.conn.close()
     path = _auto_dir(_workdir(job_id)) / name
     if not _regular(path):
-        raise HTTPException(404, "Նկարը չի գտնվել։")
+        raise HTTPException(404, _t('lecturer_api.image_not_found'))
     try:
         content = path.read_bytes()
     except OSError:
-        raise HTTPException(404, "Նկարը չի գտնվել։") from None
+        raise HTTPException(404, _t('lecturer_api.image_not_found')) from None
     return Response(content, media_type="image/jpeg", headers={"Cache-Control": "no-store"})
 
 
 def _centre(report: dict, rank: int) -> list[float]:
     centres = report.get("centres")
     if not isinstance(centres, list) or rank > len(centres):
-        raise HTTPException(409, "Ընտրված անձի ճանաչման տվյալները բացակայում են․ թարմացրու էջը։")
+        raise HTTPException(409, _t('lecturer_api.recognition_data_for_the_selected_person_is'))
     vector = centres[rank - 1]
     if not isinstance(vector, list) or len(vector) != 128 or any(_number(v) is None for v in vector):
-        raise HTTPException(409, "Ընտրված անձի ճանաչման տվյալները անվավեր են․ թարմացրու էջը։")
+        raise HTTPException(409, _t('lecturer_api.recognition_data_for_the_selected_person_is_2'))
     return [float(v) for v in vector]
 
 
@@ -206,13 +208,13 @@ def _write_choice(directory: Path, value: dict) -> None:
 
 def _save_choice(job_id: int, body: dict) -> dict:
     if len(body) != 1 or next(iter(body)) not in ("identity", "none", "clear"):
-        raise HTTPException(400, "Ընտրիր մեկ գործողություն՝ identity, none կամ clear։")
+        raise HTTPException(400, _t('lecturer_api.choose_one_action_identity_none_or_clear'))
     action = next(iter(body))
     if action == "identity":
         if type(body[action]) is not int or not 1 <= body[action] <= 6:
-            raise HTTPException(400, "Անձի համարը պետք է լինի 1-ից 6 ամբողջ թիվ։")
+            raise HTTPException(400, _t('lecturer_api.the_person_number_must_be_an_integer'))
     elif body[action] is not True:
-        raise HTTPException(400, "none/clear գործողության արժեքը պետք է լինի true։")
+        raise HTTPException(400, _t('lecturer_api.the_value_for_none_or_clear_must'))
     with _CHOICE_LOCK:
         database = DB(ROOT / "reel.db")
         try:
@@ -222,7 +224,7 @@ def _save_choice(job_id: int, body: dict) -> dict:
             job = _job(database, job_id)
             stage = database.stage(job_id, "blur")
             if not _can_choose(database, job_id, job, stage):
-                raise HTTPException(409, "Ընտրությունը հիմա փոխել չի կարելի․ դասը մշակում է, մշուշումն ավարտված է կամ այն արդեն YouTube-ում է։")
+                raise HTTPException(409, _t('lecturer_api.you_cannot_change_the_selection_now_the'))
             directory = _workdir(job_id)
             if action == "clear":
                 (directory / "lecturer_choice.json").unlink(missing_ok=True)
@@ -233,14 +235,14 @@ def _save_choice(job_id: int, body: dict) -> dict:
                 identities = report.get("identities")
                 rank = body["identity"]
                 if not isinstance(identities, list) or rank > min(6, len(identities)):
-                    raise HTTPException(400, "Այդ համարով անձ չկա․ թարմացրու էջը։")
+                    raise HTTPException(400, _t('lecturer_api.no_person_with_this_number_exists_refresh'))
                 value.update(identity=rank, centre=_centre(report, rank))
             else:
                 value["none"] = True
             _write_choice(directory, value)
             return {"ok": True, "choice": _choice(value)}
         except OSError as exc:
-            raise HTTPException(500, "Չհաջողվեց պահպանել ընտրությունը։ Փորձիր կրկին։") from exc
+            raise HTTPException(500, _t('lecturer_api.the_selection_could_not_be_saved_try')) from exc
         finally:
             database.conn.rollback()  # No DB records changed; release the short writer reservation.
             database.conn.close()
@@ -251,7 +253,7 @@ async def choose_lecturer(job_id: int, request: Request, _: str = Depends(requir
     try:
         body = await request.json()
     except ValueError:
-        raise HTTPException(400, "Սպասվում է JSON օբյեկտ։") from None
+        raise HTTPException(400, _t('admin.expected_a_json_object')) from None
     if not isinstance(body, dict):
-        raise HTTPException(400, "Սպասվում է JSON օբյեկտ։")
+        raise HTTPException(400, _t('admin.expected_a_json_object'))
     return await run_in_threadpool(_save_choice, job_id, body)

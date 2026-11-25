@@ -1,6 +1,8 @@
 """Group calendars and display-only teams, kept out of worker configuration."""
 from __future__ import annotations
 
+from reel.i18n import t as _t
+
 from contextlib import closing
 from datetime import date
 import json
@@ -79,36 +81,36 @@ def _dates(start, end, label):
             raise ValueError()
         return start, end
     except (ValueError, TypeError):
-        raise HTTPException(400, label + '․ նշեք սկիզբն ու ավարտը YYYY-MM-DD ձևաչափով, ավարտը՝ սկզբից ոչ շուտ։') from None
+        raise HTTPException(400, label + _t('group_management.enter_start_and_end_dates_in_yyyy')) from None
 
 
 def save_details(database, name, group, payload, *, actor=None, today=None, demo_tag=None):
     """Validate membership under the same write reservation as the saved assignment."""
     from reel.audit import write_event
     if not isinstance(payload, dict) or set(payload) != {'course_start','course_end','subjects','ta_ids'}:
-        raise HTTPException(400, 'Լրացրեք դասընթացի ժամկետները, առարկաները և օգնականների ցանկը։')
-    start, end = _dates(payload['course_start'], payload['course_end'], 'Դասընթացի ժամկետներ')
+        raise HTTPException(400, _t('group_management.enter_course_dates_subjects_and_assistants'))
+    start, end = _dates(payload['course_start'], payload['course_end'], _t('group_management.course_dates'))
     if not isinstance(payload['subjects'], list) or len(payload['subjects']) != len(group['subjects']):
-        raise HTTPException(400, 'Նշեք խմբի յուրաքանչյուր առարկան մեկ անգամ։')
+        raise HTTPException(400, _t('group_management.include_each_group_subject_exactly_once'))
     configured = {subject['name'].casefold():subject['name'] for subject in group['subjects']}
     seen, periods = set(), []
     for item in payload['subjects']:
         if not isinstance(item, dict) or set(item) != {'name','lecturer_id','start_date','end_date'} or not isinstance(item['name'], str):
-            raise HTTPException(400, 'Առարկայի համար նշեք անունը, դասախոսին և ժամկետները։')
+            raise HTTPException(400, _t('group_management.enter_the_subject_name_lecturer_and_dates'))
         key = item['name'].casefold()
         if key not in configured or key in seen:
-            raise HTTPException(400, 'Առարկան բացակայում է կամ կրկնվում է։')
+            raise HTTPException(400, _t('group_management.a_subject_is_missing_or_duplicated'))
         seen.add(key)
-        begin, finish = _dates(item['start_date'], item['end_date'], 'Առարկայի ժամկետներ')
+        begin, finish = _dates(item['start_date'], item['end_date'], _t('group_management.subject_dates'))
         if begin and (not start or begin < start or finish > end):
-            raise HTTPException(400, 'Առարկայի ժամկետները պետք է լինեն դասընթացի ժամկետների ներսում։')
+            raise HTTPException(400, _t('group_management.subject_dates_must_fall_within_the_course'))
         ident = item['lecturer_id']
         if ident is not None and (type(ident) is not int or ident <= 0):
-            raise HTTPException(400, 'Ընտրեք խմբին կցված ակտիվ դասախոսի հաշիվը։')
+            raise HTTPException(400, _t('group_management.choose_an_active_lecturer_account_assigned_to'))
         periods.append({'name':configured[key], 'lecturer_id':ident, 'start_date':begin, 'end_date':finish})
     ta_ids = payload['ta_ids']
     if not isinstance(ta_ids, list) or len(ta_ids) > 100 or any(type(ident) is not int or ident <= 0 for ident in ta_ids):
-        raise HTTPException(400, 'Օգնականներին ընտրեք խմբի ակտիվ ուսանողներից։')
+        raise HTTPException(400, _t('group_management.choose_assistants_from_the_group_s_active'))
     ta_ids = list(dict.fromkeys(ta_ids))
     owns_transaction = not database.conn.in_transaction
     if owns_transaction:
@@ -117,9 +119,9 @@ def save_details(database, name, group, payload, *, actor=None, today=None, demo
         lecturer_ids = {person['id'] for person in eligible_people(database, name, 'lecturer')}
         student_ids = {person['id'] for person in eligible_people(database, name, 'student')}
         if any(period['lecturer_id'] is not None and period['lecturer_id'] not in lecturer_ids for period in periods):
-            raise HTTPException(400, 'Դասախոսը պետք է լինի այս խմբին կցված ակտիվ դասախոս։')
+            raise HTTPException(400, _t('group_management.the_lecturer_must_be_an_active_lecturer'))
         if any(ident not in student_ids for ident in ta_ids):
-            raise HTTPException(400, 'Օգնականը պետք է լինի այս խմբի ակտիվ ուսանող։')
+            raise HTTPException(400, _t('group_management.the_assistant_must_be_an_active_student'))
         old = _metadata(database, name)
         override = old['status_override']
         if end != old['course_end'] and end and end >= calendar_day(today).isoformat():
@@ -174,7 +176,7 @@ def notify_expired(database, config, notifier, today=None):
                     details={'reason':'schedule','end_date':meta['course_end']})
         sent = False
         try:
-            notifier(group['slack_channel'], f"«{name}» խմբի դասընթացն ավարտվել է {meta['course_end']}-ին։ Պատմությունն ու դասերը պահպանված են։")
+            notifier(group['slack_channel'], _t('group_management.the_course_for_group_group_ended_on', group=name, date=meta['course_end']))
             sent = True
         except Exception:
             pass
@@ -216,14 +218,14 @@ def _styles(root, config):
     from reel import thumbnail
     path = root / 'thumbnail_styles.json'
     if path.is_symlink():
-        raise HTTPException(409, 'Նկարների ոճերի ֆայլի ուղին անվավեր է։')
+        raise HTTPException(409, _t('group_management.invalid_thumbnail_styles_file_path'))
     try:
         stored = json.loads(path.read_text(encoding='utf-8'))
         if not isinstance(stored,dict):raise ValueError()
     except FileNotFoundError:
         stored = {}
     except (OSError,ValueError):
-        raise HTTPException(409, 'Նկարների ոճերի ֆայլը հնարավոր չէ կարդալ։') from None
+        raise HTTPException(409, _t('group_management.the_thumbnail_styles_file_cannot_be_read')) from None
     used = {value for value in stored.values() if type(value) is int and 0 <= value < len(thumbnail.STYLES)}
     result = {}
     for name in config['groups']:
@@ -243,12 +245,12 @@ def make_router(env):
     def group(config,name):
         accounts.require_group(name)
         if name not in config['groups']:
-            raise HTTPException(404,'Խումբը չի գտնվել։')
+            raise HTTPException(404,_t('academy_api.group_not_found'))
         return config['groups'][name]
     @router.get('/api/group-cards')
     def cards(status:str='all',_=Depends(env['role'])):
         if status not in ('all','active','completed'):
-            raise HTTPException(400,'Ընտրեք խմբերի վավեր կարգավիճակ։')
+            raise HTTPException(400,_t('group_management.choose_a_valid_group_status'))
         config = known();database = env['db']()
         with closing(database.conn):
             # Only an explicitly supplied callback can send a notification.
@@ -289,9 +291,9 @@ def make_router(env):
         raw=bytearray()
         async for chunk in request.stream():
             raw.extend(chunk)
-            if len(raw)>32768:raise HTTPException(413,'Հարցումը չափազանց մեծ է։')
+            if len(raw)>32768:raise HTTPException(413,_t('account_api.request_too_large'))
         try:payload=json.loads(raw)
-        except (ValueError,UnicodeError):raise HTTPException(400,'Անվավեր հարցում։') from None
+        except (ValueError,UnicodeError):raise HTTPException(400,_t('access.invalid_request')) from None
         def save():
             from reel.web.admin import _CONFIG_LOCK
             with _CONFIG_LOCK:

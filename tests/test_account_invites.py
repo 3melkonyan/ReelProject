@@ -10,6 +10,7 @@ from urllib.parse import urlencode
 from fastapi import HTTPException
 import pytest
 
+from reel.i18n import t
 from reel.db import DB
 from reel.web import accounts as a
 from test_web_upload import web
@@ -174,7 +175,7 @@ def test_delete_is_removed_only_anonymizes_tokens_and_retains_history(web):
     assert admin.call('POST', f'/api/accounts/users/{uid}/remove')[0] == 200
     assert admin.call('POST', f'/api/accounts/users/{uid}/delete')[0] == 200
     detail = admin.call('GET', f'/api/accounts/users/{uid}')[1]
-    assert detail['name'] == a.DELETED_USER_LABEL and detail['deleted'] and detail['removed']
+    assert detail['name'] == t(a.DELETED_USER_LABEL_KEY, language='hy') and detail['deleted'] and detail['removed']
     assert detail['email'] != 'private-person@example.test' and detail['groups'] == [] and detail['avatar'] is None
     d = DB(web.root / 'reel.db')
     with closing(d.conn):
@@ -289,7 +290,7 @@ def test_email_validation_failure_and_resend_snapshot_change_issue_no_new_tokens
         d = DB(web.root / 'reel.db')
         with closing(d.conn):
             d.conn.execute('UPDATE account_tokens SET payload=?,revoked_at=? WHERE id=?',
-                           (json.dumps({'name':a.DELETED_USER_LABEL, 'email':'', 'role':'student', 'groups':[]}),
+                           (json.dumps({'name':t(a.DELETED_USER_LABEL_KEY, language='hy'), 'email':'', 'role':'student', 'groups':[]}),
                             time.time(), invitation['id']))
         return []
 
@@ -419,7 +420,7 @@ def test_idna_removal_and_anonymization_revoke_unicode_and_ascii_email_only_toke
     with closing(d.conn):
         for tid in ids:
             payload = json.loads(d.conn.execute('SELECT payload FROM account_tokens WHERE id=?', (tid,)).fetchone()[0])
-            assert payload['email'] == '' and payload['name'] == a.DELETED_USER_LABEL
+            assert payload['email'] == '' and payload['name'] == t(a.DELETED_USER_LABEL_KEY, language='hy')
 
 
 def test_idna_duplicate_invites_and_resend_match_legacy_payload_aliases(web, mail):

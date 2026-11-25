@@ -47,5 +47,5 @@ def catalog(language: str) -> Mapping[str, str]:
 
 def t(key: str, *, language: str | None = None, **values: object) -> str:
     """Look up a message; missing keys and interpolation values fail visibly."""
-    text = catalog(language or current_language())[key]
+    text = catalog(current_language() if language is None else language)[key]
     return text.format_map(values)

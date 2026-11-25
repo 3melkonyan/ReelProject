@@ -1,5 +1,7 @@
 """Role-scoped library/statistics and privacy-safe transition previews."""
 from __future__ import annotations
+
+from reel.i18n import t as _t
 from contextlib import closing
 import fcntl
 import hashlib
@@ -36,7 +38,7 @@ def make_router(env):
         if not plan or 'cuts' not in plan:
             file = env['WORK']/str(job_id)/'segments.json'
             plan = env['_read_json'](file) or plan
-        if not plan: return {'available':False, 'message':'Տվյալ չկա'}
+        if not plan: return {'available':False, 'message':_t('insights.no_data')}
         if 'cut_summary' in plan: return {'available':True, **plan['cut_summary']}
         transcript = env['_read_json'](env['WORK']/str(job_id)/'transcript'/'transcript.json')
         return {'available':True, **cut_summary(plan, transcript, d.stage_output(job_id, 'join')),
@@ -52,7 +54,7 @@ def make_router(env):
         from reel.config import load_config
         cfg = load_config(str(env['ROOT']/'config.yaml'))
         result = statistics(env['db'](), cfg.get('time_savings'), groups=account_auth.groups())
-        labels = dict(env['STAGES'])
+        labels = env['stage_labels']()
         for item in result['slow_stages']:
             item['label'] = labels.get(item['stage'], item['stage'])
         return result
@@ -63,12 +65,12 @@ def make_router(env):
         data = summary(job_id)
         cuts = data.get('cuts', [])
         if index < 0 or index >= len(cuts): raise HTTPException(404, 'cut not found')
-        if not env['_privacy_passed'](job_id): raise HTTPException(403, 'Գաղտնիության ստուգումը դեռ չի ավարտվել։')
+        if not env['_privacy_passed'](job_id): raise HTTPException(403, _t('insights.the_privacy_check_has_not_finished_yet'))
         root = env['WORK'].resolve(); source = env['WORK']/str(job_id)/'final_blurred.mp4'
         # Fixed filename only; reject symlinks at every descendant component.
         if source.parent.is_symlink() or source.is_symlink() or not source.resolve().is_relative_to(root):
             raise HTTPException(403, 'unsafe media path')
-        if not source.is_file(): raise HTTPException(410, 'Վերջնական մշուշված ֆայլը հեռացված է․ անցման preview-ն անհասանելի է։')
+        if not source.is_file(): raise HTTPException(410, _t('insights.the_final_blurred_file_has_been_removed'))
         point = float(cuts[index]['final_boundary']); final = float(data.get('final_sec') or 0)
         start = max(0, min(point-5, max(0, final-10)))
         key = hashlib.sha256(f'{source.stat().st_mtime_ns}:{source.stat().st_size}:{start}'.encode()).hexdigest()[:24]
@@ -81,20 +83,20 @@ def make_router(env):
         return source, destination, start
     def encode(source, destination, start):
         if destination.is_file() and not destination.is_symlink(): return
-        if not _ENCODE.acquire(blocking=False): raise HTTPException(409, 'Մեկ այլ preview է պատրաստվում․ կրկին փորձիր։')
+        if not _ENCODE.acquire(blocking=False): raise HTTPException(409, _t('insights.another_preview_is_being_prepared_try_again'))
         lock = None; tmp = None
         try:
             lock = os.open(destination.parent.parent/'.encode.lock', os.O_CREAT|os.O_RDWR|os.O_NOFOLLOW, 0o600)
             try: fcntl.flock(lock, fcntl.LOCK_EX|fcntl.LOCK_NB)
-            except BlockingIOError: raise HTTPException(409, 'Preview-ն զբաղված է․ կրկին փորձիր։') from None
+            except BlockingIOError: raise HTTPException(409, _t('insights.the_preview_is_busy_try_again')) from None
             with tempfile.NamedTemporaryFile(dir=destination.parent, suffix='.part.mp4', delete=False) as handle:
                 tmp = Path(handle.name)
             subprocess.run(['nice','-n','15','ffmpeg','-nostdin','-v','error','-y','-ss',str(start),'-i',str(source),
                             '-t','10','-vf','scale=-2:480','-c:v','libx264','-preset','veryfast','-threads','1',
                             '-c:a','aac','-movflags','+faststart',str(tmp)], capture_output=True, check=True, timeout=90)
             tmp.replace(destination)
-        except subprocess.TimeoutExpired: raise HTTPException(504, 'Preview-ի պատրաստման ժամանակը սպառվեց։') from None
-        except subprocess.CalledProcessError: raise HTTPException(500, 'Preview-ն պատրաստել չհաջողվեց։') from None
+        except subprocess.TimeoutExpired: raise HTTPException(504, _t('insights.preview_preparation_timed_out')) from None
+        except subprocess.CalledProcessError: raise HTTPException(500, _t('insights.the_preview_could_not_be_prepared')) from None
         finally:
             if tmp is not None: tmp.unlink(missing_ok=True)
             if lock is not None: os.close(lock)
@@ -108,6 +110,6 @@ def make_router(env):
     @router.get('/jobs/{job_id}/cuts/{index}/preview')
     def preview(job_id: int, index: int, _: str = Depends(reader)):
         _, destination, _ = location(job_id, index)
-        if destination.is_symlink() or not destination.is_file(): raise HTTPException(404, 'Նախ պատրաստիր preview-ն։')
+        if destination.is_symlink() or not destination.is_file(): raise HTTPException(404, _t('insights.prepare_the_preview_first'))
         return FileResponse(destination, media_type='video/mp4', headers={'Cache-Control':'private, no-store'})
     return router

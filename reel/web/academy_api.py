@@ -1,4 +1,6 @@
 """Academy presentation endpoints, mounted independently at each design checkpoint."""
+
+from reel.i18n import t as _t
 from contextlib import closing
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -12,18 +14,18 @@ def make_router(env,sections=('overview','lessons','stats')):
     def reader(request:Request):
         who=env['authenticated'](request)
         if who not in ('admin','lecturer','viewer','uploader'):
-            raise HTTPException(403,'Այս բաժինը հասանելի է դասախոսի, վերբեռնողի, դիտորդի կամ ադմինի հաշվով։')
+            raise HTTPException(403,_t('academy_api.sign_in_as_a_lecturer_uploader_viewer'))
         return getattr(request.state,'principal',None) or accounts.PRINCIPAL.get()
     def call(function,principal,**filters):
         from reel.config import load_config
         try:config=load_config(str(env['ROOT']/'config.yaml'))
-        except ValueError:raise HTTPException(503,'Կարգավորումները հիմա հնարավոր չէ կարդալ։') from None
+        except ValueError:raise HTTPException(503,_t('academy_api.settings_cannot_be_read_right_now')) from None
         database=env['db']()
         with closing(database.conn):
             try:return function(database,config,env['ROOT'],principal,**filters)
-            except PermissionError:raise HTTPException(403,'Դուք այս բաժինը դիտելու իրավունք չունեք։') from None
-            except LookupError:raise HTTPException(404,'Խումբը չի գտնվել։') from None
-            except ValueError:raise HTTPException(400,'Ընտրեք վավեր զտիչներ։') from None
+            except PermissionError:raise HTTPException(403,_t('academy_api.you_do_not_have_permission_to_view')) from None
+            except LookupError:raise HTTPException(404,_t('academy_api.group_not_found')) from None
+            except ValueError:raise HTTPException(400,_t('academy_api.choose_valid_filters')) from None
     if 'overview' in sections:
         @router.get('/overview')
         def overview(principal=Depends(reader)):

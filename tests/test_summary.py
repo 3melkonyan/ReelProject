@@ -124,7 +124,8 @@ def test_summary_stage_success_and_model_unavailable(tmp_path, monkeypatch):
 
 def test_summary_stage_runs_right_after_metadata():
     from reel.stages import STAGES
-    from reel.web.labels import STAGE_LABEL
+    from reel.web.labels import stage_labels
+    STAGE_LABEL = stage_labels()
     names = [name for name, _ in STAGES]
     assert names.index("summary") == names.index("metadata") + 1 and STAGE_LABEL["summary"]
 

@@ -33,7 +33,10 @@ def test_all_entrypoint_manifest_and_css_resources_are_local_and_exist():
     urls += re.findall(r'url\(["\']?([^\)"\']+)', (STATIC / 'app.css').read_text())
     for url in urls:
         assert url.startswith('/') and not url.startswith('//'), url
-        assert (STATIC / url.lstrip('/')).is_file(), url
+        if url == '/i18n-data.js':
+            assert '@app.get("/i18n-data.js"' in (STATIC.parent / 'localization.py').read_text()
+        else:
+            assert (STATIC / url.lstrip('/')).is_file(), url
     assert 'Noto Sans Armenian' in (STATIC / 'app.css').read_text()
     assert (STATIC / 'brand/OFL-NotoSansArmenian.txt').is_file()
 

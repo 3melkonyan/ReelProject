@@ -2,6 +2,7 @@ import json
 import pytest
 from fastapi import HTTPException
 from reel.db import DB
+from reel.i18n import t
 from reel.web import privacy
 from test_web_upload import web
 from test_accounts import invite,PASSWORD
@@ -46,6 +47,6 @@ def test_junior_guardian_requirement_cannot_be_spoofed():
 
 
 def test_policy_public_but_requests_personal(web):
-    c=web.client();assert c.call('GET','/api/privacy/policy')[1]['notice']==privacy.NOTICE
+    c=web.client();assert c.call('GET','/api/privacy/policy')[1]['notice']==t(privacy.NOTICE_KEY, language='hy')
     assert c.call('GET','/api/privacy/requests')[0]==401
     assert web.client('viewer').call('GET','/api/privacy/requests')[0]==401

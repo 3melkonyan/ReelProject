@@ -1,4 +1,6 @@
 """One request boundary for personal-session validity, CSRF and group authorization."""
+
+from reel.i18n import t as _t
 import json,re
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.datastructures import MutableHeaders
@@ -27,7 +29,7 @@ def install(app,env):
         try:
             path=request.url.path
             if path.startswith('/api/') and request.method in ('POST','PUT','DELETE','PATCH'):
-                if request.headers.get('x-requested-with')!='reel':raise HTTPException(400,'Անվավեր հարցում։')
+                if request.headers.get('x-requested-with')!='reel':raise HTTPException(400,_t('access.invalid_request'))
             principal=None;session=request.session
             if session.get('user_id') is not None:
                 d=env['db']()
@@ -35,16 +37,16 @@ def install(app,env):
                 finally:d.conn.close()
                 if not row or not row['active'] or session.get('session_version')!=row['session_version']:
                     session.clear()
-                    if path.startswith('/api/'):raise HTTPException(401,'Սեսիան ավարտվել է։ Կրկին մուտք գործեք։')
+                    if path.startswith('/api/'):raise HTTPException(401,_t('access.your_session_has_expired_sign_in_again'))
                 else:
                     principal=a.public_user(row);session['role']=row['role']
             elif session.get('bootstrap'):
                 d=env['db']()
                 try:exists=d.conn.execute('SELECT count(*) FROM users').fetchone()[0]
                 finally:d.conn.close()
-                if exists:session.clear();raise HTTPException(401,'Կրկին մուտք գործեք։')
+                if exists:session.clear();raise HTTPException(401,_t('access.sign_in_again'))
                 if path.startswith('/api/') and path not in ('/api/me','/api/logout','/api/accounts/bootstrap'):
-                    raise HTTPException(403,'Նախ ստեղծեք ադմինի անձնական հաշիվը։')
+                    raise HTTPException(403,_t('access.create_a_personal_administrator_account_first'))
             elif session.get('role'):
                 d=env['db']()
                 try:
@@ -53,11 +55,11 @@ def install(app,env):
                 finally:d.conn.close()
                 if session.get('role')=='admin':
                     if user_count:
-                        session.clear();raise HTTPException(401,'Մուտք գործեք անձնական ադմինի հաշվով։')
+                        session.clear();raise HTTPException(401,_t('access.sign_in_with_a_personal_administrator_account'))
                     session.clear();session.update(role='bootstrap',bootstrap=True)
                     if path.startswith('/api/') and path not in ('/api/me','/api/logout','/api/accounts/bootstrap'):
-                        raise HTTPException(403,'Նախ ստեղծեք ադմինի հաշիվը։')
-                if not enabled:session.clear();raise HTTPException(401,'Մուտք գործեք անձնական հաշվով։')
+                        raise HTTPException(403,_t('access.create_an_administrator_account_first'))
+                if not enabled:session.clear();raise HTTPException(401,_t('access.sign_in_with_a_personal_account'))
                 principal={'role':session['role'],'legacy':True,'groups':[]}
             request.state.principal=principal;token=a.PRINCIPAL.set(principal)
             if principal and not principal.get('legacy') and principal['role']!='admin':
@@ -69,7 +71,7 @@ def install(app,env):
                         d=env['db']()
                         try:
                             try:job=d.job(jid)
-                            except KeyError:raise HTTPException(404,'Չի գտնվել։') from None
+                            except KeyError:raise HTTPException(404,_t('access.not_found')) from None
                             a.require_group(job['grp'])
                         finally:d.conn.close()
                 if path=='/api/uploads/next-number':a.require_group(request.query_params.get('group'))
@@ -83,7 +85,7 @@ def install(app,env):
                             jid=receipt.get('job_id') or receipt.get('duplicate_of');d=env['db']()
                             try:
                                 try:a.require_group(d.job(jid)['grp'])
-                                except KeyError:raise HTTPException(404,'Չի գտնվել։') from None
+                                except KeyError:raise HTTPException(404,_t('access.not_found')) from None
                             finally:d.conn.close()
             response=await call_next(request)
             if path.startswith('/api/') and 'cache-control' not in response.headers:

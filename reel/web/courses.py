@@ -1,4 +1,6 @@
 """Course-first presentation over the existing group, schedule and team records."""
+
+from reel.i18n import t as _t
 from contextlib import closing
 import json,re
 from pathlib import Path
@@ -6,11 +8,11 @@ from fastapi import APIRouter,HTTPException,Request
 from reel.web import accounts
 from reel.web.group_management import group_snapshot,save_details,eligible_people
 
-NAMES={'ai-appdev':'Արհեստական բանականությամբ հավելվածների մշակում','ai-devhack':'Արհեստական բանականություն և կիբեռանվտանգություն','ai-graphic':'Գրաֆիկական դիզայն','ai-junior':'Արհեստական բանականություն պատանիների համար','ai-modern':'Ժամանակակից ծրագրավորում','ai-uxui':'Փոխգործակցության և միջերեսի դիզայն','conscripts-1991':'Ծրագրավորում զինակոչիկների համար · 1991','conscripts-atmk':'Ծրագրավորում զինակոչիկների համար · ԱՏՄԿ'}
+NAMES={'ai-appdev':'courses.ai_application_development','ai-devhack':'courses.ai_and_cybersecurity','ai-graphic':'courses.graphic_design','ai-junior':'courses.ai_for_teenagers','ai-modern':'courses.modern_programming','ai-uxui':'courses.interaction_and_interface_design','conscripts-1991':'courses.programming_for_conscripts_1991','conscripts-atmk':'courses.programming_for_conscripts_atmk'}
 
 def catalog():
     rows=json.loads((Path(__file__).resolve().parents[2]/'tools/demo_courses.json').read_text())['courses']
-    return [{**r,'label':NAMES[r['id']]} for r in rows]
+    return [{**r,'label':_t(NAMES[r['id']])} for r in rows]
 
 def course_id(name):
     norm=lambda x:' '.join(re.sub(r'[^\w\s]',' ',x.casefold()).split())
@@ -23,7 +25,7 @@ def course_id(name):
 def short_group(name,ident=None):
     suffix=re.search(r'(\d+\.\d+)$',name)
     ident=ident or course_id(name)
-    prefix={'ai-modern':'AI','ai-appdev':'Հավելվածներ','ai-devhack':'Անվտանգություն','ai-graphic':'Դիզայն','ai-junior':'Պատանիներ','ai-uxui':'Միջերես','conscripts-1991':'1991','conscripts-atmk':'ԱՏՄԿ'}.get(ident)
+    prefix={'ai-modern':'AI','ai-appdev':_t('courses.applications'),'ai-devhack':_t('courses.security'),'ai-graphic':_t('courses.design'),'ai-junior':_t('courses.teenagers'),'ai-uxui':_t('courses.interface'),'conscripts-1991':'1991','conscripts-atmk':_t('courses.atmk')}.get(ident)
     return (prefix+' '+suffix[1]) if suffix and prefix else name
 
 def make_router(env):
@@ -34,7 +36,7 @@ def make_router(env):
     def access(request,name):
         env['authenticated'](request);accounts.require_group(name)
         cfg=config()
-        if name not in cfg['groups']:raise HTTPException(404,'Խումբը չի գտնվել։')
+        if name not in cfg['groups']:raise HTTPException(404,_t('academy_api.group_not_found'))
         return cfg['groups'][name]
     def snapshot(d,name,item):
         result=group_snapshot(d,name,item)
@@ -46,7 +48,7 @@ def make_router(env):
         raw=bytearray()
         async for chunk in request.stream():
             raw.extend(chunk)
-            if len(raw)>limit:raise HTTPException(413,'Հարցումը չափազանց մեծ է։')
+            if len(raw)>limit:raise HTTPException(413,_t('account_api.request_too_large'))
         return raw
     @router.get('/api/courses')
     def courses(request:Request):
@@ -82,7 +84,7 @@ def make_router(env):
         try:
             data=json.loads(raw)
             if set(data)!={'course_id'} or data['course_id'] not in {c['id'] for c in catalog()}:raise ValueError()
-        except (ValueError,TypeError):raise HTTPException(400,'Ընտրեք դասընթացը։') from None
+        except (ValueError,TypeError):raise HTTPException(400,_t('courses.choose_a_course')) from None
         with closing(env['db']().conn) as conn:
             conn.execute('INSERT INTO group_course_links VALUES(?,?) ON CONFLICT(name) DO UPDATE SET course_id=excluded.course_id',(name,data['course_id']))
             from reel.audit import audit_connection
@@ -104,7 +106,7 @@ def make_router(env):
         try:
             payload=json.loads(raw)
             if set(payload)!= {'ta_ids'}:raise ValueError()
-        except (ValueError,TypeError):raise HTTPException(400,'Ընտրեք ուսանող օգնականներին։') from None
+        except (ValueError,TypeError):raise HTTPException(400,_t('courses.choose_student_assistants')) from None
         d=env['db']()
         with closing(d.conn):
             before=group_snapshot(d,name,item)

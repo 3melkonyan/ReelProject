@@ -1,4 +1,6 @@
 """Read-only metadata-only demo lessons for the separate library implementation."""
+
+from reel.i18n import t as _t
 from contextlib import closing
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -11,7 +13,7 @@ def make_router(env):
 
     def reader(request: Request):
         if env['authenticated'](request) not in ('admin', 'viewer', 'student', 'lecturer'):
-            raise HTTPException(403, 'Ցուցադրական դասերը հասանելի չեն այս դերին։')
+            raise HTTPException(403, _t('demo_api.demo_lessons_are_not_available_to_this'))
 
     @router.get('/api/demo/lessons', dependencies=[Depends(reader)])
     def lessons():
