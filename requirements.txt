@@ -4,7 +4,7 @@ uvicorn[standard]>=0.29
 itsdangerous>=2.1
 python-multipart>=0.0.9
 opencv-python-headless>=4.9,<5
-PyYAML>=6
+PyYAML>=6.0.4
 numpy>=1.26
 mlx-whisper; sys_platform == "darwin" and platform_machine == "arm64"
 google-api-python-client>=2.100
