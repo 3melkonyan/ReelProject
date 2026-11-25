@@ -1,0 +1,108 @@
+"""Independent web-side problem monitor. Never starts/stops the processing worker.
+
+One delivery per incident/recipient/channel. Delivery is claimed durably BEFORE the
+external call: a timeout/crash is left for operator review rather than sending duplicates.
+"""
+from __future__ import annotations
+import asyncio,json,logging,os,shutil,time
+from contextlib import closing
+from pathlib import Path
+from reel import brand_mail
+
+log=logging.getLogger(__name__)
+INTERVAL=60
+LOW_DISK_BYTES=5*1024**3
+
+
+def ensure(conn):
+    conn.execute('CREATE TABLE IF NOT EXISTS monitor_incidents(key TEXT PRIMARY KEY, active INTEGER NOT NULL, generation INTEGER NOT NULL)')
+    conn.execute('CREATE TABLE IF NOT EXISTS notification_delivery(key TEXT NOT NULL, recipient TEXT NOT NULL, channel TEXT NOT NULL, state TEXT NOT NULL, created_at REAL NOT NULL, PRIMARY KEY(key,recipient,channel))')
+
+
+def once(conn,key,recipient,channel,send):
+    ensure(conn)
+    cur=conn.execute("INSERT OR IGNORE INTO notification_delivery VALUES(?,?,?,'sending',?)",(key,recipient,channel,time.time()))
+    if not cur.rowcount:return False
+    try:ok=bool(send())
+    except Exception:ok=False
+    conn.execute('UPDATE notification_delivery SET state=? WHERE key=? AND recipient=? AND channel=?',('sent' if ok else 'failed',key,recipient,channel))
+    from reel.audit import audit_connection
+    audit_connection(conn,None,'alert.delivery' if key.startswith('alert:') else 'report.delivery','notification',{'status':'sent' if ok else 'failed','target':channel})
+    return ok
+
+
+def slack_admin(email,text):
+    """Direct message to the administrator, never to a class/operator group channel."""
+    from reel.publish.slack import _client
+    client=_client();user=client.users_lookupByEmail(email=email)['user']['id']
+    channel=client.conversations_open(users=user)['channel']['id']
+    result=client.chat_postMessage(channel=channel,text=text,mrkdwn=False,unfurl_links=False,unfurl_media=False)
+    return bool(result.get('ts'))
+
+
+def worker_alive(root):
+    try:
+        value=json.loads((Path(root)/'out/worker.json').read_text());pid=value.get('pid')
+        if isinstance(pid,bool) or not isinstance(pid,int) or pid<=0:return False
+        os.kill(pid,0);return True
+    except (OSError,ValueError,TypeError):return False
+
+
+def conditions(conn,root,*,alive=None,free=None):
+    alive=worker_alive(root) if alive is None else alive
+    free=shutil.disk_usage(root).free if free is None else free
+    found={}
+    if free<LOW_DISK_BYTES:found['disk']='Սկավառակի ազատ տեղը 5 ԳԲ-ից քիչ է։ Ստուգեք պահեստը։'
+    # An idle intentionally stopped worker is not an incident.
+    if not alive and conn.execute("SELECT 1 FROM jobs WHERE status='running' LIMIT 1").fetchone():
+        found['worker']='Մշակող գործընթացը չի աշխատում, մինչ դասը նշված է որպես մշակվող։'
+    for row in conn.execute("SELECT job_id,name FROM stages WHERE status='failed' AND (name LIKE 'youtube%' OR name LIKE 'slack%')"):
+        found[f'connection:{row[0]}:{row[1]}']=f'Դաս {row[0]}․ '+('YouTube' if row[1].startswith('youtube') else 'Slack')+' կապի/հրապարակման սխալ։ Ստուգեք վահանակը։'
+    return found
+
+
+def poll(conn,root,*,alive=None,free=None,email=None,slack=None):
+    ensure(conn);active=conditions(conn,root,alive=alive,free=free)
+    # Values sent outside do not include raw errors, tokens, paths or transcript contents.
+    for old in conn.execute('SELECT key FROM monitor_incidents WHERE active=1').fetchall():
+        if old[0] not in active:conn.execute('UPDATE monitor_incidents SET active=0 WHERE key=?',(old[0],))
+    for key,text in active.items():
+        conn.execute('INSERT INTO monitor_incidents VALUES(?,1,1) ON CONFLICT(key) DO UPDATE SET generation=generation+CASE WHEN active=0 THEN 1 ELSE 0 END,active=1',(key,))
+        gen=conn.execute('SELECT generation FROM monitor_incidents WHERE key=?',(key,)).fetchone()[0]
+        for address in brand_mail.admin_emails(conn):
+            event=f'alert:{key}:{gen}'
+            once(conn,event,address,'email',lambda address=address: email(address,text) if email else brand_mail.send(root,address,'Reel․ խնդրի ազդանշան',eyebrow='ՄԻԱՅՆ ԱԴՄԻՆԻՆ',title='Պահանջվում է ուշադրություն',paragraphs=[text],note='Նույն միջադեպի կրկնվող նամակ չի ուղարկվի։ Ստուգեք վահանակի վիճակը։'))
+            once(conn,event,address,'slack',lambda address=address: (slack or slack_admin)(address,'⚠️ Reel · '+text))
+    return len(active)
+
+
+def install(app,env):
+    """Run while the WEB process lives, independently of the worker. No import-time I/O."""
+    async def loop():
+        while True:
+            try:
+                def tick():
+                    with closing(env['db']().conn) as conn:
+                        poll(conn,env['ROOT'])
+                        from reel.lesson_report import poll as reports
+                        reports(conn,env['ROOT'])
+                await asyncio.to_thread(tick)
+            except asyncio.CancelledError:raise
+            except Exception as exc:log.warning('monitor check failed (%s)',type(exc).__name__)
+            await asyncio.sleep(INTERVAL)
+    async def startup():app.state.reel_monitor=asyncio.create_task(loop())
+    async def shutdown():
+        task=getattr(app.state,'reel_monitor',None)
+        if task:
+            task.cancel()
+            try:await task
+            except asyncio.CancelledError:pass
+    from contextlib import asynccontextmanager
+    previous=app.router.lifespan_context
+    @asynccontextmanager
+    async def lifespan(application):
+        async with previous(application) as state:
+            await startup()
+            try:yield state
+            finally:await shutdown()
+    app.router.lifespan_context=lifespan

@@ -1,0 +1,6 @@
+{
+  "include": ["reel", "tests", "tools"],
+  "venvPath": ".",
+  "venv": ".venv",
+  "typeCheckingMode": "basic"
+}

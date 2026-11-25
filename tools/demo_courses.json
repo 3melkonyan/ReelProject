@@ -1,0 +1,141 @@
+{
+  "snapshot_date": "2026-11-20",
+  "demo_tag": "g40-demo-v1",
+  "source_policy": "Fictional sample courses for demonstrations. Names, durations and schedules are illustrative.",
+  "published_at": null,
+  "schedule_note": "Cohort starts 2026-10-01 / 2026-06-01 / 2026-02-01 are user-requested illustrative dates. Subject blocks are illustrative allocations of official curriculum themes, not an official timetable.",
+  "courses": [
+    {
+      "id": "ai-appdev",
+      "name": "AI Application Development",
+      "group_prefix": "AI Application Development",
+      "duration_months": 15,
+      "published_at": null,
+      "duration_fact": "15 months (illustrative)",
+      "subject_labels": [
+        "C և Linux",
+        "Modern C++",
+        "JavaScript և Backend",
+        "React և TypeScript",
+        "Mobile և Desktop"
+      ],
+      "subject_schedule_is_illustrative": true,
+      "source_name": "AI Application Development"
+    },
+    {
+      "id": "ai-devhack",
+      "name": "AI DevHack",
+      "group_prefix": "AI DevHack",
+      "duration_months": 15,
+      "published_at": null,
+      "duration_fact": "15 months (illustrative)",
+      "subject_labels": [
+        "C և Linux",
+        "Ցանցեր և Bash",
+        "Կիբեռանվտանգություն",
+        "DevOps և CI/CD",
+        "Cloud և Kubernetes"
+      ],
+      "subject_schedule_is_illustrative": true,
+      "source_name": "AI DevHack"
+    },
+    {
+      "id": "ai-graphic",
+      "name": "AI Graphic Design",
+      "group_prefix": "AI Graphic Design",
+      "duration_months": 4,
+      "published_at": null,
+      "duration_fact": "4 months (illustrative)",
+      "subject_labels": [
+        "Դիզայնի հիմունքներ",
+        "Adobe Illustrator",
+        "Adobe Photoshop",
+        "AI գործիքներ և պորտֆոլիո"
+      ],
+      "subject_schedule_is_illustrative": true,
+      "source_name": "AI Graphic Design"
+    },
+    {
+      "id": "ai-junior",
+      "name": "AI Junior",
+      "group_prefix": "AI Junior",
+      "duration_months": 4,
+      "published_at": null,
+      "duration_fact": "4 months (illustrative)",
+      "subject_labels": [
+        "Ծրագրավորման ներածություն",
+        "Վեբ և AI պատմություններ",
+        "Mobile և Desktop",
+        "Անգլերեն և ամփոփիչ նախագիծ"
+      ],
+      "subject_schedule_is_illustrative": true,
+      "source_name": "AI Junior"
+    },
+    {
+      "id": "ai-modern",
+      "name": "AI Modern Software Developer",
+      "group_prefix": "AI Modern Software Developer",
+      "duration_months": 10,
+      "published_at": null,
+      "duration_fact": "10 months (illustrative)",
+      "subject_labels": [
+        "AI գործիքներ և Git",
+        "Ծրագրավորման հիմունքներ",
+        "Վեբ հավելվածներ",
+        "TypeScript և տվյալների բազաներ",
+        "Պրոդուկտի մշակում"
+      ],
+      "subject_schedule_is_illustrative": true,
+      "advertised_start_at_snapshot": "January 2027; the requested October 2026 cohort is illustrative",
+      "source_name": "AI Modern Software Developer"
+    },
+    {
+      "id": "ai-uxui",
+      "name": "AI UX/UI",
+      "group_prefix": "AI UX UI",
+      "duration_months": 4,
+      "published_at": null,
+      "duration_fact": "4 months (illustrative)",
+      "subject_labels": [
+        "UX հետազոտություն",
+        "UI և պրոտոտիպավորում",
+        "Դիզայնի քննադատություն",
+        "Պորտֆոլիո և կարիերա"
+      ],
+      "subject_schedule_is_illustrative": true,
+      "source_name": "AI UX/UI"
+    },
+    {
+      "id": "conscripts-1991",
+      "name": "Ծրագրավորում զինակոչիկների համար (1991)",
+      "group_prefix": "Ծրագրավորում զինակոչիկների համար 1991",
+      "duration_months": 7,
+      "published_at": null,
+      "duration_fact": "7 months (illustrative)",
+      "subject_labels": [
+        "Python",
+        "Տվյալների վերլուծություն",
+        "Machine Learning",
+        "Deep Learning"
+      ],
+      "subject_schedule_is_illustrative": true,
+      "source_name": "Ծրագրավորում զինակոչիկների համար (1991)"
+    },
+    {
+      "id": "conscripts-atmk",
+      "name": "Ծրագրավորում զինակոչիկների համար (ԱՏՄԿ)",
+      "group_prefix": "Ծրագրավորում զինակոչիկների համար ԱՏՄԿ",
+      "duration_months": 7,
+      "published_at": null,
+      "duration_fact": "7 months (illustrative)",
+      "subject_labels": [
+        "C և Linux",
+        "C++ և ալգորիթմներ",
+        "Ցանցեր և բազաներ",
+        "Կիբեռանվտանգություն"
+      ],
+      "subject_schedule_is_illustrative": true,
+      "source_name": "Ծրագրավորում զինակոչիկների համար (ԱՏՄԿ)"
+    }
+  ]
+}

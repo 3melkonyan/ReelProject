@@ -1,0 +1,6 @@
+Mardoto Bold — Christian Robertson, Vahan Hovhannisyan
+Official source commit: 4bcb915be4b616f2097386058627709fc66fceac
+Unmodified fonts/woff/Mardoto-Bold.woff2; SHA256: df34d5664fb5e38aa76de36bb94b20e412bd05fdc4e0ff728f8ace31850a69bc
+The font name table declares SIL OFL1.1 (see OFL-Mardoto.txt).
+The upstream repository Apache-2.0 license is included separately as requested.
+OFL standard terms match the existing bundled OFL1.1 text; verified against https://openfontlicense.org/open-font-license-official-text/

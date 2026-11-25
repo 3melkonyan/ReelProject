@@ -1,0 +1,44 @@
+.venv/
+__pycache__/
+.env
+secrets/
+inbox/
+work/
+archive/
+out/
+logs/
+*.db
+*.wav
+*.mp4
+*.mov
+library.jsonl
+config.yaml
+samples/
+models/*.onnx
+refs/
+.DS_Store
+*.db-shm
+*.db-wal
+client_secret*.json
+token.json
+token_*.json
+config.yaml.bak
+.config-*.yaml
+# runtime: each group's thumbnail style (reel/thumbnail.py)
+thumbnail_styles.json
+thumbnail_styles.json.tmp
+thumbnail_styles.json.lock
+.thumbnail_styles-*
+
+# Personal profile pictures
+avatars/
+
+# Local environment variants and developer caches
+.env.*
+!.env.example
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+*.egg-info/

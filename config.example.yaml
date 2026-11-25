@@ -1,0 +1,18 @@
+# Copy to config.yaml and replace channel IDs before enabling publication.
+# Keep credentials in .env and secrets/, never in this file.
+operator_slack_channel: C_OPERATOR_CHANNEL
+
+groups:
+  Demo-Group:
+    subjects:
+      - name: Python
+        playlist: ""  # Optional: a YouTube playlist ID, not its URL.
+    slack_channel: C_GROUP_CHANNEL
+    lecturers: []  # Optional reference directories under refs/; empty = automatic detection.
+    framing: "off"
+    # classroom_course_id: "123456789"  # Omit to disable Classroom announcements.
+
+cut:
+  min_silence_sec: 120
+  max_cut_ratio: 0.4
+  window_sec: 60
