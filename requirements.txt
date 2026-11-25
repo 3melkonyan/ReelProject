@@ -3,7 +3,7 @@ fastapi>=0.110
 uvicorn[standard]>=0.29
 itsdangerous>=2.1
 python-multipart>=0.0.9
-opencv-python-headless>=4.9,<5
+opencv-python-headless>=5.1.0.95,<6
 PyYAML>=6
 numpy>=1.26
 mlx-whisper; sys_platform == "darwin" and platform_machine == "arm64"
