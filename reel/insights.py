@@ -99,7 +99,7 @@ def library_records(db, legacy=None, *, groups=None):
                 e = json.loads(line); old[str(e['job_id'])] = e
             except (ValueError, KeyError, TypeError): pass
     records = []
-    for j in db.conn.execute('SELECT * FROM jobs ORDER BY id DESC'):
+    for j in db.conn.execute('SELECT * FROM jobs WHERE NOT EXISTS (SELECT 1 FROM lesson_deletions d WHERE d.job_id=jobs.id) ORDER BY id DESC'):
         if groups is not None and j['grp'] not in groups: continue
         publication = db.publication(j['id'], 'youtube')
         privacy = db.stage(j['id'], 'privacy')

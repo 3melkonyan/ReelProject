@@ -249,14 +249,19 @@ def _matched(analysis: list[dict]) -> tuple[int, int]:
 
 
 def blur(ctx: Ctx) -> dict:
-    """Blur every face except the lecturer's. Who the lecturer is:
-    1) the admin's choice on the job page, 2) the group's reference photos when they match,
-    3) automatic — the person most often in the frame (reel/lecturer.py); unsure -> StopJob."""
+    """Use the upload-review choice, matching group references, or automatic discovery.
+
+    New upload reviews settle at blur entry. Unmatched identities fall back to
+    blurring everyone, so a failed proposal never exempts an unrelated person.
+    """
     import shutil
     from reel import lecturer as lec
     from reel.blur import analyze, blur_faces
     src = ctx.out("render")["final"]
     auto_dir = ctx.workdir / "auto_refs"
+    if ctx.db is not None:
+        from reel.lecturer_review import resolve_for_blur
+        resolve_for_blur(ctx)
     choice, note = _choice(ctx)
     notes = [note] if note else []
     info: dict = {}
@@ -569,6 +574,7 @@ def slack_post(ctx: Ctx) -> dict:
     if ctx.config.get("metadata_language", "hy") == "en":
         line = f"Lesson {n} of {subject} is available on YouTube"
     _wait_youtube_ready(ctx, yt["external_id"])
+    ctx.db.conn.execute("INSERT OR REPLACE INTO publication_channels VALUES(?,'slack',?)",(ctx.job_id,_group(ctx)['slack_channel']))
     return ctx.publish_once("slack", lambda: (slack.post_link(_group(ctx)["slack_channel"], line, yt["url"]), None))
 
 

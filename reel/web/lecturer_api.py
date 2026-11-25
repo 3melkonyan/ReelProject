@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from reel.i18n import t as _t
 
+from contextlib import closing
 import json
 import math
 import os
@@ -193,20 +194,18 @@ def _centre(report: dict, rank: int) -> list[float]:
 
 
 def _write_choice(directory: Path, value: dict) -> None:
-    directory.mkdir(parents=True, exist_ok=True)
-    fd, temporary = tempfile.mkstemp(prefix=".lecturer-choice-", suffix=".tmp", dir=directory)
-    path = Path(temporary)
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as stream:
-            json.dump(value, stream, ensure_ascii=False, allow_nan=False)
-            stream.flush()
-            os.fsync(stream.fileno())
-        os.replace(path, directory / "lecturer_choice.json")
-    finally:
-        path.unlink(missing_ok=True)
+    from reel.lecturer_review import write_choice
+    write_choice(directory, value)
 
 
 def _save_choice(job_id: int, body: dict) -> dict:
+    from reel import lecturer_review
+    with closing(DB(ROOT / 'reel.db').conn) as conn:
+        from types import SimpleNamespace
+        database = SimpleNamespace(conn=conn)
+        if lecturer_review.row(database,job_id):
+            from reel.web.accounts import PRINCIPAL
+            return lecturer_review.answer(database,ROOT,job_id,body,(PRINCIPAL.get() or {}).get('id'),'admin')
     if len(body) != 1 or next(iter(body)) not in ("identity", "none", "clear"):
         raise HTTPException(400, _t('lecturer_api.choose_one_action_identity_none_or_clear'))
     action = next(iter(body))

@@ -29,7 +29,7 @@ from datetime import date
 from pathlib import Path
 from types import SimpleNamespace
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import BackgroundTasks, APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
@@ -257,7 +257,8 @@ def make_router(env):
         meta = {"kind": "recording", "group": group, "subject": subject, "lesson": _t('app.lesson_number', number=number),
                 "lesson_number": number, "lesson_date": lesson_dates.today().isoformat(),
                 "lesson_date_changed": True, "files": [], "ext": ext, "mime": mime, "by": who,
-                "created": time.time()}
+                "created": time.time(), "uploader_id": (account_auth.PRINCIPAL.get() or {}).get("id"),
+                "owner_token": request.session.setdefault("upload_owner",secrets.token_urlsafe(24))}
         save_meta(uid, meta)
         return public(uid, meta)
 
@@ -343,7 +344,7 @@ def make_router(env):
         return env["_finish_upload"](uid, who)
 
     @router.post("/{uid}/confirm")
-    async def confirm(uid: str, who: str = Depends(uploader)):
+    async def confirm(uid: str, tasks: BackgroundTasks, who: str = Depends(uploader)):
         async with lock(uid):
             if receipt := env["_upload_receipt"](uid):
                 return receipt
@@ -357,7 +358,11 @@ def make_router(env):
                 for f in live:
                     if received(uid, f) != f["size"]:
                         raise HTTPException(409, _t('recording.one_part_has_not_been_received_in'))
-            return await run_in_threadpool(finish, uid, meta, who)
+            result = await run_in_threadpool(finish, uid, meta, who)
+            if result.get('job_id'):
+                from reel.web.job_features import process_review
+                tasks.add_task(process_review,root(),result['job_id'])
+            return result
 
     @router.delete("/{uid}")
     async def cancel(uid: str, _: str = Depends(uploader)):

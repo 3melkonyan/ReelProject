@@ -17,6 +17,9 @@ import traceback
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
+from contextvars import ContextVar
+
+_JOB_NOTICE = ContextVar("reel_job_notice", default=None)
 
 from reel.db import DB
 
@@ -69,6 +72,8 @@ class Ctx:
         side (`find_existing`); if the target cannot be queried (Slack, Classroom)
         we STOP instead of risking a duplicate post: the operator resolves it with
         `reel resolve <job> <target> posted|not-posted`."""
+        from reel.job_lifecycle import check_cancel
+        check_cancel(self.db, self.job_id)
         row = self.db.publication(self.job_id, target)
         if row:
             return {"external_id": row["external_id"], "url": row["url"], "reused": True}
@@ -84,6 +89,7 @@ class Ctx:
             ext_id, url = do()
         self.db.add_publication(self.job_id, target, ext_id, url)
         marker.unlink(missing_ok=True)
+        check_cancel(self.db, self.job_id)
         return {"external_id": ext_id, "url": url, "reused": bool(found)}
 
 
@@ -98,7 +104,12 @@ def _notify(text: str) -> None:
             from reel.stages._dryrun import slack
         else:
             from reel.publish import slack
-        slack.notify(text)
+        receipt = slack.notify(text)
+        context = _JOB_NOTICE.get()
+        if context and isinstance(receipt,dict) and receipt.get('channel') and receipt.get('ts'):
+            from contextlib import closing
+            with closing(DB(context[0]/'reel.db').conn) as conn:
+                conn.execute('INSERT OR IGNORE INTO service_messages(job_id,channel,timestamp) VALUES(?,?,?)',(context[1],receipt['channel'],receipt['ts']))
         return
     except Exception as e:  # noqa: BLE001 - notification must never crash the runner
         log.warning("slack notify unavailable: %s", e)
@@ -111,7 +122,28 @@ def _notify(text: str) -> None:
         pass
 
 
-def run_job(db: DB, job_id: int, stages: list[Stage], config: dict,
+def notify_for_job(root, job_id, text):
+    token=_JOB_NOTICE.set((Path(root),job_id))
+    try: _notify(text)
+    finally: _JOB_NOTICE.reset(token)
+
+
+def run_job(db, job_id, stages, config, root, notify=_notify, sleep=time.sleep):
+    from reel.job_lifecycle import job_lock, check_cancel, JobCancelled
+    with job_lock(root,job_id):
+        try:
+            check_cancel(db,job_id)
+            token=_JOB_NOTICE.set((Path(root),job_id))
+            try: return _run_job(db,job_id,stages,config,root,notify,sleep)
+            finally: _JOB_NOTICE.reset(token)
+        except JobCancelled:
+            db.conn.execute("UPDATE stages SET status='cancelled' WHERE job_id=? AND status='running'",(job_id,))
+            deletion = db.conn.execute('SELECT state FROM lesson_deletions WHERE job_id=?',(job_id,)).fetchone()
+            db.set_job(job_id,status='deleted' if deletion and deletion[0]=='done' else 'deleting',current_stage=None)
+            return 'stopped'
+
+
+def _run_job(db: DB, job_id: int, stages: list[Stage], config: dict,
             root: Path, notify: Callable[[str], None] = _notify,
             sleep: Callable[[float], None] = time.sleep) -> str:
     from reel.i18n import language_context
@@ -130,6 +162,8 @@ def run_job(db: DB, job_id: int, stages: list[Stage], config: dict,
         from reel.progress import Tracker
         progress = Tracker(db, job_id, [n for n, _ in stages])
         for name, fn in stages:
+            from reel.job_lifecycle import check_cancel
+            check_cancel(db,job_id)
             st = db.stage(job_id, name)
             if st and st["status"] == "done":
                 continue

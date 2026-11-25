@@ -1,5 +1,6 @@
 /* admin-only lecturer snapshots and explicit choices. app.js owns routing. */
 async function renderLecturerPanel(d) {
+  if (d?.lecturer_review && typeof renderUploadLecturerReview === "function") return renderUploadLecturerReview(d.id,"#jd-lecturer");
   const panel = $("#jd-lecturer");
   if (!panel) return;
   if (S.role !== "admin") {

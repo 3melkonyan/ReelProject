@@ -458,3 +458,16 @@ button,summary,.btn{min-height:44px}
 .academy-cover img[src="/brand/reel-email.png"],.library-cover img[src="/brand/reel-email.png"]{object-fit:contain;background:#000}
 
 .language-picker{display:inline-flex;align-items:center;gap:8px;font-size:12px}.language-picker .input{width:auto;min-height:44px;padding:8px}.header-controls{flex-wrap:wrap}
+
+/* Candidate cards keep face proposals readable at narrow viewport widths. */
+.review-candidates{display:flex;gap:16px;flex-wrap:wrap;margin:20px 0}
+.review-candidates figure{margin:0;border:2px solid var(--border);border-radius:var(--radius-md);padding:10px;background:var(--surface-2);flex:1;min-width:140px;max-width:260px}
+.review-candidates figure.selected{border-color:var(--accent);background:var(--accent-soft)}
+.review-candidates img{display:block;width:100%;height:160px;object-fit:contain;border-radius:var(--radius-sm);background:var(--surface)}
+.review-candidates figcaption{margin-top:8px;font-weight:600}
+.lecturer-review .actions,.delete-confirm .actions{display:flex;gap:10px;flex-wrap:wrap}
+.lesson-deletion{margin-top:24px}.lesson-deletion ol{padding-left:22px}.lesson-deletion li{padding:5px 0}.lesson-deletion strong{margin-left:8px}
+.delete-confirm{color:var(--text);background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:28px;max-width:560px;box-shadow:var(--shadow-raised)}
+.delete-confirm::backdrop{background:#17171788}.delete-confirm h2{margin-top:0}
+.job-notifications a{display:block;padding:8px 0}.reference-inventory{border-top:1px solid var(--border);margin-top:24px;padding-top:20px}.reference-inventory .row{margin:12px 0}
+@media(max-width:600px){.review-candidates{gap:8px}.review-candidates figure{min-width:110px;padding:6px}.review-candidates img{height:120px}.delete-confirm{margin:20px;padding:20px}}

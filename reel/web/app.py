@@ -8,6 +8,7 @@ See reel.web.accounts/access/account_api and docs/WEB.md. No worker starts with 
 """
 from __future__ import annotations
 
+from reel.lesson_deletion import state as deletion_state
 from reel.i18n import t as _t
 
 import asyncio
@@ -30,7 +31,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request, BackgroundTasks
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
@@ -156,6 +157,9 @@ def _ts(s: str | None) -> float | None:
 
 
 def _privacy_passed(job_id: int) -> bool:
+    from reel.db import DB
+    with closing(DB(ROOT/"reel.db").conn) as conn:
+        if conn.execute("SELECT 1 FROM lesson_deletions WHERE job_id=?",(job_id,)).fetchone(): return False
     s = {x["name"]: x for x in db().stages(job_id)}.get("privacy")
     return s is not None and s["status"] == "done"
 
@@ -476,6 +480,8 @@ def job_detail(job_id: int, who: str = Depends(role)):
     return {
         **_job_brief(d, j), "stages": stages,
         "has_thumbnail": (WORK / str(job_id) / "thumbnail.jpg").is_file() and (who == "admin" or _privacy_passed(job_id)),
+        "lecturer_review": bool(d.conn.execute('SELECT 1 FROM lecturer_reviews WHERE job_id=?',(job_id,)).fetchone()),
+        "deletion": deletion_state(d,job_id) if who=='admin' else None,
         "upload_media": _read_json(wd / "upload_media.json") or {},
         "segments": {k: seg.get(k) for k in ("keep", "cuts", "labels", "original_sec", "final_sec",
                                               "cut_ratio", "unclear_ratio")} if seg else None,
@@ -827,7 +833,8 @@ async def upload_start(request: Request, who: str = Depends(uploader)):
                                      "lesson_date": previous.get("lesson_date", day),
                                      "lesson_date_changed": previous.get("lesson_date_changed", changed),
                                      "files": [{"name": n, "size": c["size"]} for n, c in zip(disk, clean)],
-                                     "by": who})
+                                     "by": who, "uploader_id": previous.get("uploader_id", (account_auth.PRINCIPAL.get() or {}).get("id")),
+                                     "owner_token": previous.get("owner_token") or request.session.setdefault("upload_owner", secrets.token_urlsafe(24))})
         have = [(d / "parts" / n) for n in disk]
         return {"id": uid, "lesson": lesson, "subject": subject, "chunk": UPLOAD_CHUNK,
                 "received": [p.stat().st_size if p.is_file() else 0 for p in have],
@@ -878,11 +885,15 @@ async def upload_chunk(uid: str, index: int, offset: int, request: Request, _: s
 
 
 @app.post("/api/uploads/{uid}/finish")
-async def upload_finish(uid: str, who: str = Depends(uploader)):
+async def upload_finish(uid: str, tasks: BackgroundTasks, who: str = Depends(uploader)):
     async with _CHUNK_LOCKS.setdefault(uid, asyncio.Lock()):
         if receipt := _upload_receipt(uid):
             return receipt
-        return await run_in_threadpool(_finish_upload, uid, who)
+        result = await run_in_threadpool(_finish_upload, uid, who)
+        if result.get("job_id"):
+            from reel.web.job_features import process_review
+            tasks.add_task(process_review, ROOT, result["job_id"])
+        return result
 
 
 def _finish_upload(uid: str, who: str):
@@ -925,13 +936,17 @@ def _finish_upload(uid: str, who: str):
     receipt = {"duplicate_of": dup} if dup else {"job_id": job_id}
     if job_id:
         _atomic_json(WORK / str(job_id) / "upload_media.json", media)
+        from reel import lecturer_review
+        database = db()
+        try: lecturer_review.register(database, job_id, meta.get("uploader_id"), meta.get("owner_token"))
+        finally: database.conn.close()
     _atomic_json(_uploads() / "receipts" / (uid + ".json"), receipt)
     shutil.rmtree(d, ignore_errors=True)
     if dup:
         return receipt
     gb = sum(f["size"] for f in meta["files"]) / 1e9
     how = _t('app.recorded_on_a_phone') if meta.get("kind") == "recording" else _t('app.uploaded_from_the_dashboard')
-    pipeline._notify(_t('app.method_lesson_count_files_size_gb_user', method=how, lesson=meta['lesson'], count=len(parts), size=f"{gb:.1f}", user=who, job=job_id, group=meta['group'], subject=meta.get('subject')))
+    pipeline.notify_for_job(ROOT, job_id, _t('app.method_lesson_count_files_size_gb_user', method=how, lesson=meta['lesson'], count=len(parts), size=f"{gb:.1f}", user=who, job=job_id, group=meta['group'], subject=meta.get('subject')))
     return {"job_id": job_id}
 
 
@@ -1005,5 +1020,8 @@ _install_monitor(app, globals())
 
 from reel.web.localization import install as _install_localization
 _install_localization(app, ROOT, STATIC)
+
+from reel.web.job_features import make_router as _job_features_router
+app.include_router(_job_features_router(globals()))
 
 app.mount("/", StaticFiles(directory=STATIC, html=True), name="static")

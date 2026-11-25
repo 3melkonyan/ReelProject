@@ -29,6 +29,34 @@ CREATE TABLE IF NOT EXISTS user_languages (
  user_id INTEGER PRIMARY KEY REFERENCES users(id),
  language TEXT NOT NULL CHECK(language IN ('hy','en'))
 );
+CREATE TABLE IF NOT EXISTS lesson_deletions (
+ job_id INTEGER PRIMARY KEY REFERENCES jobs(id), state TEXT NOT NULL,
+ actor INTEGER, original_job TEXT, steps TEXT NOT NULL DEFAULT '{}', error TEXT,
+ created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS publication_channels (
+ job_id INTEGER NOT NULL REFERENCES jobs(id), target TEXT NOT NULL, channel TEXT NOT NULL,
+ PRIMARY KEY(job_id,target)
+);
+CREATE TABLE IF NOT EXISTS service_messages (
+ job_id INTEGER NOT NULL REFERENCES jobs(id), channel TEXT NOT NULL, timestamp TEXT NOT NULL,
+ deleted INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(job_id,channel,timestamp)
+);
+CREATE TABLE IF NOT EXISTS lecturer_reviews (
+ job_id INTEGER PRIMARY KEY REFERENCES jobs(id), uploader_id INTEGER, owner_token TEXT,
+ status TEXT NOT NULL DEFAULT 'pending', cursor INTEGER NOT NULL DEFAULT 1,
+ decision TEXT, answered_by INTEGER, answered_role TEXT, answered_at TEXT,
+ automatic INTEGER NOT NULL DEFAULT 0, started_at REAL, error TEXT,
+ notified INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS lecturer_reference_sets (
+ job_id INTEGER PRIMARY KEY REFERENCES jobs(id), created_at TEXT NOT NULL, deleted_at TEXT
+);
+CREATE TABLE IF NOT EXISTS in_app_notifications (
+ id INTEGER PRIMARY KEY, job_id INTEGER NOT NULL REFERENCES jobs(id), user_id INTEGER,
+ administrators INTEGER NOT NULL DEFAULT 0, message_key TEXT NOT NULL, created_at TEXT NOT NULL,
+ UNIQUE(job_id,user_id,administrators,message_key)
+);
 CREATE TABLE IF NOT EXISTS account_tokens (
  id INTEGER PRIMARY KEY AUTOINCREMENT,
  digest TEXT NOT NULL UNIQUE,
@@ -199,7 +227,7 @@ class DB:
     def next_runnable(self) -> sqlite3.Row | None:
         # 'running' = interrupted by crash/restart; resume it first.
         return self.conn.execute(
-            "SELECT * FROM jobs WHERE status IN ('running','queued')"
+            "SELECT * FROM jobs WHERE status IN ('running','queued') AND NOT EXISTS (SELECT 1 FROM lesson_deletions d WHERE d.job_id=jobs.id)"
             " ORDER BY status='running' DESC, id LIMIT 1").fetchone()
 
     def set_job(self, job_id: int, **fields) -> None:

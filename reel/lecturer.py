@@ -84,7 +84,7 @@ class _Samples:
         return float(self.box[i, 2] * self.box[i, 3] * self.score[i])
 
 
-def _keyframes(video: Path, every: float, width: int):
+def _keyframes(video: Path, every: float, width: int, *, limit: float | None = None):
     """Frames every `every` s, decoding key frames only: ~7x faster than a full decode
     (measured: 31 s vs 209 s for 50 min). The rendered lesson has a key frame every
     ~0.5 s, so the samples stay evenly spread."""
@@ -95,7 +95,7 @@ def _keyframes(video: Path, every: float, width: int):
     w = min(width, w0)
     h = int(round(h0 * w / w0 / 2) * 2)
     proc = subprocess.Popen(["ffmpeg", "-nostdin", "-hide_banner", "-loglevel", "error", "-skip_frame", "nokey",
-                             "-i", str(video), "-map", "0:v:0", "-an", "-sn", "-dn",
+                             "-i", str(video), *(["-t", str(limit)] if limit is not None else []), "-map", "0:v:0", "-an", "-sn", "-dn",
                              "-vf", f"fps={1.0 / every},scale={w}:{h}", "-f", "rawvideo", "-pix_fmt", "bgr24", "-"],
                             stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     size = w * h * 3
@@ -115,10 +115,10 @@ def _keyframes(video: Path, every: float, width: int):
         raise RuntimeError(f"ffmpeg sampling failed ({code}): {err.strip()}")
 
 
-def _sample(video: Path, every: float) -> _Samples:
+def _sample(video: Path, every: float, *, limit: float | None = None) -> _Samples:
     fid = FaceID([])
     s = _Samples()
-    for img in _keyframes(video, every, WIDTH):
+    for img in (_keyframes(video, every, WIDTH, limit=limit) if limit is not None else _keyframes(video, every, WIDTH)):
         h_img, w_img = img.shape[:2]
         s.size = (w_img, h_img)
         for f in fid.faces(img):
@@ -516,3 +516,39 @@ def _main() -> None:
 
 if __name__ == "__main__":
     _main()
+
+
+def quick_candidates(video: str | Path, out_dir: str | Path) -> dict:
+    """Propose at most three identities from 60 keyframe samples in the first ten minutes."""
+    folder = Path(out_dir)
+    if folder.is_symlink(): raise ValueError('Invalid candidate directory')
+    folder.mkdir(parents=True, exist_ok=True, mode=0o700)
+    videos = list(video) if isinstance(video,(list,tuple)) else [video]
+    samples = _Samples()
+    elapsed = 0.0
+    for item in videos:
+        if elapsed >= 600: break
+        chunk = _sample(Path(item),10.0,limit=600.0-elapsed)
+        for index in range(len(chunk.t)):
+            samples.t.append(float(chunk.t[index])+elapsed)
+            samples.frame.append(int(chunk.frame[index])+samples.frames)
+            samples.box.append(chunk.box[index]);samples.score.append(chunk.score[index])
+            samples.raw.append(chunk.raw[index]);samples.unit.append(chunk.unit[index]);samples.jpg.append(chunk.jpg[index])
+        samples.frames += chunk.frames
+        samples.size = chunk.size
+        from reel.stages.transcribe import media_duration
+        elapsed += media_duration(item)
+    samples.finish()
+    identities = _identities(samples)[:3]
+    face_frames = len(set(samples.frame.tolist()))
+    _preview(samples, identities, folder)
+    report = {"identities": [_public(person, face_frames) for person in identities],
+              "centres": [person["centre"].round(5).tolist() for person in identities],
+              "sampled": samples.frames, "width": WIDTH, "seconds": 600}
+    for rank, person in enumerate(identities, 1):
+        refs = folder / str(rank)
+        refs.mkdir(exist_ok=True)
+        for index, sample in enumerate(_pick_refs(samples, person, 600.0)):
+            _write_ref(refs, index, samples.jpg[sample], samples.raw[sample])
+    (folder / "auto.json").write_text(json.dumps(report, allow_nan=False), encoding="utf-8")
+    return report

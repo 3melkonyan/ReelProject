@@ -51,9 +51,19 @@ Browser recording also requires camera/microphone permission and HTTPS outside l
 
 ## Lecturer identification
 
-Selection priority is the job's explicit administrator choice, matching configured lecturer references, then automatic discovery. Automatic discovery samples approximately every two seconds and clusters identities; the intended lecturer is the clearly dominant person near the teaching area. The original rule required at least twice the next identity's presence and 40% of sampled face-containing frames. Current geometry/quality checks and saved choices also affect selection; use the job report rather than assuming presence alone proves identity.
+After an upload or confirmed browser recording, Reel samples keyframes from the first ten minutes at a detection width of 1920 pixels. Up to three likely identities appear on the completion and lesson pages. The uploader and administrators receive an in-app notification and, when mail is configured, an email in their account language. Candidate images are available only to that uploader and administrators.
 
-An ambiguous selection can stop the job before blurring/publication so an administrator can choose a candidate or blur everyone. With few/no faces, the no-lecturer fallback blurs detected faces. Identity crops may include students and are administrator-only. See [Administration](ADMIN.md) for choice, cancellation and retry behavior.
+The uploader or an administrator can confirm the highlighted person, show the next candidate, or choose to blur everyone. The first final answer wins and its author is recorded in the audit log. Other processing continues during this review. At blur entry, an unanswered review automatically selects the highest-ranked candidate; it never waits for a person. The lesson page identifies automatic choices. A failed scan or a selected identity that cannot be matched in the processed video falls back to blurring everyone.
+
+Confirmed reference copies stay on the server. The privacy page lists saved reference sets for administrators and lets them delete a set. Deleting references before blur removes that job's lecturer exemption. Temporary analysis artifacts follow the deployment's work-directory retention policy; reference deletion does not rewrite an already published video. Older jobs without an upload review retain the existing administrator review flow described in [Administration](ADMIN.md).
+
+## Deleting a lesson
+
+Only administrators can delete a lesson, including through the API. The localized confirmation explains the removal of the YouTube video, Slack messages and library entry. A running job first receives a cancellation request; cleanup waits until its worker releases the job. External calls already in flight may finish, and their receipts are saved before cleanup starts.
+
+Reel backs up the job's database state under `archive/deleted/<job-id>/database.json` before remote removal. The lesson page shows each cleanup step and offers a retry if a service fails. Completed steps are preserved between retries. Older Slack publications without a recorded channel require the administrator to supply the original channel ID. An unresolved publication receipt requires reconciliation before cleanup can proceed.
+
+On completion, the job's hash and publication labels are superseded so the recording can be uploaded again. Source recordings, database history and the backup remain local. Deletion is not a source-file erasure operation. Incomplete deletions are hidden from the library and cannot resume processing. A scheduled notification tick resumes waiting cleanup; the lesson page also supports retrying partial failures.
 
 ## Main views
 
@@ -65,7 +75,7 @@ An ambiguous selection can stop the job before blurring/publication so an admini
 
 ## Privacy behavior
 
-Original/unblurred recordings are not served as dashboard previews. Viewer/student media requires the appropriate privacy and group checks. Identity crops are restricted to administrators.
+Original/unblurred recordings are not served as dashboard previews. Viewer/student media requires the appropriate privacy and group checks. Upload-review identity crops are restricted to the uploader and administrators; older inspection tools remain administrator-only.
 
 The current confident-student policy can leave uncertain faces visible. Sustained unexplained student events can stop a job; isolated one- or two-sample events may warn without stopping. An automatic pass is not guaranteed anonymization. Review consent requirements and output before distributing a link.
 

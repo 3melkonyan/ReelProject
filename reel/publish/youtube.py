@@ -191,3 +191,14 @@ if __name__ == "__main__":
     parser.parse_args()
     from reel.publish._smoke import youtube_smoke
     youtube_smoke()
+
+
+@api_errors
+def delete_video(video_id: str) -> None:
+    """Deleting an already absent video is a successful retry."""
+    from googleapiclient.errors import HttpError
+    text(video_id, 'video_id')
+    try:
+        _service().videos().delete(id=video_id).execute(num_retries=0)
+    except HttpError as error:
+        if int(error.resp.status) != 404: raise

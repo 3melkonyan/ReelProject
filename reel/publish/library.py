@@ -29,8 +29,14 @@ def add(entry: dict) -> None:
         raise PublishError("chapters must be a list of mappings", False)
     try:
         line = json.dumps(entry, ensure_ascii=False, allow_nan=False) + "\n"
-        with _path().open("a", encoding="utf-8") as stream:
-            stream.write(line)
+        import fcntl, os
+        path = _path()
+        if path.is_symlink(): raise OSError('Invalid library path')
+        fd = os.open(str(path)+'.lock', os.O_CREAT|os.O_RDWR|os.O_NOFOLLOW, 0o600)
+        with os.fdopen(fd,'w') as lock:
+            fcntl.flock(lock,fcntl.LOCK_EX)
+            with path.open("a", encoding="utf-8") as stream:
+                stream.write(line)
     except (OSError, TypeError, ValueError) as exc:
         raise PublishError(f"Cannot append library record ({type(exc).__name__})", False) from None
 
@@ -42,3 +48,28 @@ if __name__ == "__main__":
     parser.parse_args()
     from reel.publish._smoke import library_smoke
     library_smoke()
+
+
+def remove_job(path: Path, job_id: int) -> None:
+    """Atomically retire sidecar entries while other lessons can still be published."""
+    import fcntl
+    import os
+    import tempfile
+    path = Path(path)
+    if path.is_symlink(): raise PublishError('Library path is a symlink', False)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd = os.open(str(path)+'.lock', os.O_CREAT|os.O_RDWR|os.O_NOFOLLOW, 0o600)
+    with os.fdopen(fd,'w') as lock:
+        fcntl.flock(lock,fcntl.LOCK_EX)
+        if not path.exists(): return
+        kept=[]
+        for line in path.read_text().splitlines(keepends=True):
+            try: match=str(json.loads(line).get('job_id'))==str(job_id)
+            except (ValueError,AttributeError): match=False
+            if not match: kept.append(line)
+        out,temporary=tempfile.mkstemp(prefix='.library-',dir=path.parent)
+        try:
+            with os.fdopen(out,'w') as stream:
+                stream.writelines(kept);stream.flush();os.fsync(stream.fileno())
+            os.replace(temporary,path)
+        finally: Path(temporary).unlink(missing_ok=True)

@@ -44,6 +44,7 @@ def _find_by_tag(tag):
 
 youtube = SimpleNamespace(
     upload=_upload,
+    delete_video=lambda vid: _log("youtube", "delete_video", video_id=vid),
     find_by_tag=_find_by_tag,
     add_to_playlist=lambda vid, pl: (_log("youtube", "add_to_playlist", video_id=vid, playlist=pl),
                                      f"pli-{vid}")[1],
@@ -55,9 +56,10 @@ youtube = SimpleNamespace(
                                                            language=language), f"cap-{vid}")[1],
 )
 slack = SimpleNamespace(
+    delete_message=lambda channel, timestamp: _log("slack", "delete_message", channel=channel, timestamp=timestamp),
     post_link=lambda ch, title, url: (_log("slack", "post_link", channel=ch, title=title, url=url),
                                       "dry-ts")[1],
-    notify=lambda text: _log("slack", "notify", text=text),
+    notify=lambda text: (_log("slack", "notify", text=text), {"channel":"dry-operator", "ts":str(time.time_ns())})[1],
 )
 classroom = SimpleNamespace(
     announce=lambda course, title, url: (_log("classroom", "announce", course=course, title=title,

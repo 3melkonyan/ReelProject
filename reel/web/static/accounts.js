@@ -445,6 +445,7 @@ async function viewUser(id) {
 async function viewPrivacy(){
   const p=await api('/api/privacy/policy');
   accountPublic(i18nText("ui.accounts.privacy_policy_3"),`<p class="muted">${i18nText("ui.accounts.version")} ${esc(p.version)}</p>${p.paragraphs.map(x=>`<p>${esc(x)}</p>`).join('')}`);
+  if(typeof renderLecturerReferences==='function')await renderLecturerReferences();
 }
 async function viewDataRequest(){
   const rows=await api('/api/privacy/requests');

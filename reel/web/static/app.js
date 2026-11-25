@@ -43,7 +43,7 @@ const ICONS = {
 const ic = (n, cls = "i") => `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n] || ""}</svg>`;
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
-const STATUS = { queued: i18nText("ui.app.queued"), running: i18nText("ui.app.processing_3"), stopped: i18nText("ui.app.stopped"), done: i18nText("ui.courses.completed") };
+const STATUS = { deleting: i18nText("deletion.deleting"), deleted: i18nText("deletion.deleted"), queued: i18nText("ui.app.queued"), running: i18nText("ui.app.processing_3"), stopped: i18nText("ui.app.stopped"), done: i18nText("ui.courses.completed") };
 const PHASES = [
   { label: i18nText("ui.app.intake"), icon: "folder", stages: ["join", "probe", "audio"] },
   { label: i18nText("ui.app.transcription"), icon: "mic", stages: ["transcribe"] },
@@ -168,7 +168,7 @@ function shell(active) {
     <a class="brand brand-pair" href="#/" aria-label="${i18nText("ui.app.reel_home")}">${reelBrand()}</a>
     <nav class="nav" aria-label="${i18nText("ui.app.main_navigation")}">${navigation(active)}</nav>
     <div class="side-foot">${S.role === "admin" ? (`<span class="pill processing-status" id="worker" role="status"><span class="dot"></span>${i18nText("ui.app.processing_checking")}</span>`) : ""}
-      <div class="header-controls">${languageSelector()}${accountMenu()}<button class="icon-btn" id="theme" title="${i18nText("ui.app.dark_light_theme")}" aria-label="${isDark() ? i18nText("ui.app.switch_to_light_theme") : i18nText("ui.app.switch_to_dark_theme")}" aria-pressed="${isDark()}">${ic(isDark() ? "sun" : "moon")}</button></div></div>
+      <div id="job-notifications"></div><div class="header-controls">${languageSelector()}${accountMenu()}<button class="icon-btn" id="theme" title="${i18nText("ui.app.dark_light_theme")}" aria-label="${isDark() ? i18nText("ui.app.switch_to_light_theme") : i18nText("ui.app.switch_to_dark_theme")}" aria-pressed="${isDark()}">${ic(isDark() ? "sun" : "moon")}</button></div></div>
   </aside><main class="main" id="main" tabindex="-1">${pageSkeleton()}</main></div>
   ${canUpload() ? '<a class="up-dock" id="up-dock" href="#/upload" hidden></a>' : ""}
   <div id="net" class="net" role="status" hidden>${ic("alert")} ${i18nText("ui.app.connection_lost_reconnecting")}</div>`;
@@ -205,7 +205,7 @@ function route() {
   else { fn = viewHome; active = "home"; }
   app.innerHTML = shell(active);
   const tick = async (force = false) => { if (document.hidden && !force) return;
-    try { await fn(); const avatar=$("#account-toggle");if(avatar) set("#account-toggle",headerAvatar()); if (S.role !== "student") await updateWorker(); net(true); const error = $("#view-error"); if (error) error.remove(); }
+    try { await fn(); if(typeof refreshJobNotifications === "function") await refreshJobNotifications(); const avatar=$("#account-toggle");if(avatar) set("#account-toggle",headerAvatar()); if (S.role !== "student") await updateWorker(); net(true); const error = $("#view-error"); if (error) error.remove(); }
     catch (e) {
       if (e.message === "auth") return;
       if (e.net) net(false); else console.warn(e);
@@ -415,12 +415,13 @@ function autoDecisionLine(info) {
 }
 async function viewJob(id) {
   if (!$("#jd-head")) {
-    $("#main").innerHTML = `<a class="back" href="#/jobs">${ic("back")} ${i18nText("ui.app.all_lessons_2")}</a><div id="jd-head"></div><section id="jd-date" class="card lesson-date-card"></section><div id="jd-alert"></div><div id="jd-progress"></div><div id="jd-lecturer"></div>
+    $("#main").innerHTML = `<a class="back" href="#/jobs">${ic("back")} ${i18nText("ui.app.all_lessons_2")}</a><div id="jd-head"></div><div id="jd-delete"></div><section id="jd-date" class="card lesson-date-card"></section><div id="jd-alert"></div><div id="jd-progress"></div><div id="jd-lecturer"></div>
       <div class="grid two"><div class="grid"><div class="card" id="jd-video"></div><div class="card" id="jd-tabs"></div></div>
       <div class="card"><h2>${ic("layers")} ${i18nText("ui.app.processing_stages")} <span class="muted" id="jd-total" style="margin-left:auto;font-size:13px;font-weight:500"></span></h2><ul class="steps" id="jd-steps"></ul></div></div>`;
   }
   const d = await api(`/api/jobs/${id}`); S.detail = d;
   renderLessonDate(d);
+  if (typeof renderLessonDeletion === "function") renderLessonDeletion(d);
   const yt = d.publications.youtube;
   set("#jd-head", `<div class="top" style="margin-bottom:16px"><div class="grow"><h1>${esc(d.title || d.file)}</h1>
       <p>${esc(d.group)}${d.subject ? ` · <b>${esc(d.subject)}</b>` : ""} · <span class="mono">${esc(d.file)}</span> · ${rel(d.created)} · ${fmtDur(d.duration_sec)}${d.final_sec != null ? " → " + fmtDur(d.final_sec) : ""}</p></div>

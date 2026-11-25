@@ -65,17 +65,16 @@ def post_link(channel: str, title: str, url: str) -> str:
     link(url)
     if any(ch in "<>|" or ch.isspace() for ch in url):
         raise PublishError("url contains characters that break a Slack link", False)
-    # Owner 2026-11-19: the link must open with a click -> Slack's explicit <url> link markup
-    # (mrkdwn on; the title is escaped, so it cannot add mentions or links of its own).
+    # Explicit link markup keeps the URL clickable; escaping prevents title mentions.
     return _send(channel, f"{_escape(title)}\n<{url}>", mrkdwn=True)
 
 
-def notify(text: str) -> None:
+def notify(text: str) -> dict:
     try:
         channel = load_config()["operator_slack_channel"]
     except ValueError:
         raise PublishError("Cannot load operator_slack_channel from config.yaml", False) from None
-    _send(channel, text)
+    return {"channel":channel, "ts":_send(channel, text)}
 
 
 if __name__ == "__main__":
@@ -85,3 +84,15 @@ if __name__ == "__main__":
     parser.parse_args()
     from reel.publish._smoke import slack_smoke
     slack_smoke()
+
+
+def delete_message(channel: str, timestamp: str) -> None:
+    """Delete only the recorded channel/timestamp; missing messages are idempotent."""
+    text(channel, 'channel'); text(timestamp, 'timestamp')
+    try:
+        _client().chat_delete(channel=channel, ts=timestamp)
+    except SlackApiError as error:
+        if error.response.get('error') != 'message_not_found':
+            raise PublishError('Slack message deletion failed', True) from None
+    except Exception as error:
+        raise PublishError('Slack message deletion failed (' + type(error).__name__ + ')', True) from None

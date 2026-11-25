@@ -420,6 +420,10 @@ function recRender() {
   const root = $("#rec-view");
   if (!root) return;
   const s = R.s, live = recLive(), pending = recPendingBytes();
+  if(R.done && !$("#record-lecturer-review") && typeof pollUploadLecturerReview==='function' && root.insertAdjacentHTML){
+    root.insertAdjacentHTML('beforeend','<div id="record-lecturer-review"></div>');
+    pollUploadLecturerReview(R.done.job_id||R.done.duplicate_of,'#record-lecturer-review');
+  }
   $("#rec-setup").hidden = Boolean(s || R.done);
   const summary = $("#rec-summary");
   summary.hidden = !s;

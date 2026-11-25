@@ -92,6 +92,15 @@ def install(app,env):
                         poll(conn,env['ROOT'])
                         from reel.lesson_report import poll as reports
                         reports(conn,env['ROOT'])
+                        tables={row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+                        if 'lecturer_reviews' in tables:
+                            from reel.web.job_features import process_review
+                            for row in conn.execute("SELECT job_id FROM lecturer_reviews WHERE decision IS NULL AND (status='pending' OR (status='scanning' AND started_at<?)) LIMIT 1",(time.time()-600,)).fetchall():
+                                process_review(env['ROOT'],row[0])
+                        if 'lesson_deletions' in tables:
+                            from reel.lesson_deletion import resume
+                            for row in conn.execute("SELECT job_id FROM lesson_deletions WHERE state IN ('requested','waiting','running') LIMIT 10").fetchall():
+                                resume(env['ROOT'],row[0])
                 await asyncio.to_thread(tick)
             except asyncio.CancelledError:raise
             except Exception as exc:log.warning('monitor check failed (%s)',type(exc).__name__)

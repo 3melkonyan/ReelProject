@@ -101,7 +101,14 @@ class Tracker:
         finally:
             _ACTIVE.reset(token)
 
+    def check_cancel(self):
+        from reel.job_lifecycle import check_cancel
+        check_cancel(self.db,self.job_id)
+
     def observe(self, fraction=0, force=False):
+        if time.monotonic()-getattr(self,'last_cancel_check',0) >= .5 or force:
+            self.check_cancel()
+            self.last_cancel_check=time.monotonic()
         # Observability must never turn successful media work into a failed job.
         try:
             self._observe(fraction, force)
@@ -175,6 +182,8 @@ def observed_run(cmd, *, run=subprocess.run, total=None, **kwargs):
                         out, err = proc.communicate(timeout=2)
                         break
                     except subprocess.TimeoutExpired:
+                        if hasattr(sink, "check_cancel"):
+                            sink.check_cancel()
                         if timeout and time.monotonic()-started >= timeout:
                             raise subprocess.TimeoutExpired(args, timeout)
                         value = ffmpeg_seconds(read_progress(progress))

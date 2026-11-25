@@ -161,6 +161,10 @@ function completeUpload(result) {
   const job=result.job_id || result.duplicate_of;
   S.up=null; S.upFiles=null; S.upOrder=null; uploadIntent=null; rememberUpload();releaseUploadWake();
   if($("#upload-view")) set("#up-progress", `<div class="alert ok">${ic("check")}<div>${i18nText("ui.upload.lesson_received")} ${result.duplicate_of?i18nText("ui.record.this_video_already_exists"):i18nText("ui.upload.processing_will_start_in_queue_order")} <a href="#/jobs/${job}">${i18nText("ui.record.open_lesson")}</a></div></div>`);
+  if($("#up-progress") && typeof pollUploadLecturerReview==='function') {
+    $("#up-progress").insertAdjacentHTML('beforeend','<div id="upload-lecturer-review"></div>');
+    pollUploadLecturerReview(job,'#upload-lecturer-review');
+  }
   const p=$("#up-progress");if(p)p.hidden=false;
   const form=$("#upload-form");if(form){form.hidden=false;form.reset();const group=$("#up-group"),date=$("#up-date");if(date){date.value=lessonToday();date.max=lessonToday();date.dataset.changed="false";}if(group && group.onchange)group.onchange();}
   toast(i18nText("ui.upload.lesson_received_2")); S.last={}; S.summary=null;
