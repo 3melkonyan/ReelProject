@@ -34,8 +34,9 @@ if str(ROOT) not in sys.path:
 
 class Measurements:
     """Nested wall/process CPU timers; exclusive values subtract timed children."""
-    def __init__(self, wall=time.perf_counter, cpu=time.process_time):
+    def __init__(self, wall=time.perf_counter, cpu=time.process_time, progress=None):
         self.wall, self.cpu = wall, cpu
+        self.progress = progress
         self.local = threading.local()
         self.lock = threading.Lock()
         self.rows = defaultdict(lambda: defaultdict(float))
@@ -52,13 +53,15 @@ class Measurements:
         return "/".join(r["name"][6:] for r in self.stack() if r["name"].startswith("phase.")) or "setup"
 
     @contextmanager
-    def measure(self, name):
+    def measure(self, name, *, phase=None):
         stack = self.stack()
-        parent_phase = self.phase()
+        parent_phase = self.phase() if phase is None else phase
         phase = (("" if parent_phase == "setup" else parent_phase + "/") + name[6:]
                  if name.startswith("phase.") else parent_phase)
         row = dict(name=name, wall=self.wall(), cpu=self.cpu(), child_wall=0., child_cpu=0.)
         stack.append(row)
+        if self.progress and name.startswith("phase."):
+            self.progress({"phase": phase, "event": "started"})
         try:
             yield
         finally:
@@ -75,6 +78,8 @@ class Measurements:
                 result["wall_exclusive_sec"] += max(0., elapsed - row["child_wall"])
                 result["parent_cpu_inclusive_sec"] += cpu
                 result["parent_cpu_exclusive_sec"] += max(0., cpu - row["child_cpu"])
+            if self.progress and name.startswith("phase."):
+                self.progress({"phase": phase, "event": "finished", "wall_sec": round(elapsed, 3)})
 
     def timed(self, name, fn):
         @wraps(fn)
@@ -101,11 +106,16 @@ class Pipe:
     """Delegate all IO semantics while measuring blocking pipe operations."""
     def __init__(self, stream, stats, role):
         self.stream, self.stats, self.role = stream, stats, role
+        self.phase = stats.phase()
 
     def __getattr__(self, name):
         value = getattr(self.stream, name)
         if name in {"read", "readinto", "read1", "write", "flush", "close"}:
-            return self.stats.timed("ffmpeg." + self.role + ".pipe_" + name, value)
+            @wraps(value)
+            def measured(*args, **kwargs):
+                with self.stats.measure("ffmpeg." + self.role + ".pipe_" + name, phase=self.phase):
+                    return value(*args, **kwargs)
+            return measured
         return value
 
     def __enter__(self):
@@ -305,7 +315,7 @@ def run(args, out):
     context = SimpleNamespace(db=None, job_id=args.job_id, source=args.video, workdir=out,
                               group="benchmark", config={"groups": {"benchmark": {"lecturers": []}}},
                               _outputs=metadata, out=lambda name: metadata.get(name, {}))
-    stats = Measurements()
+    stats = Measurements(progress=lambda event: print(json.dumps(event), file=sys.stderr, flush=True))
     output = {"schema_version": 1, "label": args.label, "mode": args.mode,
               "input": str(args.video.resolve()), "out_dir": str(out),
               "analysis_fps_requested": args.fps, "platform": platform.platform(),
@@ -323,6 +333,7 @@ def run(args, out):
               }, "caveats": [
                   "Per-frame/per-face timers and process_time calls add profiling overhead; compare like-for-like instrumented runs.",
                   "Decoder and encoder run concurrently with Python: child lifetimes and CPU must not be added to wall buckets.",
+                  "Background pipe timers retain their creating phase; their wall/CPU can overlap the caller and must not be summed into total wall.",
                   "Phase timers nest: privacy includes a fresh analyze; blur_frames can include analyze when not supplied.",
                   "process CPU inside method timers is exact only without overlapping Python worker calls; aggregate run CPU remains valid.",
                   "Hardware VideoToolbox service CPU/GPU time outside the child is not attributed by wait4.",
@@ -361,7 +372,7 @@ def run(args, out):
                 video = result.get("final", str(args.video))
                 decisions = result.get("decisions", str(args.decisions) if args.decisions else None)
                 output["privacy"] = privacy.scan(video, refs, out / "privacy", decisions=decisions)
-    except Exception as exc:
+    except BaseException as exc:
         error = exc
         output["error"] = {"type": type(exc).__name__, "message": str(exc)}
     finally:

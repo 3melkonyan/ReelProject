@@ -23,6 +23,7 @@ import numpy as np
 
 from reel.stages.privacy import FaceID, COSINE_MATCH
 from reel.encoding import h264_encoder
+from reel.frame_io import FrameIO
 
 
 def _probe(path: Path) -> dict:
@@ -361,8 +362,6 @@ def analyze(video: str, refs_dirs: list[str], fps: float = 5.0, keep_features: b
         if refs_dirs and not fid.refs:
             raise RuntimeError("No usable lecturer reference photos; regenerate refs first")
         tracker, result, index = _Tracker(max_gap=max(2.0, 1.0 / fps)), [], 0
-        buffer = bytearray(small_width * small_height * 3)
-        image = np.frombuffer(buffer, dtype=np.uint8).reshape(small_height, small_width, 3)
         with tempfile.TemporaryFile() as stderr:
             try:
                 process = subprocess.Popen([
@@ -371,16 +370,20 @@ def analyze(video: str, refs_dirs: list[str], fps: float = 5.0, keep_features: b
                     "-vf", f"fps=fps={fps}:start_time=0,scale={small_width}:{small_height}",
                     "-pix_fmt", "bgr24", "-f", "rawvideo", "pipe:1",
                 ], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=stderr)
-                while _read_frame(process.stdout, buffer):
-                    t = index / fps
-                    items = _identify(fid, image, tracker, t, keep_features)
-                    for item, track in zip(items, tracker.current):
-                        x, y, w, h = item["box"]
-                        item["box"] = [round(x * sx), round(y * sy), round(w * sx), round(h * sy)]
-                        result.append({"t": round(t, 6), **item, "_track": track})
-                    index += 1
-                    from reel.progress import report
-                    report(index / fps, observation_duration, kind="faces")
+                with FrameIO(lambda buffer: _read_frame(process.stdout, buffer), None,
+                             small_width * small_height * 3, lambda: _stop(process)) as frames_io:
+                    for buffer in frames_io:
+                        image = np.frombuffer(buffer, dtype=np.uint8).reshape(small_height, small_width, 3)
+                        t = index / fps
+                        items = _identify(fid, image, tracker, t, keep_features)
+                        for item, track in zip(items, tracker.current):
+                            x, y, w, h = item["box"]
+                            item["box"] = [round(x * sx), round(y * sy), round(w * sx), round(h * sy)]
+                            result.append({"t": round(t, 6), **item, "_track": track})
+                        index += 1
+                        from reel.progress import report
+                        report(index / fps, observation_duration, kind="faces")
+                        frames_io.release(buffer)
                 process.stdout.close()
                 if process.wait(timeout=60):
                     raise RuntimeError(f"ffmpeg face analysis failed: {_log(stderr)}")
@@ -535,28 +538,32 @@ def blur_faces(video_in: str, video_out: str, refs_dirs: list[str], *,
                     "-c:v", h264_encoder(), "-b:v", "6M", "-pix_fmt", "yuv420p",
                     "-c:a", "copy", "-movflags", "+faststart", str(temporary),
                 ], stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=encode_log)
-                buffer = bytearray(width * height * 3)
-                frame = np.frombuffer(buffer, dtype=np.uint8).reshape(height, width, 3)
-                while _read_frame(decoder.stdout, buffer):
-                    boxes = []
-                    boxes, known, unknown = _detections(fid, frame, None, frames / float(rate), lecturer_boxes)
-                    lecturers += known
-                    uncertain += unknown
-                    for box in _retained(history, frames, boxes, hold_frames):
-                        # A held/margined student region must not cover a face
-                        # explicitly kept on this frame after it moved into it.
-                        left, top, right, bottom = box
-                        if any(min(right, x + w) > max(left, x)
-                               and min(bottom, y + h) > max(top, y)
-                               for x, y, w, h in lecturer_boxes.protected):
-                            continue
-                        _pixelate(frame, box)
-                        blurred += 1
-                        if pix_log is not None:   # logged where applied, so the log = pixels
-                            pix_log.append([frames, *box])
-                    encoder.stdin.write(buffer)
-                    frames += 1
-                    observation.poll()
+                def abort_io():
+                    _stop(decoder)
+                    _stop(encoder)
+
+                with FrameIO(lambda buffer: _read_frame(decoder.stdout, buffer),
+                             encoder.stdin.write, width * height * 3, abort_io) as frames_io:
+                    for buffer in frames_io:
+                        frame = np.frombuffer(buffer, dtype=np.uint8).reshape(height, width, 3)
+                        boxes, known, unknown = _detections(fid, frame, None, frames / float(rate), lecturer_boxes)
+                        lecturers += known
+                        uncertain += unknown
+                        for box in _retained(history, frames, boxes, hold_frames):
+                            # A held/margined student region must not cover a face
+                            # explicitly kept on this frame after it moved into it.
+                            left, top, right, bottom = box
+                            if any(min(right, x + w) > max(left, x)
+                                   and min(bottom, y + h) > max(top, y)
+                                   for x, y, w, h in lecturer_boxes.protected):
+                                continue
+                            _pixelate(frame, box)
+                            blurred += 1
+                            if pix_log is not None:   # logged where applied, so the log = pixels
+                                pix_log.append([frames, *box])
+                        frames_io.release(buffer)
+                        frames += 1
+                        observation.poll()
                 decoder.stdout.close()
                 encoder.stdin.close()
                 decode_status = decoder.wait(timeout=60)

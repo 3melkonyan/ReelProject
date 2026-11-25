@@ -106,7 +106,7 @@ def test_any_small_face_miss_fails(small_count, misses, expected):
     assert len(result["misses"]) == misses
 
 
-def test_no_new_open_lecturer_even_when_small_bin_recall_allows_miss():
+def test_open_lecturer_is_reported_alongside_any_small_face_miss():
     reference = decisions([[999, 100, 100, 124, 124]] + [[f, 0, 0, 16, 20] for f in range(200)])
     new = deepcopy(reference)
     new["pixelated"] = reference["pixelated"][:1] + reference["pixelated"][2:]

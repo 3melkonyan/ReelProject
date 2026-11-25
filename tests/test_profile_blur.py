@@ -1,7 +1,6 @@
 """Synthetic-only checks for the scoped blur performance profiling driver."""
 import io
 import json
-from pathlib import Path
 import subprocess
 import sys
 import time
@@ -159,3 +158,52 @@ def test_cli_refuses_stale_outputs_before_loading_models(tmp_path, monkeypatch):
         profile.main(["stage", "--video", str(tmp_path / "synthetic.mp4"), "--out-dir", str(folder)])
     assert exc.value.code == 2
     assert saved.read_text() == '{"none": true}'
+
+
+def test_interrupted_run_is_reported_as_incomplete(tmp_path, monkeypatch):
+    from contextlib import nullcontext
+    from types import SimpleNamespace
+    from reel import blur
+
+    monkeypatch.setattr(profile, "ROOT", tmp_path)
+    monkeypatch.setattr(profile, "OUT", tmp_path / "out/performance")
+    out = profile.OUT / "interrupted"
+    out.mkdir(parents=True)
+    monkeypatch.setattr(profile, "instrument", lambda stats: nullcontext())
+
+    def interrupted(*args, **kwargs):
+        raise KeyboardInterrupt()
+
+    monkeypatch.setattr(blur, "analyze", interrupted)
+    args = SimpleNamespace(mode="analyze", video=tmp_path / "synthetic.mp4", job_id=1,
+                           fps=5, label="interrupted", opencv_threads=None, refs=[], with_privacy=False)
+    with pytest.raises(KeyboardInterrupt):
+        profile.run(args, out)
+    report = json.loads((out / "profile.json").read_text())
+    assert report["error"]["type"] == "KeyboardInterrupt"
+    assert "privacy" not in report and "blur" not in report
+
+
+def test_background_pipe_metrics_keep_the_creating_phase():
+    from threading import Thread
+
+    stats = profile.Measurements()
+    with stats.measure("phase.analyze"):
+        pipe = profile.Pipe(io.BytesIO(b"data"), stats, "decode")
+        thread = Thread(target=lambda: pipe.read(4))
+        thread.start()
+        thread.join()
+    rows = stats.report()["metrics"]
+    row = next(r for r in rows if r["metric"] == "ffmpeg.decode.pipe_read")
+    assert row["phase"] == "analyze"
+
+
+def test_progress_events_describe_phase_boundaries():
+    events = []
+    stats = profile.Measurements(progress=events.append)
+    with stats.measure("phase.run"):
+        with stats.measure("identify"):
+            pass
+    assert [event["event"] for event in events] == ["started", "finished"]
+    assert all(event["phase"] == "run" for event in events)
+    assert events[-1]["wall_sec"] >= 0

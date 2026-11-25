@@ -46,3 +46,33 @@ The local monitor cannot detect a full host outage or the failure of its own web
 The dashboard and worker are independent processes. `reel.encoding` probes VideoToolbox once using synthetic pixels and selects `libx264` if hardware encoding is unavailable. This changes the H.264 encoder, not blurring or privacy policy. Preview encoding uses a separate low-priority process with progress observation.
 
 See [Installation](INSTALLATION.md) and [Usage](USAGE.md) for supported setup and commands.
+
+## Performance
+
+Raw-frame reads and writes overlap face processing through a fixed buffer pool.
+Detection, recognition, tracking and pixelation remain ordered on the processing
+thread. The final privacy scan independently detects faces on the completed
+blurred video at the existing sampling rate. Full-resolution processing uses
+three buffers, about 48 MiB more buffer memory for 4K video.
+
+A single sequential synthetic benchmark on macOS (15 logical CPUs, software
+H.264 fallback) measured a 900.022-second, 3840×2160 clip with fictional faces at
+multiple sizes and nominal 24 fps. Timings include profiling overhead:
+
+| Phase | Before | Buffered IO |
+| --- | ---: | ---: |
+| Lecturer discovery | 14.8 s | 13.8 s |
+| Source face analysis | 133.7 s | 133.1 s |
+| Blur and encoding | 628.7 s | 536.2 s |
+| Independent privacy scan | 151.0 s | 134.5 s |
+| Total | 928.3 s | 817.6 s |
+
+Total elapsed time decreased 11.9%, with average combined CPU occupancy rising
+from 5.4 to 6.6 cores. The output MP4 files were byte-identical:
+21,578 frames, all 5,940 reference blur applications retained, and 4,500 independent
+scan samples with zero warnings or unexplained faces in each run. A linear
+90-minute projection of this synthetic workload is 92.8 versus 81.8 minutes.
+Real-lesson validation and real-lesson speedup remain unmeasured; hardware encoding
+was unavailable in this session. Use `tools/profile_blur.py` and
+`tools/compare_privacy.py` to measure and verify another recording. Measurements
+belong under ignored `out/performance/`.
