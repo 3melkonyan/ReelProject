@@ -2,6 +2,18 @@
 
 Notable changes to Reel are documented here, following [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## Unreleased
+
+### Added
+
+- `com.reel.web` login agent for the dashboard and an optional `com.reel.tunnel` agent (`deploy/install.sh --share`) that keeps the public quick tunnel alive; `deploy/uninstall.sh` removes all agents.
+
+### Fixed
+
+- The tunnel watcher checks cloudflared's local readiness endpoint instead of the public hostname, so a freshly published name cached as missing by macOS or a phone hotspot no longer causes a restart loop.
+- The installer enables a previously disabled agent and lets launchd recreate agent logs it cannot open inside Desktop, Documents or iCloud Drive (exit 78).
+- The short-recording stop message and hint state the actual one-minute minimum.
+
 ## 1.0.0 - 2026-11-25
 
 ### Added

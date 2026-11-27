@@ -6,8 +6,15 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 PORT="${PORT:-8765}"
+# Local readiness endpoint (http://127.0.0.1:$TUNNEL_METRICS_PORT/ready) used by tools/tunnel_watch.py.
+TUNNEL_METRICS_PORT="${TUNNEL_METRICS_PORT:-20241}"
 mkdir -p logs
 if [ "${1:-}" = "stop" ]; then
+  # Agents installed with `deploy/install.sh --share` would bring these straight back; unload them
+  # for this session (they load again at the next login, or with deploy/install.sh).
+  for label in com.reel.tunnel com.reel.web; do
+    launchctl bootout "gui/$UID/$label" 2>/dev/null || true
+  done
   pkill -f "cloudflared tunnel --no-autoupdate --url http://127.0.0.1:$PORT" 2>/dev/null || true
   pkill -f "uvicorn reel.web.app:app --host 127.0.0.1 --port $PORT" 2>/dev/null || true
   # wait for the graceful shutdown: a quick "stop; start" must not see the old server as alive
@@ -22,7 +29,8 @@ if ! curl -fsS -m 2 "http://127.0.0.1:$PORT/healthz" >/dev/null 2>&1; then
 fi
 pkill -f "cloudflared tunnel --no-autoupdate --url http://127.0.0.1:$PORT" 2>/dev/null || true
 : > logs/tunnel.log
-nohup cloudflared tunnel --no-autoupdate --url "http://127.0.0.1:$PORT" > logs/tunnel.log 2>&1 &
+nohup cloudflared tunnel --no-autoupdate --url "http://127.0.0.1:$PORT" \
+  --metrics "127.0.0.1:$TUNNEL_METRICS_PORT" > logs/tunnel.log 2>&1 &
 url=""
 for _ in $(seq 1 60); do
   url=$(grep -aEo 'https://[a-z0-9-]+\.trycloudflare\.com' logs/tunnel.log | head -1 || true)

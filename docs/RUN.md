@@ -13,10 +13,21 @@ Stop with Ctrl-C. This is the real publishing worker, not a simulation. See [Usa
 ## Automatic startup
 
 ```sh
-bash deploy/install.sh
+bash deploy/install.sh           # worker + local dashboard
+bash deploy/install.sh --share   # also the public Cloudflare quick tunnel
 ```
 
-The installer detects the repository root, expands `__ROOT__` placeholders and writes `~/Library/LaunchAgents/com.reel.daemon.plist`. The agent runs `.venv/bin/python -m reel.cli run`, keeps it alive and starts it on sign-in. After moving the project, uninstall the old agent, recreate the virtual environment at its final path and reinstall. Do not start a second worker manually.
+The installer detects the repository root, expands `__ROOT__` placeholders and writes user LaunchAgents that start on sign-in and are kept alive:
+
+| Agent | Runs | Log |
+| --- | --- | --- |
+| `com.reel.daemon` | `.venv/bin/python -m reel.cli run` (the worker) | `logs/daemon.log` |
+| `com.reel.web` | the dashboard on `http://127.0.0.1:8765` | `logs/web.log` |
+| `com.reel.tunnel` | `tools/tunnel_watch.py`, only with `--share` | `logs/tunnel_watch.log` |
+
+The tunnel watcher starts `tools/share.sh`, checks cloudflared's local readiness endpoint (`http://127.0.0.1:20241/ready`) every 30 seconds and restarts the quick tunnel after sleep or network loss; each restart gets a new address, which is written to `logs/tunnel_url.txt` and opened in the browser. Once installed, a plain `bash deploy/install.sh` keeps refreshing the tunnel agent; `bash deploy/uninstall.sh` removes all agents.
+
+After moving the project, run `bash deploy/install.sh` (with `--share` if used) again: the agents store absolute paths. Inside Desktop, Documents or iCloud Drive, launchd can only open log files it created itself; the installer renames any other existing agent log to `*.log.old` so launchd recreates it. Do not start a second worker manually.
 
 ## Status and logs
 

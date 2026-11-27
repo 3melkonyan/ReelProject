@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>Label</key><string>com.reel.tunnel</string>
+  <!-- Optional (install.sh with the share flag): exposes the dashboard through a Cloudflare quick
+       tunnel and keeps it alive across sleep and network loss with tools/tunnel_watch.py. -->
+  <key>ProgramArguments</key><array>
+    <string>__ROOT__/.venv/bin/python</string>
+    <string>tools/tunnel_watch.py</string>
+  </array>
+  <key>WorkingDirectory</key><string>__ROOT__</string>
+  <key>KeepAlive</key><true/>
+  <key>RunAtLoad</key><true/>
+  <!-- cloudflared is started by tools/share.sh; keep it running if the watcher itself restarts. -->
+  <key>AbandonProcessGroup</key><true/>
+  <key>StandardOutPath</key><string>__ROOT__/logs/tunnel_watch.log</string>
+  <key>StandardErrorPath</key><string>__ROOT__/logs/tunnel_watch.log</string>
+  <key>EnvironmentVariables</key><dict>
+    <key>PATH</key><string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <key>PYTHONUNBUFFERED</key><string>1</string>
+  </dict>
+</dict></plist>

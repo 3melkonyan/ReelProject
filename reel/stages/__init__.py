@@ -63,9 +63,7 @@ def probe(ctx: Ctx) -> dict:
     except Exception as e:  # noqa: BLE001
         raise StopJob(f"ffprobe cannot read file: {e}") from e
     if dur < MIN_LESSON_SEC:
-        raise StopJob(
-            f"recording is only {dur / 60:.0f} min (< {MIN_LESSON_SEC // 60}) — not a lesson?"
-        )
+        raise StopJob(f"recording is only {dur:.0f} s (< {MIN_LESSON_SEC} s) — not a lesson?")
     return {"duration_sec": round(dur, 2)}
 
 

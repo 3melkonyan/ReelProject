@@ -1288,7 +1288,7 @@
   "text.student_mail.all_lessons": "All lessons:",
   "text.hints.publication_status_is_uncertain_after_a_crash": "Publication status is uncertain after a crash. Check manually, then select Already published or Not published. Reel will not publish twice.",
   "text.hints.recording_parts_could_not_be_joined_a": "Recording parts could not be joined. A part may be damaged or missing audio or video. Check the files in archive/, correct the issue, and select Retry.",
-  "text.hints.the_file_cannot_be_read_or_is": "The file cannot be read or is shorter than 30 minutes. Check that it contains the full lesson recording.",
+  "text.hints.the_file_cannot_be_read_or_is": "The file cannot be read or is shorter than 1 minute. Check that it contains the full lesson recording.",
   "text.hints.audio_extraction_failed_select_retry_if_it": "Audio extraction failed. Select Retry. If it fails again, check the file.",
   "text.hints.transcription_failed_select_retry_if_it_fails": "Transcription failed. Select Retry. If it fails again, check that the file has audio.",
   "text.hints.the_cut_plan_removes_too_much_content": "The cut plan removes too much content or contains too many uncertain sections. Review Cuts. If the plan is correct, adjust the cut thresholds in config.yaml and select Retry.",
